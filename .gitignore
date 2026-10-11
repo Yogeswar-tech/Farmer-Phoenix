@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+secrets/
+
+# Local data and artifacts
+backend/data/rag_docs/*.pdf
+backend/data/*.sqlite
+backend/data/chroma/
+*.log
+uploads/
+tmp/
+
+# Node / Expo (for mobile later)
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+ios/
+android/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
