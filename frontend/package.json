@@ -26,6 +26,7 @@
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
     "i18next": "^26.4.3",
+    "lucide-react-native": "^1.55.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.16",
@@ -34,6 +35,7 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.5",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1"
   },
@@ -44,12 +46,12 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
+    "start": "node -r ./polyfill-node.js ./node_modules/expo/bin/cli start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "lint": "expo lint"
+    "android": "node -r ./polyfill-node.js ./node_modules/expo/bin/cli start --android",
+    "ios": "node -r ./polyfill-node.js ./node_modules/expo/bin/cli start --ios",
+    "web": "node -r ./polyfill-node.js ./node_modules/expo/bin/cli start --web",
+    "lint": "node ./node_modules/eslint/bin/eslint.js src"
   },
   "private": true
 }

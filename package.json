@@ -1,0 +1,12 @@
+{
+  "name": "kisan-sethu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kisan Sethu monorepo root",
+  "scripts": {
+    "web": "npm --prefix frontend run web",
+    "start": "npm --prefix frontend start",
+    "frontend": "npm --prefix frontend start",
+    "lint": "npm --prefix frontend run lint"
+  }
+}

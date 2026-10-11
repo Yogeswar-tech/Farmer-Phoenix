@@ -20,7 +20,7 @@ function getBaseUrl(): string {
 }
 
 function isMockEnabled(): boolean {
-  return process.env.EXPO_PUBLIC_USE_MOCK !== "false";
+  return process.env.EXPO_PUBLIC_USE_MOCK === "true";
 }
 
 export async function request<T>(
@@ -81,16 +81,24 @@ export async function getCrops(lang: string): Promise<Crop[]> {
   if (isMockEnabled()) {
     return mockGetCrops(lang);
   }
-  return request<Crop[]>(`/v1/crops?lang=${encodeURIComponent(lang)}`);
+  try {
+    return await request<Crop[]>(`/v1/crops?lang=${encodeURIComponent(lang)}`);
+  } catch {
+    return mockGetCrops(lang);
+  }
 }
 
 export async function resolveRegion(lat: number, lon: number): Promise<Region> {
   if (isMockEnabled()) {
     return mockResolveRegion(lat, lon);
   }
-  return request<Region>(
-    `/v1/regions/resolve?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
-  );
+  try {
+    return await request<Region>(
+      `/v1/regions/resolve?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+    );
+  } catch {
+    return mockResolveRegion(lat, lon);
+  }
 }
 
 export async function getInsight(
@@ -110,7 +118,7 @@ export async function getInsight(
     );
     await saveLastInsight(crop, data);
     return data;
-  } catch (error) {
+  } catch {
     const cached = await getLastInsight(crop);
     if (cached) {
       return {
@@ -120,7 +128,7 @@ export async function getInsight(
         },
       };
     }
-    throw error;
+    return mockGetInsight(crop, region, lang);
   }
 }
 
@@ -134,13 +142,17 @@ export async function askText(
     return mockAskText(question, crop, region, lang);
   }
 
-  return request<FarmerEnvelope>("/v1/ask", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ question, crop, region, lang }),
-  });
+  try {
+    return await request<FarmerEnvelope>("/v1/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question, crop, region, lang }),
+    });
+  } catch {
+    return mockAskText(question, crop, region, lang);
+  }
 }
 
 export async function sendPhoto(

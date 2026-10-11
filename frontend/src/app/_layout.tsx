@@ -41,20 +41,65 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <Stack
         screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.colors.background,
-          },
-          headerTintColor: theme.colors.text,
-          headerTitleStyle: {
-            ...theme.typography.heading,
-            color: theme.colors.text,
-          },
-          headerShadowVisible: false,
+          headerShown: false,
           contentStyle: {
-            backgroundColor: theme.colors.background,
+            backgroundColor: "#09090b",
           },
         }}
-      />
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="terminal" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="crops"
+          options={{
+            headerShown: true,
+            title: "Kisan Sethu",
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.text,
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+        <Stack.Screen
+          name="ask"
+          options={{
+            headerShown: true,
+            title: "Mandi Mitra AI",
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.text,
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+        <Stack.Screen
+          name="location"
+          options={{
+            headerShown: true,
+            title: "Select Mandi",
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.text,
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+        <Stack.Screen
+          name="language"
+          options={{
+            headerShown: true,
+            title: "Choose Language",
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.text,
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+        <Stack.Screen
+          name="price/[cropId]"
+          options={{
+            headerShown: true,
+            title: "Crop Price",
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.text,
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+      </Stack>
     </QueryClientProvider>
   );
 }

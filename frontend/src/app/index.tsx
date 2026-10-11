@@ -1,43 +1,25 @@
-import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
-import { type Href, useRouter } from "expo-router";
-import { getSettings } from "@/lib/storage";
-import { theme } from "@/theme";
+import React, { useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { FarmerFriendlyHome } from "@/components/FarmerFriendlyHome";
+import TerminalScreen from "./terminal";
 
-export default function Index() {
-  const router = useRouter();
+export default function IndexScreen() {
+  const [mode, setMode] = useState<"farmer" | "terminal">("farmer");
 
-  useEffect(() => {
-    let isMounted = true;
+  if (mode === "terminal") {
+    return <TerminalScreen onSwitchToFarmer={() => setMode("farmer")} />;
+  }
 
-    async function checkRedirect() {
-      const { language, regionId } = await getSettings();
-      if (!isMounted) return;
-
-      if (!language) {
-        router.replace("/language" as Href);
-      } else if (!regionId) {
-        router.replace("/location" as Href);
-      } else {
-        router.replace("/crops" as Href);
-      }
-    }
-
-    checkRedirect();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  return <View style={styles.container} />;
+  return (
+    <View style={styles.container}>
+      <FarmerFriendlyHome onSwitchToTerminal={() => setMode("terminal")} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: "#FBF9F1",
   },
 });
-
-
