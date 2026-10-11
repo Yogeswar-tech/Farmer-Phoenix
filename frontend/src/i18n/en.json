@@ -1,0 +1,22 @@
+{
+  "common": {
+    "appName": "Kisan Sethu",
+    "continue": "Continue",
+    "back": "Back",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "empty": "No data available",
+    "offline": "You are offline",
+    "lastUpdated": "Last updated: {{time}}"
+  },
+  "screens": {
+    "language": "Choose Language",
+    "location": "Select Region",
+    "crops": "Crops",
+    "price": "Crop Price",
+    "ask": "Ask a Question",
+    "advice": "Crop Advice"
+  }
+}

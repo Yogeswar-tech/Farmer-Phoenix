@@ -58,7 +58,14 @@ Source lives in `src/` (`@/*` maps to `./src/*`). Do not upgrade the Expo SDK un
 - Platform differences go in `.web.tsx` / `.native.tsx` files, not scattered `Platform.OS` checks.
 - Input limits before upload: image <= 5 MB, audio <= 30 s.
 
+## Design system
+- All colours, fonts, sizes, spacing and radii come from `src/theme` and nowhere else.
+- No hex values, font names or raw spacing numbers in components or screens.
+- Need a new token? Add it to the theme first.
+- Light theme only.
+
 ## Workflow
 - Install with `npx expo install <pkg>` for Expo packages, `npm install` otherwise.
 - Before finishing: `npx tsc --noEmit && npx expo lint && npx expo-doctor`.
+  *(Note for agents: `npx` may not be available in the sandbox subshell; do not waste effort trying to run it from the sandbox—let the user run these commands in their terminal and report back).*
 - Test on web and on a low-end Android device before calling a feature done.

@@ -47,4 +47,5 @@ ideas where you see them. The boundaries below are the only fixed points.
 - Frontend: strict TypeScript; all network calls through `src/lib/api.ts`; all user-facing strings from
   `src/i18n/`; accessible by default (large tap targets, never colour alone, speaker button on answers);
   `npx tsc --noEmit && npx expo lint`. Use `npx expo install` for Expo packages and stay on SDK 57.
+  (Note for agents: `npx` may not be available in the sandbox subshell; do not waste effort trying to execute it from the sandbox—ask the user to run it in their terminal).
 - Small, scoped commits (`type(scope): summary`). No dead code, no placeholder files, no committed secrets.
