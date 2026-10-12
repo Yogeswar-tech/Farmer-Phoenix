@@ -1,0 +1,1201 @@
+import type { MandiItem, WeatherDay, CropDisease, GovtScheme, ColdStorageFacility, SoilReportData, SeasonalClimateOutlook, LocationOption, CropSuitability, PriceTrendDay } from '../types';
+
+export const AGRICULTURAL_LOCATIONS: LocationOption[] = [
+  {
+    id: 'guntur',
+    name: { hi: 'गुंटूर', te: 'గుంటూరు', en: 'Guntur' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'गुंटूर जिला', te: 'గుంటూరు జిల్లా', en: 'Guntur District' },
+    mandiName: { hi: 'गुंटूर मिर्ची यार्ड', te: 'గుంటూరు మిర్చి యార్డ్', en: 'Guntur Mirchi Yard' },
+    pincode: '522001'
+  },
+  {
+    id: 'anantapur',
+    name: { hi: 'अनंतपुर', te: 'అనంతపురం', en: 'Anantapur' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'अनंतपुर जिला', te: 'అనంతపురం జిల్లా', en: 'Anantapur District' },
+    mandiName: { hi: 'अनंतपुर मूंगफली व संतरा मंडी', te: 'అనంతపురం వేరుశనగ & బత్తాయి యార్డ్', en: 'Anantapur Groundnut & Citrus Market' },
+    pincode: '515001'
+  },
+  {
+    id: 'chittoor',
+    name: { hi: 'चित्तूर (मदनपल्ले)', te: 'చిత్తూరు (మదనపల్లె)', en: 'Chittoor (Madanapalle)' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'चित्तूर जिला', te: 'చిత్తూరు జిల్లా', en: 'Chittoor District' },
+    mandiName: { hi: 'मदनपल्ले एशिया टमाटर मंडी', te: 'మదనపల్లె టమోటా మార్కెట్', en: 'Madanapalle Tomato Yard' },
+    pincode: '517001'
+  },
+  {
+    id: 'kadapa',
+    name: { hi: 'कडपा (कृष्णा नगर)', te: 'కడప (కృష్ణా నగర్)', en: 'Kadapa (Krishna Nagar)' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'वाईएसआर कडपा जिला', te: 'వైఎస్ఆర్ కడప జిల్లా', en: 'YSR Kadapa District' },
+    mandiName: { hi: 'कडपा केला व हल्दी मार्केट', te: 'కడప అరటి & పసుపు మార్కెట్', en: 'Kadapa Banana & Turmeric Market' },
+    pincode: '516001'
+  },
+  {
+    id: 'kurnool',
+    name: { hi: 'कर्नूल', te: 'కర్నూలు', en: 'Kurnool' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'कर्नूल जिला', te: 'కర్నూలు జిల్లా', en: 'Kurnool District' },
+    mandiName: { hi: 'कर्नूल प्याज व कपास मंडी', te: 'కర్నూలు ఉల్లి & పత్తి మార్కెట్', en: 'Kurnool Onion & Cotton Yard' },
+    pincode: '518001'
+  },
+  {
+    id: 'adoni',
+    name: { hi: 'अदोनी', te: 'ఆదోని', en: 'Adoni' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'कर्नूल जिला', te: 'కర్నూలు జిల్లా', en: 'Kurnool District' },
+    mandiName: { hi: 'अदोनी कपास व तिलहन यार्ड', te: 'ఆదోని పత్తి & నూనెగింజల యార్డ్', en: 'Adoni Cotton & Oilseeds Yard' },
+    pincode: '518301'
+  },
+  {
+    id: 'tirupati',
+    name: { hi: 'तिरुपति', te: 'తిరుపతి', en: 'Tirupati' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'तिरुपति जिला', te: 'తిరుపతి జిల్లా', en: 'Tirupati District' },
+    mandiName: { hi: 'तिरुपति कृषि उपज मंडी', te: 'తిరుపతి వ్యవసాయ మార్కెట్', en: 'Tirupati Agri Market' },
+    pincode: '517501'
+  },
+  {
+    id: 'vijayawada',
+    name: { hi: 'विजयवाड़ा', te: 'విజయవాడ', en: 'Vijayawada' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    district: { hi: 'एनटीआर जिला', te: 'ఎన్టీఆర్ జిల్లా', en: 'NTR Krishna District' },
+    mandiName: { hi: 'गोल्लापुडी थोक मंडी', te: 'గొల్లపూడి టోకు మార్కెట్', en: 'Gollapudi Wholesale Market' },
+    pincode: '520001'
+  },
+  {
+    id: 'warangal',
+    name: { hi: 'वारंगल', te: 'వరంగల్', en: 'Warangal' },
+    state: { hi: 'तेलंगाना', te: 'తెలంగాణ', en: 'Telangana' },
+    district: { hi: 'वारंगल जिला', te: 'వరంగల్ జిల్లా', en: 'Warangal District' },
+    mandiName: { hi: 'वारंगल ग्रेन व मिर्च मंडी', te: 'వరంగల్ మార్కెట్', en: 'Warangal Agri Market' },
+    pincode: '506002'
+  },
+  {
+    id: 'khammam',
+    name: { hi: 'खम्मम', te: 'ఖమ్మం', en: 'Khammam' },
+    state: { hi: 'तेलंगाना', te: 'తెలంగాణ', en: 'Telangana' },
+    district: { hi: 'खम्मम जिला', te: 'ఖమ్మం జిల్లా', en: 'Khammam District' },
+    mandiName: { hi: 'खम्मम कॉटन व मिर्च यार्ड', te: 'ఖమ్మం వ్యవసాయ మార్కెట్', en: 'Khammam APMC Yard' },
+    pincode: '507001'
+  },
+  {
+    id: 'indore',
+    name: { hi: 'इंदौर', te: 'ఇండోర్', en: 'Indore' },
+    state: { hi: 'मध्य प्रदेश', te: 'మధ్యప్రదేశ్', en: 'Madhya Pradesh' },
+    district: { hi: 'इंदौर जिला', te: 'ఇండోర్ జిల్లా', en: 'Indore District' },
+    mandiName: { hi: 'इंदौर कृषि उपज मंडी', te: 'ఇండోర్ మార్కెట్ యార్డ్', en: 'Indore APMC Mandi' },
+    pincode: '452001'
+  },
+  {
+    id: 'nashik',
+    name: { hi: 'नासिक', te: 'నాసిక్', en: 'Nashik' },
+    state: { hi: 'महाराष्ट्र', te: 'మహారాష్ట్ర', en: 'Maharashtra' },
+    district: { hi: 'नासिक जिला', te: 'నాసిక్ జిల్లా', en: 'Nashik District' },
+    mandiName: { hi: 'पिंपलगांव / लासलगांव प्याज मंडी', te: 'లాసల్గావ్ ఉల్లి మార్కెట్', en: 'Lasalgaon Onion Mandi' },
+    pincode: '422001'
+  },
+  {
+    id: 'nagpur',
+    name: { hi: 'नागपुर', te: 'నాగ్‌పూర్', en: 'Nagpur' },
+    state: { hi: 'महाराष्ट्र', te: 'మహారాష్ట్ర', en: 'Maharashtra' },
+    district: { hi: 'नागपुर जिला', te: 'నాగ్‌పూర్ జిల్లా', en: 'Nagpur District' },
+    mandiName: { hi: 'नागपुर संतरा व कपास मंडी', te: 'నాగ్‌పూర్ పత్తి మార్కెట్', en: 'Nagpur Cotton & Citrus Market' },
+    pincode: '440001'
+  }
+];
+
+export const CROP_CHIPS = [
+  { key: 'chilli', name: { hi: 'मिर्च', te: 'మిర్చి', en: 'Chilli' }, icon: '🌶️', count: '14 Mandis' },
+  { key: 'tomato', name: { hi: 'टमाटर', te: 'టమోటా', en: 'Tomato' }, icon: '🍅', count: '18 Mandis' },
+  { key: 'groundnut', name: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut' }, icon: '🥜', count: '16 Mandis' },
+  { key: 'cotton', name: { hi: 'कपास', te: 'పత్తి', en: 'Cotton' }, icon: '⚪', count: '11 Mandis' },
+  { key: 'turmeric', name: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' }, icon: '🟡', count: '9 Mandis' },
+  { key: 'banana', name: { hi: 'केला', te: 'అరటి', en: 'Banana' }, icon: '🍌', count: '12 Mandis' },
+  { key: 'onion', name: { hi: 'प्याज', te: 'ఉల్లిపాయ', en: 'Onion' }, icon: '🧅', count: '10 Mandis' },
+  { key: 'paddy', name: { hi: 'धान', te: 'వరి', en: 'Paddy' }, icon: '🌾', count: '20 Mandis' }
+];
+
+export const CHILLI_7DAY_TREND: PriceTrendDay[] = [
+  { day: 'Mo', price: 13900 },
+  { day: 'Tu', price: 14000 },
+  { day: 'We', price: 14050 },
+  { day: 'Th', price: 14100 },
+  { day: 'Fr', price: 14250 },
+  { day: 'Sa', price: 14200 },
+  { day: 'Su', price: 14200 }
+];
+
+export const CROP_SUITABILITY_MAP: Record<string, CropSuitability[]> = {
+  kadapa: [
+    {
+      cropName: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'कडपा घाटी की दोमट मिट्टी और गर्म जलवायु उच्च करक्यूमिन उत्पादन के लिए सर्वोत्तम है।',
+        te: 'కడప లోయల్లోని ఎర్ర గరప నేలలు & వాతావరణం అధిక కర్క్యుమిన్ దిగుబడికి అనుకూలం.',
+        en: 'Kadapa river valley loamy soil and warm climate maximize curcumin content.'
+      },
+      season: { hi: 'खरीफ बुवाई (जून-जुलाई)', te: 'ఖరీఫ్ విత్తడం (జూన్-జూలై)', en: 'Kharif Sowing (Jun-Jul)' }
+    },
+    {
+      cropName: { hi: 'केला', te: 'అరటి', en: 'Banana (Grand Naine)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'नहर व नलकूप सिंचाई तथा आर्द्र जलवायु से भारी लच्छे तैयार होते हैं।',
+        te: 'కాలువ, బోరు బావుల సమృద్ధి నీటితో పెద్ద గెలలు వస్తాయి.',
+        en: 'Ample canal & borewell irrigation supports heavy bunch export yields.'
+      },
+      season: { hi: 'वर्ष भर रोपण', te: 'ఏడాదంతా సాగు', en: 'Year-Round Plantation' }
+    },
+    {
+      cropName: { hi: 'चना', te: 'శనగ', en: 'Bengal Gram (Chana)' },
+      suitabilityStatus: 'favorable',
+      reason: {
+        hi: 'रबी सीजन में बची हुई नमी में उत्कृष्ट दाना भराव होता है।',
+        te: 'రబీ సీజన్లో తేమ ఆధారంగా అద్భుతమైన గింజ నాణ్యత లభిస్తుంది.',
+        en: 'Winter rabi moisture provides robust pod filling.'
+      },
+      season: { hi: 'रबी बुवाई (अक्टूबर-नवंबर)', te: 'రబీ విత్తడం (అక్టోబర్-నవంబర్)', en: 'Rabi Sowing (Oct-Nov)' }
+    },
+    {
+      cropName: { hi: 'मीठा संतरा / मौसम्बी', te: 'బత్తాయి (స్వీట్ ఆరెంజ్)', en: 'Sweet Lime (Batthayi)' },
+      suitabilityStatus: 'favorable',
+      reason: {
+        hi: 'अर्ध-शुष्क वातावरण में फल फफूंद से सुरक्षित रहते हैं और मिठास बढ़ती है।',
+        te: 'ఎండ వాతావరణం వల్ల పండ్లలో తీపి శాతం అధికంగా ఉంటుంది.',
+        en: 'Semi-arid sunshine boosts natural brix sweetness.'
+      },
+      season: { hi: 'हस्त बहार (सितंबर-अक्टूबर)', te: 'హస్త బహార్ (సెప్టెంబర్-అక్టోబర్)', en: 'Hasta Bahar Flowering' }
+    }
+  ],
+  anantapur: [
+    {
+      cropName: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut (K6 & TMV2)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'अनंतपुर की लाल रेतीली मिट्टी में फलियां आसानी से विकसित होती हैं।',
+        te: 'అనంతపురం ఎర్ర రేగడి నేలలు కాయ ఊరడానికి ప్రపంచంలోనే అత్యుత్తమం.',
+        en: 'Anantapur red sandy soil provides ideal loose texture for pod development.'
+      },
+      season: { hi: 'खरीफ मानसून (जुलाई)', te: 'ఖరీఫ్ (జూలై విత్తడం)', en: 'Kharif Monsoon (Jul)' }
+    },
+    {
+      cropName: { hi: 'मीठा संतरा', te: 'బత్తాయి', en: 'Sweet Orange (Batthayi)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'कम आर्द्रता के कारण फल मक्खी का प्रकोप कम रहता है।',
+        te: 'తక్కువ తేమ వల్ల చీడపీడల బెడద తక్కువగా ఉంటుంది.',
+        en: 'Low humidity minimizes fungal spotting and fruit fly attacks.'
+      },
+      season: { hi: 'मृग बहार (जून)', te: 'మృగ బహార్ (జూన్)', en: 'Mrig Bahar Season' }
+    },
+    {
+      cropName: { hi: 'अरहर / तूर', te: 'కందులు', en: 'Red Gram (Pigeonpea)' },
+      suitabilityStatus: 'favorable',
+      reason: {
+        hi: 'सूखा सहन करने वाली गहरी जड़ें कम वर्षा में भी उपज देती हैं।',
+        te: 'కరువును తట్టుకునే లోతైన వేర్లు వర్షాభావంలో కూడా దిగుబడినిస్తాయి.',
+        en: 'Deep taproot drought tolerance thrives in rainfed conditions.'
+      },
+      season: { hi: 'खरीफ अंतरफसल (जुलाई)', te: 'ఖరీఫ్ అంతరపంట', en: 'Kharif Intercropping' }
+    }
+  ],
+  chittoor: [
+    {
+      cropName: { hi: 'टमाटर', te: 'టమోటా', en: 'Tomato (Hybrid)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'मदनपल्ले की ऊंचाई (695 मीटर) व ठंडी रातें साल भर फल बैठने के लिए उत्तम हैं।',
+        te: 'మదనపల్లె ఎత్తు (695 మీటర్లు) & చల్లని రాత్రులు నిరంతర కాపునకు స్వర్గం.',
+        en: 'Madanapalle plateau elevation (695m) provides cool night setting temperatures.'
+      },
+      season: { hi: 'वर्ष भर बहु-फसली', te: 'సంవత్సరమంతా సాగు', en: 'Continuous Multi-Season' }
+    },
+    {
+      cropName: { hi: 'आम', te: 'మామిడి (బంగినపల్లి & తోతాపురి)', en: 'Mango (Banginapalli & Totapuri)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'चित्तूर का सूखा बसंत काल भरपूर बौर व पल्प की गुणवत्ता सुनिश्चित करता है।',
+        te: 'చిత్తూరు శీతోష్ణస్థితి బంగినపల్లి గుజ్జు నాణ్యతకు దేశవ్యాప్తంగా ప్రసిద్ధి.',
+        en: 'Dry pre-monsoon heat produces premium mango pulp yield.'
+      },
+      season: { hi: 'ग्रीष्म तुड़ाई (अप्रैल-जून)', te: 'వేసవి కోతలు (ఏప్రిల్-జూన్)', en: 'Summer Harvest (Apr-Jun)' }
+    }
+  ],
+  default: [
+    {
+      cropName: { hi: 'लाल मिर्च', te: 'ఎర్ర మిర్చి', en: 'Red Chilli (Teja)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'काली मध्यम मिट्टी व पर्याप्त धूप से तीखापन और लाल रंग सर्वोत्तम रहता है।',
+        te: 'నల్లరేగడి నేలలు & ఎండ తీవ్రత వల్ల అత్యధిక రంగు, ఘాటు లభిస్తాయి.',
+        en: 'Medium black soil and intense sunshine maximize capsaicin pungency.'
+      },
+      season: { hi: 'खरीफ रोपाई (अगस्त)', te: 'ఖరీఫ్ నాట్లు (ఆగస్టు)', en: 'Kharif Transplant (Aug)' }
+    },
+    {
+      cropName: { hi: 'कपास', te: 'పత్తి', en: 'Cotton (Bt Hybrid)' },
+      suitabilityStatus: 'highly-recommended',
+      reason: {
+        hi: 'काली मिट्टी नमी बनाए रखती है जिससे लंबा व चमकदार रेशा तैयार होता है।',
+        te: 'నల్లరేగడి తేమ నిల్వ సామర్థ్యం వల్ల నాణ్యమైన దూది లభిస్తుంది.',
+        en: 'Deep black soil moisture retention powers long staple fiber strength.'
+      },
+      season: { hi: 'खरीफ बुवाई (जून-जुलाई)', te: 'ఖరీఫ్ విత్తడం (జూన్-జూలై)', en: 'Kharif Sowing (Jun-Jul)' }
+    }
+  ]
+};
+
+export const MANDI_DATABASE: MandiItem[] = [
+  {
+    id: 'guntur-chilli-1',
+    cropKey: 'chilli',
+    cropName: { hi: 'लाल मिर्च', te: 'ఎర్ర మిర్చి', en: 'Red Chilli' },
+    variety: 'Teja & Sannam 334',
+    mandiName: { hi: 'गुंटूर मिर्ची यार्ड', te: 'గుంటూరు మిర్చి యార్డ్', en: 'Guntur Mirchi Yard' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    distanceKm: 0,
+    lastUpdated: '10:30 AM',
+    isLive: true,
+    marketStatus: 'open',
+    operatingHours: '07:00 AM - 01:30 PM (Mon-Sat)',
+    priceTrend: {
+      diffLastWeek: 300,
+      percentage: 2.1,
+      highest14Days: true
+    },
+    whySellReasons: {
+      trendReason: {
+        hi: '₹300/क्विंटल पिछले सप्ताह से अधिक (14 दिनों का उच्चतम भाव)',
+        te: 'గత వారం కంటే ₹300/క్వింటా ఎక్కువ (14 రోజుల్లో అత్యధికం)',
+        en: '₹300/quintal above last week (highest price in last 14 days)'
+      },
+      weatherReason: {
+        hi: 'गुरुवार को गुंटूर में तेज बारिश की चेतावनी (खुले यार्ड व सड़क परिवहन में माल भीगने का बड़ा जोखिम)',
+        te: 'గురువారం గుంటూరులో భారీ వర్షం సూచన (రవాణా & మార్కెట్ యార్డ్‌లో తడిసిపోయే ప్రమాదం)',
+        en: 'Heavy rain expected Thursday in Guntur (severe risk of produce getting wet in open yard & transport)'
+      },
+      inflowReason: {
+        hi: 'आज मंडी में आवक 18% कम है (व्यापारी माल खरीदने हेतु आक्रामक बोली लगा रहे हैं)',
+        te: 'ఈరోజు మార్కెట్‌కు సరుకు రాక 18% తగ్గింది (కొనుగోలుదారులు అధిక ధరలకు సిద్ధంగా ఉన్నారు)',
+        en: 'Mandi inflows down 18% this morning (exporters actively competing for good lots)'
+      }
+    },
+    grades: [
+      {
+        name: {
+          hi: 'तेजा / सुपर प्रीमियम (ग्रेड A)',
+          te: 'తేజ / సూపర్ ప్రీమియం (గ్రేడ్ A)',
+          en: 'Teja / Super Premium (Grade A)'
+        },
+        gradeCode: 'A',
+        priceRange: '₹16,500 – ₹17,800',
+        minPrice: 16500,
+        maxPrice: 17800,
+        modalPrice: 17200,
+        qualityCriteria: {
+          hi: 'नमी < 10%, गहरा लाल रंग, डंठल रहित साफ मिर्च',
+          te: 'తేమ < 10%, ముదురు ఎరుపు రంగు, శుభ్రమైన కాయలు',
+          en: 'Moisture < 10%, deep red luster, stemless clean pods'
+        },
+        badgeColor: '#15803d'
+      },
+      {
+        name: {
+          hi: 'सन्नम 334 / मुख्य बाजार भाव',
+          te: 'సన్నం 334 / మార్కెట్ మోడల్ ధర',
+          en: 'Sannam 334 / Common Modal Rate'
+        },
+        gradeCode: 'MODAL',
+        priceRange: '₹13,900 – ₹14,500',
+        minPrice: 13900,
+        maxPrice: 14500,
+        modalPrice: 14200,
+        qualityCriteria: {
+          hi: 'नमी 10-12%, सामान्य रंग, मानक यार्ड लॉट',
+          te: 'తేమ 10-12%, సాధారణ రంగు, ప్రామాణిక లాట్',
+          en: 'Moisture 10-12%, medium color, standard yard lot'
+        },
+        badgeColor: '#0284c7'
+      },
+      {
+        name: {
+          hi: 'सामान्य सन्नम (ग्रेड B)',
+          te: 'సాధారణ సన్నం (గ్రేడ్ B)',
+          en: 'General Sannam (Grade B)'
+        },
+        gradeCode: 'B',
+        priceRange: '₹12,400 – ₹13,200',
+        minPrice: 12400,
+        maxPrice: 13200,
+        modalPrice: 12800,
+        qualityCriteria: {
+          hi: 'नमी 12-14%, हल्का रंग अंतर',
+          te: 'తేమ 12-14%, స్వల్ప రంగు మార్పు',
+          en: 'Moisture 12-14%, slight color variation'
+        },
+        badgeColor: '#d97706'
+      },
+      {
+        name: {
+          hi: 'ताला / बदरंग / निचला ग्रेड',
+          te: 'తాల / రంగు మారిన తక్కువ గ్రేడ్',
+          en: 'Tala / Discolored / Lower Grade'
+        },
+        gradeCode: 'C',
+        priceRange: '₹7,500 – ₹9,200',
+        minPrice: 7500,
+        maxPrice: 9200,
+        modalPrice: 8400,
+        qualityCriteria: {
+          hi: 'नमी >15%, टूटे दाने, पीलापन व बदरंग',
+          te: 'తేమ >15%, విరిగిన కాయలు, పసుపు రంగు మారినవి',
+          en: 'Moisture >15%, broken pods, yellowing or discolored'
+        },
+        badgeColor: '#dc2626'
+      }
+    ],
+    unsoldYardStockBags: 45200,
+    eNamLotVerified: true,
+    otherNearbyMandis: [
+      {
+        name: { hi: 'खम्मम मंडी', te: 'ఖమ్మం మార్కెట్', en: 'Khammam Mandi' },
+        distance: 48,
+        modalPrice: 14550
+      },
+      {
+        name: { hi: 'वारंगल मंडी', te: 'వరంగల్ మార్కెట్', en: 'Warangal Mandi' },
+        distance: 95,
+        modalPrice: 14100
+      },
+      {
+        name: { hi: 'कुरनूल मंडी', te: 'కర్నూలు మార్కెట్', en: 'Kurnool Mandi' },
+        distance: 140,
+        modalPrice: 13800
+      }
+    ]
+  },
+  {
+    id: 'khammam-cotton-2',
+    cropKey: 'cotton',
+    cropName: { hi: 'कपास', te: 'పత్తి', en: 'Cotton (Kapas)' },
+    variety: 'Medium & Long Staple',
+    mandiName: { hi: 'खम्मम कॉटन यार्ड', te: 'ఖమ్మం కాటన్ యార్డ్', en: 'Khammam Cotton Yard' },
+    state: { hi: 'तेलंगाना', te: 'తెలంగాణ', en: 'Telangana' },
+    distanceKm: 48,
+    lastUpdated: '10:15 AM',
+    isLive: true,
+    marketStatus: 'open',
+    operatingHours: '08:00 AM - 02:00 PM',
+    priceTrend: {
+      diffLastWeek: 180,
+      percentage: 2.4,
+      highest14Days: false
+    },
+    whySellReasons: {
+      trendReason: {
+        hi: 'कपास भाव में ₹180 का सुधार हुआ है।',
+        te: 'పత్తి ధరలో ₹180 పెరుగుదల నమోదైంది.',
+        en: 'Cotton prices recovered by ₹180/qt.'
+      },
+      weatherReason: {
+        hi: 'बुधवार रात्रि से नमी बढ़ने की संभावना है, जिससे फाइबर चमक प्रभावित हो सकती है।',
+        te: 'బుధవారం రాత్రి నుండి తేమ పెరగవచ్చు, ఇది దూది నాణ్యతను తగ్గిస్తుంది.',
+        en: 'High moisture forecast from Wed night may affect lint shine.'
+      },
+      inflowReason: {
+        hi: 'सीसीआय (CCI) खरीद केंद्र पर सुचारू वजन जारी है।',
+        te: 'సిసిఐ కొనుగోలు కేంద్రంలో బరువు తూకం వేగంగా జరుగుతోంది.',
+        en: 'CCI purchase centres actively buying fair average quality lots.'
+      }
+    },
+    grades: [
+      {
+        name: {
+          hi: 'लंबा रेशा (ग्रेड A - नमी <8%)',
+          te: 'పొడవైన పత్తి (గ్రేడ్ A - తేమ <8%)',
+          en: 'Long Staple (Grade A - Moisture <8%)'
+        },
+        gradeCode: 'A',
+        priceRange: '₹7,650 – ₹7,920',
+        minPrice: 7650,
+        maxPrice: 7920,
+        modalPrice: 7800,
+        qualityCriteria: {
+          hi: 'साफ सफेद रेशा, नमी < 8%',
+          te: 'తెల్లటి శుభ్రమైన దూది, తేమ < 8%',
+          en: 'Clean white lint, moisture < 8%'
+        },
+        badgeColor: '#15803d'
+      },
+      {
+        name: {
+          hi: 'मध्यम रेशा मुख्य भाव',
+          te: 'మధ్యస్థ పత్తి మోడల్ ధర',
+          en: 'Medium Staple Modal Rate'
+        },
+        gradeCode: 'MODAL',
+        priceRange: '₹7,200 – ₹7,450',
+        minPrice: 7200,
+        maxPrice: 7450,
+        modalPrice: 7350,
+        qualityCriteria: {
+          hi: 'नमी 8-10%, हल्के सूखे पत्ते',
+          te: 'తేమ 8-10%, తేలికపాటి ఆకుల చెత్త',
+          en: 'Moisture 8-10%, slight leaf trash'
+        },
+        badgeColor: '#0284c7'
+      },
+      {
+        name: {
+          hi: 'दागी / गीला निचला ग्रेड',
+          te: 'మచ్చలున్న / తడిసిన పత్తి',
+          en: 'Stained / Wet Lower Grade'
+        },
+        gradeCode: 'C',
+        priceRange: '₹5,800 – ₹6,400',
+        minPrice: 5800,
+        maxPrice: 6400,
+        modalPrice: 6100,
+        qualityCriteria: {
+          hi: 'नमी >12%, पीले दाग वाले रेशे',
+          te: 'తేమ >12%, పసుపు మచ్చల దూది',
+          en: 'Moisture >12%, yellow stained fibers'
+        },
+        badgeColor: '#dc2626'
+      }
+    ],
+    unsoldYardStockBags: 28400,
+    eNamLotVerified: true,
+    otherNearbyMandis: [
+      {
+        name: { hi: 'वारंगल यार्ड', te: 'వరంగల్ యార్డ్', en: 'Warangal Yard' },
+        distance: 62,
+        modalPrice: 7420
+      }
+    ]
+  },
+  {
+    id: 'madanapalle-tomato-3',
+    cropKey: 'tomato',
+    cropName: { hi: 'टमाटर', te: 'టమోటా', en: 'Tomato' },
+    variety: 'Hybrid & Desi Sahu',
+    mandiName: { hi: 'मदनपल्ले टमाटर यार्ड (चित्तूर)', te: 'మదనపల్లె టమోటా మార్కెట్ (చిత్తూరు)', en: 'Madanapalle Tomato Yard (Chittoor)' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    distanceKm: 0,
+    lastUpdated: '09:45 AM',
+    isLive: true,
+    marketStatus: 'open',
+    operatingHours: '06:00 AM - 01:00 PM',
+    priceTrend: {
+      diffLastWeek: 250,
+      percentage: 11.6,
+      highest14Days: true
+    },
+    whySellReasons: {
+      trendReason: {
+        hi: 'उत्तर भारत में मांग बढ़ने से ₹250/क्विंटल उछाल दर्ज हुआ है।',
+        te: 'ఉత్తర భారతదేశం నుండి డిమాండ్ పెరగడంతో క్వింటాకు ₹250 పెరిగింది.',
+        en: '₹250/quintal surge due to strong transport demand to Delhi & Kolkata.'
+      },
+      weatherReason: {
+        hi: 'बुधवार को आर्द्रता बढ़ने से पके टमाटरों में फटने का जोखिम है।',
+        te: 'బుధవారం తేమ పెరగడం వల్ల పండిన కాయలు పగిలిపోయే ప్రమాదం ఉంది.',
+        en: 'Higher humidity on Wednesday increases skin cracking in ripe fruit.'
+      },
+      inflowReason: {
+        hi: 'आज यार्ड में आवक 25% कम है; थोक व्यापारी तेज बोली लगा रहे हैं।',
+        te: 'మార్కెట్‌కు సరుకు రాక 25% తగ్గింది; కొనుగోలుదారులు పోటీ పడుతున్నారు.',
+        en: 'Yard arrivals down 25% today; commission buyers competing aggressively.'
+      }
+    },
+    grades: [
+      {
+        name: { hi: 'ग्रेड A (सख्त लाल फल)', te: 'గ్రేడ్ A (గట్టి ఎర్ర కాయలు)', en: 'Grade A (Firm Red Fruit)' },
+        gradeCode: 'A',
+        priceRange: '₹2,600 – ₹2,850',
+        minPrice: 2600,
+        maxPrice: 2850,
+        modalPrice: 2750,
+        qualityCriteria: {
+          hi: 'दागरहित, चमकदार लाल, लंबी दूरी परिवहन योग्य',
+          te: 'మచ్చలు లేని గట్టి కాయలు, దూర ప్రయాణానికి తగినవి',
+          en: 'Blemish-free, firm red, suitable for long-distance transport'
+        },
+        badgeColor: '#15803d'
+      },
+      {
+        name: { hi: 'मध्यम मुख्य भाव', te: 'సాధారణ మోడల్ ధర', en: 'Medium Modal Rate' },
+        gradeCode: 'MODAL',
+        priceRange: '₹2,300 – ₹2,550',
+        minPrice: 2300,
+        maxPrice: 2550,
+        modalPrice: 2400,
+        qualityCriteria: {
+          hi: 'हल्का हरा-पीला, स्थानीय खपत योग्य',
+          te: 'లేత రంగు, స్థానిక విక్రయాలకు తగినవి',
+          en: 'Semi-ripe yellow-red, optimal for regional markets'
+        },
+        badgeColor: '#0284c7'
+      },
+      {
+        name: { hi: 'नरम / छांटन ग्रेड C', te: 'మెత్తబడిన / గ్రేడ్ C', en: 'Soft / Second Grade C' },
+        gradeCode: 'C',
+        priceRange: '₹1,200 – ₹1,600',
+        minPrice: 1200,
+        maxPrice: 1600,
+        modalPrice: 1450,
+        qualityCriteria: {
+          hi: 'अत्यधिक पके, हल्के दबाव वाले फल',
+          te: 'బాగా పండిన మెత్తటి కాయలు, వెంటనే వాడాల్సినవి',
+          en: 'Overripe or soft fruit for immediate local processing'
+        },
+        badgeColor: '#dc2626'
+      }
+    ],
+    unsoldYardStockBags: 18200,
+    eNamLotVerified: true,
+    otherNearbyMandis: [
+      { name: { hi: 'चित्तूर यार्ड', te: 'చిత్తూరు మార్కెట్', en: 'Chittoor Yard' }, distance: 28, modalPrice: 2250 },
+      { name: { hi: 'कोलार मार्केट (कर्नाटक)', te: 'కోలార్ మార్కెట్', en: 'Kolar Market (KA)' }, distance: 65, modalPrice: 2350 },
+      { name: { hi: 'गुंटूर मंडी', te: 'గుంటూరు మార్కెట్', en: 'Guntur Mandi' }, distance: 290, modalPrice: 2100 }
+    ]
+  },
+  {
+    id: 'anantapur-groundnut-4',
+    cropKey: 'groundnut',
+    cropName: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut (Pods)' },
+    variety: 'K6, TMV2 & Bold',
+    mandiName: { hi: 'अनंतपुर कृषि उपज मंडी', te: 'అనంతపురం వ్యవసాయ మార్కెట్', en: 'Anantapur Agri Market' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    distanceKm: 0,
+    lastUpdated: '10:00 AM',
+    isLive: true,
+    marketStatus: 'open',
+    operatingHours: '08:00 AM - 02:30 PM',
+    priceTrend: {
+      diffLastWeek: 350,
+      percentage: 5.4,
+      highest14Days: true
+    },
+    whySellReasons: {
+      trendReason: {
+        hi: 'तेल मिलों द्वारा आक्रामक खरीद से ₹350/क्विंटल की मजबूत वृद्धि।',
+        te: 'నూనె మిల్లుల కొనుగోలు పోటీతో క్వింటాకు ₹350 ధర పెరిగింది.',
+        en: '₹350/quintal price hike driven by intense oil mill procurement.'
+      },
+      weatherReason: {
+        hi: 'सूखा मौसम रहने से फलियां सूखी व दाना कुरकुरा है (प्रीमियम ग्रेड)।',
+        te: 'పొడి వాతావరణం వల్ల కాయలు పూర్తిగా ఎండి మంచి నాణ్యతతో ఉన్నాయి.',
+        en: 'Crisp dry weather ensures zero aflatoxin mold risk.'
+      },
+      inflowReason: {
+        hi: 'आज यार्ड में उत्तम गुणवत्ता वाली K6 वैरायटी की कम आवक है।',
+        te: 'మంచి నాణ్యమైన K6 రకం రాక తక్కువగా ఉంది.',
+        en: 'Limited daily arrival of premium K6 pods driving up bids.'
+      }
+    },
+    grades: [
+      {
+        name: { hi: 'बोल्ड दाना ग्रेड A (तेल >48%)', te: 'బోల్డ్ గింజ గ్రేడ్ A (నూనె >48%)', en: 'Bold Pods Grade A (Oil >48%)' },
+        gradeCode: 'A',
+        priceRange: '₹7,100 – ₹7,450',
+        minPrice: 7100,
+        maxPrice: 7450,
+        modalPrice: 7300,
+        qualityCriteria: {
+          hi: 'नमी <7%, 2-3 दाने वाली मोटी फलियां',
+          te: 'తేమ <7%, 2-3 గింజలున్న లావు కాయలు',
+          en: 'Moisture <7%, 2-3 seed pods, clean shell'
+        },
+        badgeColor: '#15803d'
+      },
+      {
+        name: { hi: 'सामान्य मुख्य भाव (K6)', te: 'సాధారణ మోడల్ ధర (K6)', en: 'Standard Modal Rate (K6)' },
+        gradeCode: 'MODAL',
+        priceRange: '₹6,700 – ₹6,950',
+        minPrice: 6700,
+        maxPrice: 6950,
+        modalPrice: 6850,
+        qualityCriteria: {
+          hi: 'नमी 8%, औसत दाना आकार',
+          te: 'తేమ 8%, మధ్యస్థ గింజల సైజు',
+          en: 'Moisture 8%, medium pod size'
+        },
+        badgeColor: '#0284c7'
+      },
+      {
+        name: { hi: 'मिट्टी लगी / फोक निचला ग्रेड', te: 'మట్టి అంటిన / తాలు కాయలు', en: 'Chaffy / Earthy Lower Grade' },
+        gradeCode: 'C',
+        priceRange: '₹5,200 – ₹5,800',
+        minPrice: 5200,
+        maxPrice: 5800,
+        modalPrice: 5500,
+        qualityCriteria: {
+          hi: 'नमी >10%, फोक फलियां',
+          te: 'తేమ >10%, తాలు కాయలు',
+          en: 'Moisture >10%, underdeveloped chaff pods'
+        },
+        badgeColor: '#dc2626'
+      }
+    ],
+    unsoldYardStockBags: 34100,
+    eNamLotVerified: true,
+    otherNearbyMandis: [
+      { name: { hi: 'कदिरी यार्ड', te: 'కదిరి మార్కెట్', en: 'Kadiri Yard' }, distance: 45, modalPrice: 6950 },
+      { name: { hi: 'अदोनी मंडी', te: 'ఆదోని మార్కెట్', en: 'Adoni Mandi' }, distance: 110, modalPrice: 6700 },
+      { name: { hi: 'कर्नूल यार्ड', te: 'కర్నూలు మార్కెట్', en: 'Kurnool Yard' }, distance: 145, modalPrice: 6750 }
+    ]
+  },
+  {
+    id: 'kadapa-turmeric-5',
+    cropKey: 'turmeric',
+    cropName: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric (Finger)' },
+    variety: 'Kadapa Selam & Finger',
+    mandiName: { hi: 'कडपा कृषि उपज मंडी', te: 'కడప వ్యవసాయ మార్కెట్', en: 'Kadapa Agri Market' },
+    state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
+    distanceKm: 0,
+    lastUpdated: '10:30 AM',
+    isLive: true,
+    marketStatus: 'open',
+    operatingHours: '08:00 AM - 02:00 PM',
+    priceTrend: {
+      diffLastWeek: 400,
+      percentage: 3.1,
+      highest14Days: true
+    },
+    whySellReasons: {
+      trendReason: {
+        hi: 'मसाला निर्यातकों से लगातार पूछ-परख से ₹400/क्विंटल की तेजी।',
+        te: 'మసాలా ఎగుమతిదారుల ఆర్డర్ల వల్ల క్వింటాకు ₹400 పెరిగింది.',
+        en: '₹400/quintal rally triggered by strong export demand.'
+      },
+      weatherReason: {
+        hi: 'आगामी दिनों में धूप रहने से कटी हुई हल्दी सुखाने में सुविधा होगी।',
+        te: 'ఎండ వాతావరణం పసుపు కొమ్ములను ఆరబెట్టడానికి ఉత్తమం.',
+        en: 'Clear sunny forecast supports finger curing and sun-drying.'
+      },
+      inflowReason: {
+        hi: 'कडपा यार्ड में उच्च करक्यूमिन वाले लॉट पर प्रीमियम भाव मिल रहा है।',
+        te: 'మంచి రంగు, కర్క్యుమిన్ ఉన్న సరుకుకు గరిష్ట ధర పలుకుతోంది.',
+        en: 'High curcumin lots commanding premium prices from spice mills.'
+      }
+    },
+    grades: [
+      {
+        name: { hi: 'प्रीमियम फिंगर (करक्यूमिन >3.5%)', te: 'ప్రీమియం కొమ్ములు (కర్క్యుమిన్ >3.5%)', en: 'Premium Finger (Curcumin >3.5%)' },
+        gradeCode: 'A',
+        priceRange: '₹13,800 – ₹14,500',
+        minPrice: 13800,
+        maxPrice: 14500,
+        modalPrice: 14100,
+        qualityCriteria: {
+          hi: 'चमकदार पीला रंग, ठोस फिंगर, नमी <9%',
+          te: 'బంగారు పసుపు రంగు, గట్టి కొమ్ములు, తేమ <9%',
+          en: 'Deep yellow, well-cured fingers, moisture <9%'
+        },
+        badgeColor: '#15803d'
+      },
+      {
+        name: { hi: 'मध्यम मुख्य भाव (सैलम)', te: 'సాధారణ మోడల్ ధర', en: 'Standard Modal Rate' },
+        gradeCode: 'MODAL',
+        priceRange: '₹12,800 – ₹13,400',
+        minPrice: 12800,
+        maxPrice: 13400,
+        modalPrice: 13200,
+        qualityCriteria: {
+          hi: 'साधारण फिंगर व गांठ मिश्रण',
+          te: 'కొమ్ములు & దుంపల మిశ్రమం',
+          en: 'Mix of finger and round bulb turmeric'
+        },
+        badgeColor: '#0284c7'
+      },
+      {
+        name: { hi: 'गांठ / टुकड़ा निचला ग्रेड', te: 'పసుపు దుంపలు / ముక్కలు', en: 'Bulb / Broken Lower Grade' },
+        gradeCode: 'C',
+        priceRange: '₹10,500 – ₹11,500',
+        minPrice: 10500,
+        maxPrice: 11500,
+        modalPrice: 11000,
+        qualityCriteria: {
+          hi: 'टूटी गांठें, हल्का बदरंग',
+          te: 'విరిగిన దుంపలు, రంగు తక్కువ',
+          en: 'Rough bulbs or broken pieces'
+        },
+        badgeColor: '#dc2626'
+      }
+    ],
+    unsoldYardStockBags: 14500,
+    eNamLotVerified: true,
+    otherNearbyMandis: [
+      { name: { hi: 'निजामाबाद मंडी (तेलंगाना)', te: 'నిజామాబాద్ మార్కెట్', en: 'Nizamabad Mandi (TS)' }, distance: 380, modalPrice: 13600 },
+      { name: { hi: 'दुग्गिराला मंडी', te: 'దుగ్గిరాల మార్కెట్', en: 'Duggirala Mandi' }, distance: 310, modalPrice: 13400 },
+      { name: { hi: 'गुंटूर यार्ड', te: 'గుంటూరు యార్డ్', en: 'Guntur Yard' }, distance: 295, modalPrice: 13150 }
+    ]
+  }
+];
+
+export const WEATHER_FORECAST: WeatherDay[] = [
+  {
+    dayName: { hi: 'आज (सोम)', te: 'నేడు (సోమ)', en: 'Today (Mon)' },
+    date: '12 Oct',
+    tempMax: 33,
+    tempMin: 24,
+    condition: 'sunny',
+    conditionText: { hi: 'धूप व साफ मौसम', te: 'ఎండ, తేలికపాటి గాలి', en: 'Sunny & Clear' },
+    rainChance: 10,
+    sprayingAdvice: {
+      hi: 'कीटनाशक व खाद छिड़काव के लिए उत्तम दिन।',
+      te: 'మందులు పిచికారీ చేయడానికి అనుకూలమైన రోజు.',
+      en: 'Favorable day for pest spray and foliar nutrition.'
+    },
+    riskLevel: 'safe'
+  },
+  {
+    dayName: { hi: 'मंगलवार', te: 'మంగళవారం', en: 'Tuesday' },
+    date: '13 Oct',
+    tempMax: 32,
+    tempMin: 24,
+    condition: 'cloudy',
+    conditionText: { hi: 'आंशिक बादल', te: 'పాక్షిక మేఘావృతం', en: 'Partly Cloudy' },
+    rainChance: 25,
+    sprayingAdvice: {
+      hi: 'सुबह 11 बजे से पहले छिड़काव पूरा कर लें।',
+      te: 'ఉదయం 11 గంటల లోపు పిచికారీ పూర్తి చేయండి.',
+      en: 'Complete spraying before 11:00 AM.'
+    },
+    riskLevel: 'safe'
+  },
+  {
+    dayName: { hi: 'बुधवार', te: 'బుధవారం', en: 'Wednesday' },
+    date: '14 Oct',
+    tempMax: 30,
+    tempMin: 23,
+    condition: 'cloudy',
+    conditionText: { hi: 'घने बादल व हवा', te: 'దట్టమైన మేఘాలు', en: 'Heavy Clouds' },
+    rainChance: 45,
+    sprayingAdvice: {
+      hi: 'छिड़काव टालें; पत्तों पर दवा बह जाने का जोखिम।',
+      te: 'పిచికారీ వాయిదా వేయండి; మందు కొట్టుకుపోయే ప్రమాదం.',
+      en: 'Delay chemical spray; wind and moisture risk.'
+    },
+    riskLevel: 'warning'
+  },
+  {
+    dayName: { hi: 'गुरुवार (Ryan/Rain)', te: 'గురువారం (వర్షం)', en: 'Thursday (Heavy Rain)' },
+    date: '15 Oct',
+    tempMax: 27,
+    tempMin: 22,
+    condition: 'rain',
+    conditionText: { hi: 'तेज बारिश व आंधी', te: 'భారీ వర్షం, ఈదురుగాలులు', en: 'Heavy Rain & Gusts' },
+    rainChance: 85,
+    sprayingAdvice: {
+      hi: '⚠️ कोई छिड़काव न करें! खुले यार्ड में मिर्च या कपास न ले जाएं।',
+      te: '⚠️ ఎటువంటి పిచికారీ చేయవద్దు! సరుకును మార్కెట్ యార్డ్‌కు తరలించవద్దు.',
+      en: '⚠️ DO NOT SPRAY! Avoid open-yard transport to mandi.'
+    },
+    riskLevel: 'danger'
+  },
+  {
+    dayName: { hi: 'शुक्रवार', te: 'శుక్రవారం', en: 'Friday' },
+    date: '16 Oct',
+    tempMax: 29,
+    tempMin: 23,
+    condition: 'rain',
+    conditionText: { hi: 'रुक-रुक कर बौछारें', te: 'తేలికపాటి జల్లులు', en: 'Scattered Showers' },
+    rainChance: 60,
+    sprayingAdvice: {
+      hi: 'खेतों से जल निकासी सुनिश्चित करें।',
+      te: 'పొలంలో నీరు నిల్వ ఉండకుండా డ్రైనేజీ చూడండి.',
+      en: 'Ensure drainage in vegetable beds.'
+    },
+    riskLevel: 'warning'
+  },
+  {
+    dayName: { hi: 'शनिवार', te: 'శనివారం', en: 'Saturday' },
+    date: '17 Oct',
+    tempMax: 31,
+    tempMin: 23,
+    condition: 'cloudy',
+    conditionText: { hi: 'मौसम में सुधार', te: 'వాతావరణం మెరుగుపడుతోంది', en: 'Improving' },
+    rainChance: 30,
+    sprayingAdvice: {
+      hi: 'शाम के समय फफूंदनाशक का छिड़काव किया जा सकता है।',
+      te: 'సాయంత్రం శిలీంద్ర సంహారిణి పిచికారీ చేయవచ్చు.',
+      en: 'Fungicide spray can be resumed in evening.'
+    },
+    riskLevel: 'safe'
+  },
+  {
+    dayName: { hi: 'रविवार', te: 'ఆదివారం', en: 'Sunday' },
+    date: '18 Oct',
+    tempMax: 32,
+    tempMin: 24,
+    condition: 'sunny',
+    conditionText: { hi: 'खिली धूप', te: 'స్పష్టమైన ఎండ', en: 'Bright Sunlight' },
+    rainChance: 15,
+    sprayingAdvice: {
+      hi: 'फसल की नियमित निगरानी व सामान्य कृषि कार्य करें।',
+      te: 'పంట సాధారణ పనులకు అనుకూలం.',
+      en: 'Safe for regular field activities.'
+    },
+    riskLevel: 'safe'
+  }
+];
+
+export const CROP_DISEASES: Record<string, CropDisease> = {
+  chilli: {
+    cropKey: 'chilli',
+    diseaseName: {
+      hi: 'मिर्च का पत्ता मरोड़ रोग (Leaf Curl Virus / मुरड़ा)',
+      te: 'మిర్చి ఆకు ముడుత తెగులు (Leaf Curl Virus)',
+      en: 'Chilli Leaf Curl Virus (Murda Disease)'
+    },
+    symptoms: {
+      hi: 'पत्तियां ऊपर की ओर नाव की तरह मुड़ती हैं, पौधे का विकास रुक जाता है, फूल झड़ते हैं।',
+      te: 'ఆకులు పైకి దోనెలా ముడుచుకుపోతాయి, మొక్క గిడసబారి పూత రాలిపోతుంది.',
+      en: 'Upward curling of leaves, crinkling, stunted growth, and premature flower drop.'
+    },
+    chemicalTreatment: {
+      hi: 'थियामेथॉक्सम 25% WG (5 ग्राम प्रति 15 लीटर पंप) अथवा फिप्रोनिल 5% SC (30 मिली/पंप) का छिड़काव करें।',
+      te: 'థయామెథాక్సమ్ 25% WG (5 గ్రాములు 15 లీటర్ల నీటికి) లేదా ఫిప్రోనిల్ 5% SC స్ప్రే చేయండి.',
+      en: 'Spray Thiamethoxam 25% WG (5g per 15L tank) or Fipronil 5% SC (30ml/tank) targeting whiteflies.'
+    },
+    organicTreatment: {
+      hi: 'नीम तेल 10,000 PPM (40 मिली प्रति 15 लीटर) + स्टिकर घोलकर 8 दिनों के अंतराल पर छिड़कें।',
+      te: 'వేపనూనె 10,000 PPM (40 మి.లీ 15 లీటర్లకు) కలిపి పిచికారీ చేయండి.',
+      en: 'Neem oil 10,000 PPM (40ml per 15L tank) with organic surfactant at 8-day intervals.'
+    },
+    sprayingWarning: {
+      hi: 'गुरुवार को बारिश संभावित है! अतः बुधवार व गुरुवार को दवा छिड़कने से बचें अन्यथा दवा बह जाएगी।',
+      te: 'గురువారం వర్షం పడే అవకాశం ఉంది! కావున బుధవారం & గురువారం మందు పిచికారీ చేయవద్దు.',
+      en: 'Heavy rain predicted for Thursday! Do NOT spray on Wed/Thu as rain will wash away chemical.'
+    },
+    severity: 'high'
+  },
+  cotton: {
+    cropKey: 'cotton',
+    diseaseName: {
+      hi: 'गुलाबी सुंडी (Pink Bollworm)',
+      te: 'గులాబీ రంగు కాయ తొలిచే పురుగు (Pink Bollworm)',
+      en: 'Pink Bollworm Infestation'
+    },
+    symptoms: {
+      hi: 'फूलों का गुलाब की तरह बंद रहना (Rosette flowers) एवं डोडों में छिद्र।',
+      te: 'పూలు రోజెట్ ఆకారంలో ముడుచుకోవడం, కాయల్లో రంధ్రాలు.',
+      en: 'Rosette flowers, exit holes in young bolls, interior lint damage.'
+    },
+    chemicalTreatment: {
+      hi: 'प्रोफेनोफॉस 50% EC (35 मिली) या एमामेक्टिन बेंजोएट 5% SG (8 ग्राम प्रति पंप)।',
+      te: 'ప్రొఫెనోఫాస్ 50% EC (35 మి.లీ) లేదా ఎమామెక్టిన్ బెంజోయేట్ స్ప్రే చేయండి.',
+      en: 'Profenophos 50% EC (35ml) or Emamectin Benzoate 5% SG (8g per 15L tank).'
+    },
+    organicTreatment: {
+      hi: 'फेरोमोन ट्रैप (Pheromone Traps) 8 प्रति एकड़ लगाएं एवं ट्राइकोग्रामा कार्ड छोड़ें।',
+      te: 'ఎకరాకు 8 లింగాకర్షక బుట్టలు (Pheromone Traps) అమర్చండి.',
+      en: 'Install 8 Pheromone Traps per acre and release Trichogramma egg parasitoids.'
+    },
+    sprayingWarning: {
+      hi: 'शाम के समय छिड़काव करें जब कीट सबसे सक्रिय होते हैं।',
+      te: 'పురుగులు చురుగ్గా ఉండే సాయంత్రం వేళల్లోనే స్ప్రే చేయండి.',
+      en: 'Spray late evening when adult moths emerge from soil.'
+    },
+    severity: 'high'
+  }
+};
+
+export const GOVT_SCHEMES: GovtScheme[] = [
+  {
+    id: 'pm-kisan',
+    title: {
+      hi: 'प्रधानमंत्री किसान सम्मान निधि (PM-Kisan)',
+      te: 'పీఎం కిసాన్ సమ్మాన్ నిధి (PM-Kisan)',
+      en: 'PM-Kisan Samman Nidhi'
+    },
+    shortDesc: {
+      hi: 'प्रति वर्ष ₹6,000 की प्रत्यक्ष सहायता (₹2,000 की 3 किस्तों में बैंक खाते में)।',
+      te: 'సంవత్సరానికి ₹6,000 ప్రత్యక్ష ఆర్థిక సహాయం (రైతుల ఖాతాల్లోకి).',
+      en: 'Direct income support of ₹6,000 per year in 3 equal installments.'
+    },
+    benefitAmount: '₹6,000 / वर्ष',
+    eligibility: {
+      hi: 'सभी भूमिधारक किसान परिवार जिनके नाम कृषि भूमि है और ई-केवाईसी पूर्ण है।',
+      te: 'వ్యవసాయ భూమి ఉన్న రైతులందరికీ, ఈ-కేవైసీ తప్పనిసరి.',
+      en: 'All landholding farmer families with active e-KYC and Aadhaar linked bank account.'
+    },
+    helpline: '155261 / 1800-115-526',
+    applyUrl: 'https://pmkisan.gov.in',
+    tag: { hi: 'नकद सहायता', te: 'ఆర్థిక సహాయం', en: 'Direct Transfer' }
+  },
+  {
+    id: 'pmfby',
+    title: {
+      hi: 'प्रधानमंत्री फसल बीमा योजना (PMFBY)',
+      te: 'ప్రధానమంత్రి ఫసల్ బీమా యోజన (PMFBY)',
+      en: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)'
+    },
+    shortDesc: {
+      hi: 'प्राकृतिक आपदा, सूखा, भारी बारिश या कीट प्रकोप से फसल क्षति पर 100% तक बीमा दावा।',
+      te: 'ప్రకృతి వైపరీత్యాలు, అధిక వర్షాలు లేదా తెగుళ్ల వల్ల పంట నష్టానికి పూర్తి బీమా రక్షణ.',
+      en: 'Comprehensive crop insurance against drought, flood, pests, and unseasonal rains.'
+    },
+    benefitAmount: 'क्षति अनुसार ₹50,000/एकड़ तक',
+    eligibility: {
+      hi: 'अधिसूचित क्षेत्र में फसल बोने वाले सभी ऋणी व गैर-ऋणी काश्तकार किसान।',
+      te: 'నోటిఫైడ్ పంటలు సాగు చేసే రైతులందరూ అర్హులు.',
+      en: 'All farmers growing notified crops in notified areas within cut-off date.'
+    },
+    helpline: '1800-180-1551',
+    applyUrl: 'https://pmfby.gov.in',
+    tag: { hi: 'फसल सुरक्षा', te: 'పంట రక్షణ', en: 'Insurance' }
+  },
+  {
+    id: 'kcc-loan',
+    title: {
+      hi: 'किसान क्रेडिट कार्ड (KCC - 4% ब्याज)',
+      te: 'కిసాన్ క్రెడిట్ కార్డ్ (KCC - 4% వడ్డీ)',
+      en: 'Kisan Credit Card (Subsidized 4% Loan)'
+    },
+    shortDesc: {
+      hi: 'खाद, बीज व कीटनाशक हेतु ₹3 लाख तक का कृषि ऋण मात्र 4% रियायती ब्याज दर पर।',
+      te: 'విత్తనాలు & ఎరువుల కొనుగోలుకు ₹3 లక్షల వరకు 4% రాయితీ వడ్డీకే రుణం.',
+      en: 'Short term working capital loan up to ₹3 Lakhs at subsidized 4% net interest rate.'
+    },
+    benefitAmount: '₹3,00,000 तक सीमा',
+    eligibility: {
+      hi: 'व्यक्तिगत किसान, संयुक्त काश्तकार, पट्टेदार व बटाईदार किसान।',
+      te: 'వ్యక్తిగత రైతులు, కౌలు రైతులు మరియు స్వయం సహాయక సంఘాలు.',
+      en: 'Individual farmers, joint liability groups, tenant farmers, and sharecroppers.'
+    },
+    helpline: '1800-180-1111',
+    applyUrl: 'https://www.myscheme.gov.in',
+    tag: { hi: 'कम ब्याज ऋण', te: 'తక్కువ వడ్డీ రుణం', en: 'Credit' }
+  }
+];
+
+export const COLD_STORAGES: ColdStorageFacility[] = [
+  {
+    id: 'cs-guntur-1',
+    name: {
+      hi: 'गुंटूर एग्री फ्रेश कोल्ड स्टोरेज',
+      te: 'గుంటూరు అగ్రి ఫ్రెష్ కోల్డ్ స్టోరేజ్',
+      en: 'Guntur AgriFresh Cold Storage'
+    },
+    location: {
+      hi: 'नल्लापाडु इंडस्ट्रियल एरिया, गुंटूर',
+      te: 'నల్లపాడు ఇండస్ట్రియల్ ఏరియా, గుంటూరు',
+      en: 'Nallapadu Industrial Area, Guntur'
+    },
+    distanceKm: 8,
+    totalCapacityBags: 50000,
+    vacantCapacityBags: 8500,
+    rentPerBagPerMonth: 28,
+    temperatureControlled: true,
+    contactPhone: '0863-2288110',
+    hasFumigation: true
+  },
+  {
+    id: 'cs-amaravati-2',
+    name: {
+      hi: 'अमरावती वेयरहाउसिंग व लॉजिस्टिक्स पार्क',
+      te: 'అమరావతి వేర్‌హౌసింగ్ & లాజిస్టిక్స్ పార్క్',
+      en: 'Amaravati Regional Logistics Godown'
+    },
+    location: {
+      hi: 'मंगलगिरी बाईपास, अमरावती',
+      te: 'మంగళగిరి బైపాస్, అమరావతి',
+      en: 'Mangalagiri Bypass, Amaravati'
+    },
+    distanceKm: 22,
+    totalCapacityBags: 90000,
+    vacantCapacityBags: 14200,
+    rentPerBagPerMonth: 25,
+    temperatureControlled: true,
+    contactPhone: '08645-234500',
+    hasFumigation: true
+  },
+  {
+    id: 'cs-mirchi-yard-3',
+    name: {
+      hi: 'मिर्ची यार्ड सेंट्रल गोदाम #4',
+      te: 'మిర్చి యార్డ్ సెంట్రల్ గోదాము #4',
+      en: 'Mirchi Yard Central Godown #4'
+    },
+    location: {
+      hi: 'गेट नंबर 3, मिर्ची यार्ड, गुंटूर',
+      te: 'గేట్ నం 3, మిర్చి యార్డ్, గుంటూరు',
+      en: 'Gate No 3, Mirchi Yard, Guntur'
+    },
+    distanceKm: 3,
+    totalCapacityBags: 30000,
+    vacantCapacityBags: 2100,
+    rentPerBagPerMonth: 30,
+    temperatureControlled: false,
+    contactPhone: '0863-2329044',
+    hasFumigation: false
+  },
+  {
+    id: 'cs-anantapur-4',
+    name: {
+      hi: 'अनंतपुर केंद्रीय शीत भंडारण व गोदाम',
+      te: 'అనంతపురం సెంట్రల్ కోల్డ్ స్టోరేజ్ & గోదాము',
+      en: 'Anantapur Central Cold Storage & Warehouse'
+    },
+    location: {
+      hi: 'गुत्ती रोड, अनंतपुर एपीएमसी यार्ड के पास',
+      te: 'గుత్తి రోడ్డు, అనంతపురం మార్కెట్ యార్డ్ దగ్గర',
+      en: 'Gooty Road, Near Anantapur APMC Yard'
+    },
+    distanceKm: 8,
+    totalCapacityBags: 75000,
+    vacantCapacityBags: 18500,
+    rentPerBagPerMonth: 24,
+    temperatureControlled: true,
+    contactPhone: '08554-245100',
+    hasFumigation: true
+  },
+  {
+    id: 'cs-madanapalle-5',
+    name: {
+      hi: 'मदनपल्ले टमाटर व फल एग्रो कोल्ड चेन',
+      te: 'మదనపల్లె టమోటా & పండ్ల ఆగ్రో కోల్డ్ చైన్',
+      en: 'Madanapalle Tomato & Agro Cold Chain'
+    },
+    location: {
+      hi: 'बेंगलुरु-चित्तूर हाईवे, मदनपल्ले',
+      te: 'బెంగళూరు-చిత్తూరు హైవే, మదనపల్లె',
+      en: 'Bengaluru-Chittoor Highway, Madanapalle'
+    },
+    distanceKm: 5,
+    totalCapacityBags: 50000,
+    vacantCapacityBags: 11200,
+    rentPerBagPerMonth: 28,
+    temperatureControlled: true,
+    contactPhone: '08571-224800',
+    hasFumigation: true
+  },
+  {
+    id: 'cs-kadapa-6',
+    name: {
+      hi: 'कडपा हल्दी व केला शीत गोदाम',
+      te: 'కడప పసుపు & అరటి శీతల గిడ్డంగి',
+      en: 'Kadapa Turmeric & Banana Cold Warehouse'
+    },
+    location: {
+      hi: 'कृष्णा नगर बाईपास, कडपा',
+      te: 'కృష్ణా నగర్ బైపాస్, కడప',
+      en: 'Krishna Nagar Bypass, Kadapa'
+    },
+    distanceKm: 6,
+    totalCapacityBags: 60000,
+    vacantCapacityBags: 9400,
+    rentPerBagPerMonth: 26,
+    temperatureControlled: true,
+    contactPhone: '08562-231900',
+    hasFumigation: true
+  }
+];
+
+export const SOIL_DATA: SoilReportData = {
+  farmerName: 'किसान भाई',
+  sampleId: 'SHC-AP-GNT-2026-88',
+  testDate: '02 Oct 2026',
+  soilType: {
+    hi: 'मध्यम काली मिट्टी (Medium Black Clay)',
+    te: 'మధ్యస్థ నల్లరేగడి నేల (Medium Black Clay)',
+    en: 'Medium Black Clayey Loam'
+  },
+  ph: 6.8,
+  phStatus: {
+    hi: 'सामान्य / तटस्थ (Optimal 6.5–7.2)',
+    te: 'సమతుల్య పీహెచ్ (Optimal 6.5–7.2)',
+    en: 'Optimal / Neutral (6.5–7.2)'
+  },
+  organicCarbon: 0.52,
+  nitrogenKgPerHa: 195,
+  nitrogenStatus: 'low',
+  phosphorusKgPerHa: 22,
+  phosphorusStatus: 'medium',
+  potassiumKgPerHa: 310,
+  potassiumStatus: 'high',
+  recommendedFertilizers: [
+    {
+      hi: 'यूरिया की मात्रा 15% कम करें; नाइट्रोजन हेतु 25 किग्रा नीम लेपित यूरिया 3 चरणों में दें।',
+      te: 'యూరియా వాడకాన్ని 15% తగ్గించండి; వేప పూత పూసిన యూరియాను 3 విడతల్లో వేయండి.',
+      en: 'Reduce Urea dosage by 15%; apply 25 kg Neem Coated Urea in 3 split applications.'
+    },
+    {
+      hi: 'फास्फोरस हेतु सिंगल सुपर फास्फेट (SSP) 50 किग्रा/एकड़ बुवाई या निंदाई के समय दें।',
+      te: 'భాస్వరం కోసం సింగిల్ సూపర్ ఫాస్ఫేట్ (SSP) ఎకరాకు 50 కిలోలు విత్తే సమయంలో వేయండి.',
+      en: 'Apply Single Super Phosphate (SSP) 50 kg/acre at the time of hoeing/sowing.'
+    },
+    {
+      hi: 'पोटैशियम पर्याप्त है; रासायनिक पोटाश की अतिरिक्त आवश्यकता नहीं है।',
+      te: 'పొటాష్ నిల్వలు పుష్కలంగా ఉన్నాయి; రసాయన పొటాష్ అవసరం లేదు.',
+      en: 'Potassium reserves are high; save money by avoiding chemical Potash top-dressing.'
+    }
+  ]
+};
+
+export const SEASONAL_CLIMATE: SeasonalClimateOutlook[] = [
+  {
+    month: { hi: 'नवंबर 2026', te: 'నవంబర్ 2026', en: 'November 2026' },
+    rainExpectation: {
+      hi: 'सामान्य से 15% अधिक वर्षा (उत्तर-पूर्वी मानसून सक्रिय)',
+      te: 'సాధారణం కంటే 15% ఎక్కువ వర్షపాతం',
+      en: '15% Above Normal Rainfall (Active NE Monsoon)'
+    },
+    temperatureTrend: {
+      hi: 'तापमान 22°C - 31°C (सामान्य)',
+      te: 'ఉష్ణోగ్రత 22°C - 31°C',
+      en: 'Temperature 22°C - 31°C (Normal)'
+    },
+    farmingImpact: {
+      hi: 'रबी फसलों (चना व सरसों) की बुवाई हेतु अत्यंत अनुकूल नमी।',
+      te: 'రబీ పంటల విత్తనాలకు అనుకూల తేమ.',
+      en: 'Optimal soil moisture for Rabi sowing and winter pulses.'
+    },
+    riskStatus: 'favorable'
+  },
+  {
+    month: { hi: 'दिसंबर 2026', te: 'డిసెంబర్ 2026', en: 'December 2026' },
+    rainExpectation: {
+      hi: 'हल्की छिटपुट फुहारें (सामान्य वर्षा)',
+      te: 'తేలికపాటి జల్లులు (సాధారణ వర్షపాతం)',
+      en: 'Scattered Light Showers (Normal)'
+    },
+    temperatureTrend: {
+      hi: 'रात्रिकालीन तापमान में गिरावट (16°C - 28°C)',
+      te: 'రాత్రి ఉష్ణోగ్రతలు తగ్గుతాయి (16°C - 28°C)',
+      en: 'Cool Nights Expected (16°C - 28°C)'
+    },
+    farmingImpact: {
+      hi: 'मिर्च में फलों की तुड़ाई शुरू; कोहरे से फफूंद रोग की निगरानी रखें।',
+      te: 'మిర్చి కోతలు ప్రారంభం; మంచు తెగుళ్లపై నిఘా ఉంచండి.',
+      en: 'First chilli picking begins; monitor for powdery mildew.'
+    },
+    riskStatus: 'favorable'
+  },
+  {
+    month: { hi: 'जनवरी 2027', te: 'జనవరి 2027', en: 'January 2027' },
+    rainExpectation: {
+      hi: 'शुष्क मौसम (वर्षा की संभावना < 5%)',
+      te: 'పొడి వాతావరణం (వర్షం < 5%)',
+      en: 'Dry Weather Expected (< 5% Rain Chance)'
+    },
+    temperatureTrend: {
+      hi: 'ठंडी हवाएं एवं खिली धूप (14°C - 29°C)',
+      te: 'చల్లని గాలులు, స్పష్టమైన ఎండ',
+      en: 'Chilly Winds & Crisp Sun (14°C - 29°C)'
+    },
+    farmingImpact: {
+      hi: 'मिर्च सुखाने व खुले यार्ड में धूप लगाने के लिए आदर्श समय।',
+      te: 'మిర్చి ఆరబెట్టడానికి, నిల్వ చేయడానికి ఉత్తమ సమయం.',
+      en: 'Ideal dry sunshine period for chilli pod sun-drying on yards.'
+    },
+    riskStatus: 'favorable'
+  }
+];

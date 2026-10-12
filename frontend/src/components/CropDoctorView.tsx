@@ -1,0 +1,173 @@
+import { useState, type FC } from 'react';
+import type { Language, CropDisease } from '../types';
+import { translations } from '../data/i18n';
+import { CROP_CHIPS, CROP_DISEASES } from '../data/mockData';
+import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
+
+interface CropDoctorViewProps {
+  currentLang: Language;
+  selectedCropKey: string;
+  onOpenHelpline: (number: string) => void;
+}
+
+export const CropDoctorView: FC<CropDoctorViewProps> = ({
+  currentLang,
+  selectedCropKey,
+  onOpenHelpline
+}) => {
+  const t = translations[currentLang];
+  const [analyzing, setAnalyzing] = useState(false);
+  const [hasScanned, setHasScanned] = useState(true);
+
+  const matchedCrop = CROP_CHIPS.find(c => c.key === selectedCropKey);
+  const activeDisease: CropDisease =
+    CROP_DISEASES[selectedCropKey] || CROP_DISEASES['chilli'];
+
+  const handleSimulateScan = () => {
+    setAnalyzing(true);
+    setTimeout(() => {
+      setAnalyzing(false);
+      setHasScanned(true);
+    }, 1200);
+  };
+
+  const confidenceText =
+    currentLang === 'hi'
+      ? 'AI विश्वसनीयता: 98%'
+      : currentLang === 'te'
+      ? 'AI ఖచ్చితత్వం: 98%'
+      : 'AI Accuracy: 98%';
+
+  const actionRequiredText =
+    currentLang === 'hi'
+      ? 'उच्च गंभीरता (तत्काल ध्यान दें)'
+      : currentLang === 'te'
+      ? 'తీవ్రమైన ప్రమాదం (చర్య అవసరం)'
+      : 'High Severity (Action Required)';
+
+  return (
+    <div className="crop-doctor-container">
+      {/* Selected Crop Banner */}
+      <div className="doctor-crop-indicator-banner">
+        <div className="crop-avatar-wrap">
+          <span className="crop-avatar-icon">{matchedCrop?.icon || '🌱'}</span>
+        </div>
+        <div>
+          <h3 className="doc-crop-title">
+            {t.doctorTitle} - {matchedCrop?.name[currentLang] || selectedCropKey}
+          </h3>
+          <p className="doc-crop-desc">
+            {currentLang === 'hi'
+              ? 'एआई द्वारा रोग पहचान एवं मौसम-सुरक्षित उपचार अनुशंसा'
+              : currentLang === 'te'
+              ? 'AI ద్వారా పంట తెగుళ్ల గుర్తింపు & వాతావరణ అనుకూల నివారణ'
+              : 'AI Leaf Diagnostic & Weather-Aware Treatment Plan'}
+          </p>
+        </div>
+      </div>
+
+      {/* Step: Camera Capture / Upload */}
+      <div className="camera-upload-box">
+        <div className="camera-preview-frame">
+          <div className="leaf-overlay-graphic">
+            <span className="leaf-icon">🍃</span>
+            <div className="scan-line" />
+          </div>
+          <div className="camera-instruction">
+            <h4>{t.takePhotoTitle}</h4>
+            <p>
+              {currentLang === 'hi'
+                ? 'रोगग्रस्त पत्ते को सूर्य की रोशनी में रखकर सामने से फोटो लें'
+                : currentLang === 'te'
+                ? 'తెగులు సోకిన ఆకును వెలుతురులో ఉంచి స్పష్టంగా ఫోటో తీయండి'
+                : 'Place the affected leaf under natural daylight and capture a clear close-up'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSimulateScan}
+          disabled={analyzing}
+          className="snap-photo-btn"
+        >
+          {analyzing ? (
+            <>
+              <RefreshCw size={20} className="spinning" />
+              <span>
+                {currentLang === 'hi'
+                  ? 'एआई विश्लेषण जारी है...'
+                  : currentLang === 'te'
+                  ? 'AI విశ్లేషిస్తోంది...'
+                  : 'AI Analyzing Symptoms...'}
+              </span>
+            </>
+          ) : (
+            <>
+              <Camera size={20} />
+              <span>{t.clickCamera}</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Diagnostic Report & Spraying Caution */}
+      {hasScanned && (
+        <div className="diagnosis-result-card">
+          <div className="diagnosis-header">
+            <div className="status-badge-wrap">
+              <span className="confidence-pill">
+                <Sparkles size={14} />
+                <span>{confidenceText}</span>
+              </span>
+              <span className="severity-pill danger">
+                <ShieldAlert size={14} />
+                <span>{actionRequiredText}</span>
+              </span>
+            </div>
+            <h3 className="disease-title">{activeDisease.diseaseName[currentLang]}</h3>
+          </div>
+
+          {/* Symptoms */}
+          <div className="diagnosis-section">
+            <h4 className="diag-subheading">{t.symptomsLabel}</h4>
+            <p className="diag-text">{activeDisease.symptoms[currentLang]}</p>
+          </div>
+
+          {/* Weather & Spraying Warning (Thursday Rain Linkage!) */}
+          <div className="spraying-caution-box">
+            <div className="caution-header">
+              <AlertCircle size={20} className="caution-icon" />
+              <strong>{t.weatherRiskLabel}</strong>
+            </div>
+            <p className="caution-text">{activeDisease.sprayingWarning[currentLang]}</p>
+          </div>
+
+          {/* Treatments: Chemical + Organic */}
+          <div className="treatment-grid">
+            <div className="treatment-card chemical">
+              <h5 className="treatment-title">{t.chemicalTreatmentLabel}</h5>
+              <p>{activeDisease.chemicalTreatment[currentLang]}</p>
+            </div>
+            <div className="treatment-card organic">
+              <h5 className="treatment-title">{t.organicTreatmentLabel}</h5>
+              <p>{activeDisease.organicTreatment[currentLang]}</p>
+            </div>
+          </div>
+
+          {/* Talk to Scientist */}
+          <div className="doctor-helpline-bar">
+            <span>{t.talkToScientist}</span>
+            <button
+              type="button"
+              onClick={() => onOpenHelpline('1551')}
+              className="doc-call-btn"
+            >
+              📞 {t.freeCallBtn}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
