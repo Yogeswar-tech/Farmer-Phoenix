@@ -1,4 +1,12 @@
 import { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView
+} from 'react-native';
 import type { Language, MandiItem, NavigationTab, LocationOption } from './types';
 import { MANDI_DATABASE, AGRICULTURAL_LOCATIONS } from './data/mockData';
 import { translations } from './data/i18n';
@@ -13,11 +21,12 @@ import { PesticideDosageView } from './components/PesticideDosageView';
 import { SoilDoctorView } from './components/SoilDoctorView';
 import { SchemesSection } from './components/SchemesSection';
 import { ColdStorageMapView } from './components/ColdStorageMapView';
+import { EducationalChartsView } from './components/EducationalChartsView';
+import { AiVoiceAssistantModal } from './components/AiVoiceAssistantModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
 import { LoginModal } from './components/LoginModal';
 import { LocationModal } from './components/LocationModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { MobileMockupView } from './components/MobileMockupView';
 import {
   Stethoscope,
   Landmark,
@@ -25,9 +34,10 @@ import {
   CloudRain,
   Warehouse,
   Lock,
-  Columns,
-  Monitor,
-  Smartphone
+  BarChart3,
+  Sparkles,
+  Mic,
+  Bot
 } from 'lucide-react';
 
 export function App() {
@@ -36,8 +46,11 @@ export function App() {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [selectedCropKey, setSelectedCropKey] = useState<string>('chilli');
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
-  const [viewMode, setViewMode] = useState<'desktop' | 'mobile' | 'dual'>('dual');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // AI Voice Assistant State
+  const [isAiModeEnabled, setIsAiModeEnabled] = useState(true);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -85,343 +98,551 @@ export function App() {
     window.location.href = `tel:${num}`;
   };
 
-  // Main Web Browser UI content
-  const renderWebBrowserContent = () => (
-    <div className="web-browser-container-frame">
-      <Header
-        currentLang={currentLang}
-        onLanguageChange={setCurrentLang}
-        isMobileSimulator={viewMode === 'mobile'}
-        onToggleSimulator={() => setViewMode(viewMode === 'mobile' ? 'desktop' : 'mobile')}
-        onOpenLogin={() => handleOpenLogin()}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSelectCrop={(key) => setSelectedCropKey(key)}
-        isLoggedIn={isLoggedIn}
-        userName={userName}
-        currentLocation={currentLocation}
-        onOpenLocationModal={() => setIsLocationModalOpen(true)}
-      />
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.appContainer}>
+        {/* Top Header */}
+        <Header
+          currentLang={currentLang}
+          onLanguageChange={setCurrentLang}
+          isAiModeEnabled={isAiModeEnabled}
+          onToggleAiMode={setIsAiModeEnabled}
+          onOpenAiAssistant={() => setIsAiModalOpen(true)}
+          onOpenLogin={() => handleOpenLogin()}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSelectCrop={(key) => setSelectedCropKey(key)}
+          isLoggedIn={isLoggedIn}
+          userName={userName}
+          currentLocation={currentLocation}
+          onOpenLocationModal={() => setIsLocationModalOpen(true)}
+        />
 
-      <GovtLagNotice currentLang={currentLang} />
+        {/* Server Data Sync Notice */}
+        <GovtLagNotice currentLang={currentLang} />
 
-      {/* Main Framework Layout: Desktop Left Sidebar + Dedicated Main Content */}
-      <div className="app-body-layout">
-        {/* Desktop Left Sidebar */}
-        <DesktopSidebar
+        {/* Body Layout: Sidebar + Main Content */}
+        <View style={styles.bodyLayout}>
+          {/* Desktop Left Sidebar */}
+          <DesktopSidebar
+            currentLang={currentLang}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            onOpenHelpline={handleOpenHelpline}
+          />
+
+          {/* Main Scrollable Content */}
+          <ScrollView style={styles.mainScrollView} contentContainerStyle={styles.scrollContent}>
+            {/* TAB 1: Home Dashboard */}
+            {activeTab === 'home' && (
+              <View style={styles.homeLayout}>
+                {/* Greeting Strip */}
+                <View style={styles.greetingStrip}>
+                  <View style={styles.greetingLeft}>
+                    <Text style={styles.farmerName}>
+                      {userName ||
+                        (currentLang === 'hi'
+                          ? 'नमस्ते, किसान भाई'
+                          : currentLang === 'te'
+                          ? 'నమస్తే, రైతు సోదరా'
+                          : 'Namaste, Respected Farmer')}
+                    </Text>
+                    <Text style={styles.locationTag}>
+                      📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]})
+                    </Text>
+                  </View>
+
+                  {/* AI Quick Button */}
+                  {isAiModeEnabled && (
+                    <TouchableOpacity
+                      onPress={() => setIsAiModalOpen(true)}
+                      style={styles.aiBannerBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Sparkles size={16} color="#FFE600" />
+                      <Text style={styles.aiBannerText}>{t.aiAssistantActive}</Text>
+                      <Mic size={15} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Mandi Hero Card */}
+                <MandiHeroCard
+                  currentLang={currentLang}
+                  mandi={activeMandi}
+                  isSummaryOnly={true}
+                  onViewAllGrades={() => setActiveTab('rates')}
+                  onOpenAlertModal={() => setIsAlertModalOpen(true)}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onOpenHelpline={handleOpenHelpline}
+                  onSelectCrop={(key) => setSelectedCropKey(key)}
+                />
+
+                {/* Educational Charts Banner Strip */}
+                <TouchableOpacity
+                  onPress={() => setActiveTab('charts')}
+                  style={styles.eduBannerStrip}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.eduBannerLeft}>
+                    <View style={styles.eduIconWrap}>
+                      <BarChart3 size={24} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.eduTextCol}>
+                      <Text style={styles.eduBannerTitle}>
+                        {currentLang === 'hi'
+                          ? 'व्यापार शैक्षणिक तुलना चार्ट (Education Guide)'
+                          : currentLang === 'te'
+                          ? 'మార్కెట్ విద్యా & గ్రేడింగ్ చార్ట్‌లు (Education Guide)'
+                          : 'Market Education & Quality Grading Charts'}
+                      </Text>
+                      <Text style={styles.eduBannerDesc}>
+                        {currentLang === 'hi'
+                          ? 'ग्रेड-ए एक्सपोर्ट बनाम ग्रेड-सी कटौती, नमी मानक व 5 मंडियों का नकद लाभ विश्लेषण देखें ➔'
+                          : currentLang === 'te'
+                          ? 'గ్రేడ్-ఎ ఎగుమతి vs తాల కోతలు, తేమ శాతం మరియు 5 మార్కెట్ల నికర లాభాల విశ్లేషణ చూడండి ➔'
+                          : 'Compare Grade A export vs Grade C deductions, safe moisture limits & net mandi profit ➔'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.eduArrowTag}>
+                    <Text style={styles.eduArrowText}>
+                      {currentLang === 'hi' ? 'चार्ट खोलें' : currentLang === 'te' ? 'చూడండి' : 'Open Charts'} ➔
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* 4 Action Cards Grid */}
+                <View style={styles.fourCardsGrid}>
+                  {/* Weather */}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('climate')}
+                    style={[styles.fourCard, styles.weatherCard]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardTopLabel}>
+                        {currentLang === 'hi' ? '7-दिवसीय मौसम' : currentLang === 'te' ? '7 రోజుల వాతావరణం' : '7-day weather'}
+                      </Text>
+                      <CloudRain size={20} color="#2563EB" />
+                    </View>
+                    <Text style={styles.cardMainBold}>Rain Thu 31°C</Text>
+                    <Text style={styles.cardSubHint}>(Delay spraying)</Text>
+                  </TouchableOpacity>
+
+                  {/* Doctor */}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('advisory')}
+                    style={[styles.fourCard, styles.doctorCard]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardTopLabel}>
+                        {currentLang === 'hi' ? 'क्रॉप डॉक्टर' : currentLang === 'te' ? 'క్రాప్ డాక్టర్' : 'Crop Doctor'}
+                      </Text>
+                      <Stethoscope size={20} color="#16A34A" />
+                    </View>
+                    <Text style={styles.cardMainBold}>{activeMandi.cropName[currentLang]}</Text>
+                    <Text style={styles.cardSubHint}>leaf curl check</Text>
+                  </TouchableOpacity>
+
+                  {/* Storage */}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('storage')}
+                    style={[styles.fourCard, styles.storageCard]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardTopLabel}>{t.nearestColdStorageCard}</Text>
+                      <Warehouse size={20} color="#9333EA" />
+                    </View>
+                    <Text style={styles.cardMainBold}>12 km</Text>
+                    <Text style={styles.cardSubHint}>({t.spaceFree})</Text>
+                  </TouchableOpacity>
+
+                  {/* Schemes */}
+                  <TouchableOpacity
+                    onPress={() => setActiveTab('schemes')}
+                    style={[styles.fourCard, styles.schemesCard]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardTopLabel}>{t.govSchemesCard}</Text>
+                      <Landmark size={20} color="#D97706" />
+                    </View>
+                    <Text style={styles.cardMainBold}>{t.schemesQualify}</Text>
+                    <Text style={styles.cardSubHint}>Helpline 1800-180-1551</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Login Strip */}
+                <TouchableOpacity
+                  onPress={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
+                  style={styles.dashedLoginStrip}
+                  activeOpacity={0.8}
+                >
+                  <Lock size={15} color="#475569" />
+                  <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* TAB 2: Educational Charts */}
+            {activeTab === 'charts' && (
+              <EducationalChartsView
+                currentLang={currentLang}
+                onOpenHelpline={handleOpenHelpline}
+              />
+            )}
+
+            {/* TAB 3: Mandi Logistics */}
+            {activeTab === 'logistics' && (
+              <MandiLogisticsView
+                currentLang={currentLang}
+                mandi={activeMandi}
+              />
+            )}
+
+            {/* TAB 4: Today's Price */}
+            {activeTab === 'rates' && (
+              <View style={styles.ratesView}>
+                <View style={styles.viewHeaderStrip}>
+                  <TrendingUp size={20} color="#2D5A27" />
+                  <Text style={styles.viewHeaderTitle}>
+                    {t.tabRates} - {activeMandi.cropName[currentLang]}
+                  </Text>
+                </View>
+                <MandiHeroCard
+                  currentLang={currentLang}
+                  mandi={activeMandi}
+                  isSummaryOnly={false}
+                  onOpenAlertModal={() => setIsAlertModalOpen(true)}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onOpenHelpline={handleOpenHelpline}
+                  onSelectCrop={(key) => setSelectedCropKey(key)}
+                />
+              </View>
+            )}
+
+            {/* TAB 5: Climate Prediction */}
+            {activeTab === 'climate' && (
+              <ClimatePredictionView
+                currentLang={currentLang}
+                isLoggedIn={isLoggedIn}
+                onOpenLogin={handleOpenLogin}
+                currentLocation={currentLocation}
+                onSelectLocation={setCurrentLocation}
+              />
+            )}
+
+            {/* TAB 6: Farm Advisory */}
+            {activeTab === 'advisory' && (
+              <CropDoctorView
+                currentLang={currentLang}
+                selectedCropKey={selectedCropKey}
+                onOpenHelpline={handleOpenHelpline}
+              />
+            )}
+
+            {/* TAB 7: Pesticides */}
+            {activeTab === 'pesticides' && (
+              <PesticideDosageView
+                currentLang={currentLang}
+              />
+            )}
+
+            {/* TAB 8: Soil Doctor */}
+            {activeTab === 'soildoctor' && (
+              <SoilDoctorView
+                currentLang={currentLang}
+                onOpenBookingGate={handleOpenLogin}
+              />
+            )}
+
+            {/* TAB 9: Government Schemes */}
+            {activeTab === 'schemes' && (
+              <SchemesSection
+                currentLang={currentLang}
+                onOpenHelpline={handleOpenHelpline}
+                onLockedFeatureClick={(feat) => handleOpenLogin(feat)}
+              />
+            )}
+
+            {/* TAB 10: Cold Storage */}
+            {activeTab === 'storage' && (
+              <ColdStorageMapView
+                currentLang={currentLang}
+                onOpenHelpline={handleOpenHelpline}
+                onOpenBookingGate={handleOpenLogin}
+              />
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Sticky Mobile Bottom Navigation */}
+        <MobileBottomNav
           currentLang={currentLang}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
-          onOpenHelpline={handleOpenHelpline}
         />
 
-        {/* Dedicated Screen View */}
-        <main className="main-content-display">
-          {/* Tab 1: Clean Executive Home Dashboard Matching Reference Mockup */}
-          {activeTab === 'home' && (
-            <div className="home-dashboard-layout">
-              {/* Farmer Greeting from Mockup */}
-              <div className="home-farmer-greeting-strip">
-                <h2 className="home-farmer-name">
-                  {userName || (currentLang === 'hi' ? 'नमस्ते, रमेश' : currentLang === 'te' ? 'నమస్తే, రమేష్' : 'Namaste, Ramesh')}
-                </h2>
-              </div>
-
-              {/* Primary Hero Mandi Summary Card */}
-              <MandiHeroCard
-                currentLang={currentLang}
-                mandi={activeMandi}
-                isSummaryOnly={true}
-                onViewAllGrades={() => setActiveTab('rates')}
-                onOpenAlertModal={() => setIsAlertModalOpen(true)}
-                onShareWhatsApp={handleShareWhatsApp}
-                onOpenHelpline={handleOpenHelpline}
-                onSelectCrop={(key) => setSelectedCropKey(key)}
-              />
-
-              {/* 4 Clean Rounded Cards (2x2 Grid Matching Mockup Image Exactly) */}
-              <div className="home-mockup-four-cards-grid">
-                {/* Card 1: 7-day weather */}
-                <div
-                  className="mockup-four-card weather-card"
-                  onClick={() => setActiveTab('climate')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="card-top-row">
-                    <span className="card-top-label">{currentLang === 'hi' ? '7-दिवसीय मौसम' : currentLang === 'te' ? '7 రోజుల వాతావరణం' : '7-day weather'}</span>
-                    <CloudRain size={22} className="card-top-icon rain" />
-                  </div>
-                  <div className="card-main-text">
-                    <strong>Rain Thu 31°C</strong>
-                    <span className="card-sub-hint"> (Delay spraying)</span>
-                  </div>
-                </div>
-
-                {/* Card 2: Crop Doctor */}
-                <div
-                  className="mockup-four-card doctor-card"
-                  onClick={() => setActiveTab('advisory')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="card-top-row">
-                    <span className="card-top-label">{currentLang === 'hi' ? 'क्रॉप डॉक्टर' : currentLang === 'te' ? 'క్రాప్ డాక్టర్' : 'Crop Doctor'}</span>
-                    <Stethoscope size={22} className="card-top-icon doctor" />
-                  </div>
-                  <div className="card-main-text">
-                    <strong>{activeMandi.cropName[currentLang]}</strong>
-                    <span className="card-sub-hint"> leaf curl check</span>
-                  </div>
-                </div>
-
-                {/* Card 3: Nearest cold storage */}
-                <div
-                  className="mockup-four-card storage-card"
-                  onClick={() => setActiveTab('storage')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="card-top-row">
-                    <span className="card-top-label">{t.nearestColdStorageCard}</span>
-                    <Warehouse size={22} className="card-top-icon storage" />
-                  </div>
-                  <div className="card-main-text">
-                    <strong>12 km</strong>
-                    <span className="card-sub-hint"> ({t.spaceFree})</span>
-                  </div>
-                </div>
-
-                {/* Card 4: Gov Schemes */}
-                <div
-                  className="mockup-four-card schemes-card"
-                  onClick={() => setActiveTab('schemes')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="card-top-row">
-                    <span className="card-top-label">{t.govSchemesCard}</span>
-                    <Landmark size={22} className="card-top-icon schemes" />
-                  </div>
-                  <div className="card-main-text">
-                    <strong>{t.schemesQualify}</strong>
-                    <span className="card-sub-hint"> (📞 Helpline 1800-180-1551 Call)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dashed Login Strip from Mockup Image */}
-              <div
-                className="mockup-dashed-login-strip"
-                onClick={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
-                role="button"
-                tabIndex={0}
-              >
-                <Lock size={15} className="lock-icon" />
-                <span>{t.loginForecastStrip}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Tab 2: Mandi Logistics & ROI Calculator with Product Search */}
-          {activeTab === 'logistics' && (
-            <MandiLogisticsView
-              currentLang={currentLang}
-              mandi={activeMandi}
-            />
-          )}
-
-          {/* Tab 3: Detailed Live Rates with Product Search & All Grades */}
-          {activeTab === 'rates' && (
-            <div className="detailed-rates-view">
-              <div className="view-header-strip">
-                <h2 className="view-title">
-                  <TrendingUp size={22} />
-                  <span>{t.tabRates} - {activeMandi.cropName[currentLang]}</span>
-                </h2>
-              </div>
-              <MandiHeroCard
-                currentLang={currentLang}
-                mandi={activeMandi}
-                isSummaryOnly={false}
-                onOpenAlertModal={() => setIsAlertModalOpen(true)}
-                onShareWhatsApp={handleShareWhatsApp}
-                onOpenHelpline={handleOpenHelpline}
-                onSelectCrop={(key) => setSelectedCropKey(key)}
-              />
-            </div>
-          )}
-
-          {/* Tab 4: Climate Prediction (Town Search & Crop Suitability Advisory) */}
-          {activeTab === 'climate' && (
-            <ClimatePredictionView
-              currentLang={currentLang}
-              isLoggedIn={isLoggedIn}
-              onOpenLogin={handleOpenLogin}
-              currentLocation={currentLocation}
-              onSelectLocation={setCurrentLocation}
-            />
-          )}
-
-          {/* Tab 5: AI Farm Advisory & Leaf Camera Diagnostic */}
-          {activeTab === 'advisory' && (
-            <CropDoctorView
-              currentLang={currentLang}
-              selectedCropKey={selectedCropKey}
-              onOpenHelpline={handleOpenHelpline}
-            />
-          )}
-
-          {/* Tab 6: Pesticides & Knapsack Pump Dosage Calculator */}
-          {activeTab === 'pesticides' && (
-            <PesticideDosageView
-              currentLang={currentLang}
-            />
-          )}
-
-          {/* Tab 7: Soil Doctor (Soil Health Card & NPK Analysis) */}
-          {activeTab === 'soildoctor' && (
-            <SoilDoctorView
-              currentLang={currentLang}
-              onOpenBookingGate={handleOpenLogin}
-            />
-          )}
-
-          {/* Tab 8: Government Schemes & Credit */}
-          {activeTab === 'schemes' && (
-            <SchemesSection
-              currentLang={currentLang}
-              onOpenHelpline={handleOpenHelpline}
-              onLockedFeatureClick={(feat) => handleOpenLogin(feat)}
-            />
-          )}
-
-          {/* Tab 9: Cold Storage & Godown Finder Map */}
-          {activeTab === 'storage' && (
-            <ColdStorageMapView
-              currentLang={currentLang}
-              onOpenHelpline={handleOpenHelpline}
-              onOpenBookingGate={handleOpenLogin}
-            />
-          )}
-        </main>
-      </div>
-
-      {/* Mobile Sticky Bottom Navigation */}
-      <MobileBottomNav
-        currentLang={currentLang}
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-      />
-    </div>
-  );
-
-  return (
-    <div className="app-viewport-wrapper">
-      {/* Top View Mode Switcher Ribbon */}
-      <div className="view-mode-selector-strip">
-        <div className="view-mode-tabs">
-          <button
-            type="button"
-            onClick={() => setViewMode('dual')}
-            className={`mode-btn ${viewMode === 'dual' ? 'active' : ''}`}
+        {/* Floating AI Voice Assistant Button */}
+        {isAiModeEnabled && (
+          <TouchableOpacity
+            onPress={() => setIsAiModalOpen(true)}
+            style={styles.floatingFab}
+            activeOpacity={0.8}
           >
-            <Columns size={15} />
-            <span>Dual View (Browser + Mobile Mockup)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('desktop')}
-            className={`mode-btn ${viewMode === 'desktop' ? 'active' : ''}`}
-          >
-            <Monitor size={15} />
-            <span>Web Browser View</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('mobile')}
-            className={`mode-btn ${viewMode === 'mobile' ? 'active' : ''}`}
-          >
-            <Smartphone size={15} />
-            <span>Mobile App View</span>
-          </button>
-        </div>
-      </div>
+            <Bot size={24} color="#FFFFFF" />
+            <Text style={styles.fabText}>
+              {currentLang === 'hi' ? 'बोलकर पूछें' : currentLang === 'te' ? 'మాట్లాడండి' : 'Ask AI'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
-      {/* Mode 1: Dual Side-by-Side View Matching media_1791810867282.jpg */}
-      {viewMode === 'dual' && (
-        <div className="dual-side-by-side-layout">
-          <div className="dual-pane-left">
-            <div className="pane-title-tag">Web Browser</div>
-            {renderWebBrowserContent()}
-          </div>
-          <div className="dual-pane-right">
-            <div className="pane-title-tag">Mobile App</div>
-            <div className="simulator-phone-frame mockup-fit">
-              <div className="phone-notch" />
-              <div className="phone-screen-content">
-                <MobileMockupView
-                  currentLang={currentLang}
-                  activeMandi={activeMandi}
-                  selectedCropKey={selectedCropKey}
-                  onSelectCrop={(k) => setSelectedCropKey(k)}
-                  onViewAllRates={() => setActiveTab('rates')}
-                  onShareWhatsApp={handleShareWhatsApp}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Modals */}
+        <AiVoiceAssistantModal
+          isOpen={isAiModalOpen}
+          onClose={() => setIsAiModalOpen(false)}
+          currentLang={currentLang}
+          activeMandi={activeMandi}
+          isAiModeEnabled={isAiModeEnabled}
+          onToggleAiMode={setIsAiModeEnabled}
+        />
 
-      {/* Mode 2: Full Desktop Web Browser */}
-      {viewMode === 'desktop' && renderWebBrowserContent()}
+        <PriceAlertModal
+          currentLang={currentLang}
+          isOpen={isAlertModalOpen}
+          onClose={() => setIsAlertModalOpen(false)}
+          cropName={activeMandi.cropName[currentLang]}
+          defaultPrice={activeMandi.grades[1]?.modalPrice || 14200}
+        />
 
-      {/* Mode 3: Standalone Mobile Simulator */}
-      {viewMode === 'mobile' && (
-        <div className="simulator-active-backdrop">
-          <div className="simulator-phone-frame standalone">
-            <div className="phone-notch" />
-            <div className="phone-screen-content">
-              <MobileMockupView
-                currentLang={currentLang}
-                activeMandi={activeMandi}
-                selectedCropKey={selectedCropKey}
-                onSelectCrop={(k) => setSelectedCropKey(k)}
-                onViewAllRates={() => setActiveTab('rates')}
-                onShareWhatsApp={handleShareWhatsApp}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+        <LoginModal
+          currentLang={currentLang}
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          onLoginSuccess={handleLoginSuccess}
+          lockedFeatureName={lockedFeatureName}
+        />
 
-      {/* Modals */}
-      <PriceAlertModal
-        currentLang={currentLang}
-        isOpen={isAlertModalOpen}
-        onClose={() => setIsAlertModalOpen(false)}
-        cropName={activeMandi.cropName[currentLang]}
-        defaultPrice={activeMandi.grades[1]?.modalPrice || 14200}
-      />
-
-      <LoginModal
-        currentLang={currentLang}
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
-        lockedFeatureName={lockedFeatureName}
-      />
-
-      <LocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        currentLocation={currentLocation}
-        onSelectLocation={setCurrentLocation}
-        currentLang={currentLang}
-      />
-    </div>
+        <LocationModal
+          isOpen={isLocationModalOpen}
+          onClose={() => setIsLocationModalOpen(false)}
+          currentLocation={currentLocation}
+          onSelectLocation={setCurrentLocation}
+          currentLang={currentLang}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  appContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    position: 'relative',
+  },
+  bodyLayout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainScrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  homeLayout: {
+    padding: 16,
+    gap: 16,
+  },
+  greetingStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  greetingLeft: {
+    gap: 2,
+  },
+  farmerName: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  locationTag: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B7746',
+  },
+  aiBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2D5A27',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    shadowColor: '#2D5A27',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  aiBannerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  eduBannerStrip: {
+    backgroundColor: '#EBF5EA',
+    borderWidth: 1.5,
+    borderColor: '#C2E4BF',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  eduBannerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  eduIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#2D5A27',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eduTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  eduBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3F1A',
+  },
+  eduBannerDesc: {
+    fontSize: 12,
+    color: '#3B6836',
+    lineHeight: 16,
+  },
+  eduArrowTag: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  eduArrowText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2D5A27',
+  },
+  fourCardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  fourCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  weatherCard: {},
+  doctorCard: {},
+  storageCard: {},
+  schemesCard: {},
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cardTopLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  cardMainBold: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  cardSubHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  dashedLoginStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+  },
+  loginStripText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  ratesView: {
+    padding: 16,
+    gap: 12,
+  },
+  viewHeaderStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  floatingFab: {
+    position: 'absolute',
+    bottom: 74,
+    right: 20,
+    backgroundColor: '#2D5A27',
+    borderRadius: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#2D5A27',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    borderWidth: 2,
+    borderColor: '#A2DC9A',
+    zIndex: 900,
+  },
+  fabText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+});
 
 export default App;

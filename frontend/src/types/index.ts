@@ -9,7 +9,8 @@ export type NavigationTab =
   | 'pesticides'
   | 'soildoctor'
   | 'schemes'
-  | 'storage';
+  | 'storage'
+  | 'charts';
 
 export type LocationOption = {
   id: string;
