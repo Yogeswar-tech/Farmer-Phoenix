@@ -1,0 +1,30 @@
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment & package managers
+.venv/
+venv/
+ENV/
+
+# Testing & quality caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local developer secrets (injected via --env-file or compose at runtime)
+.env
+
+# Tests and evals (not needed in lean runtime image)
+tests/
+evals/
+
+# Git and OS metadata
+.git/
+.gitignore
+.DS_Store
+*.log

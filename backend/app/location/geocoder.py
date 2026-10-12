@@ -77,7 +77,11 @@ class Geocoder:
                 return coords
 
         # 2. Try Google Maps Geocoding API if key configured
-        if self.api_key:
+        if (
+            self.api_key
+            and not self.api_key.startswith("your_")
+            and "placeholder" not in self.api_key.lower()
+        ):
             try:
                 url = "https://maps.googleapis.com/maps/api/geocode/json"
                 async with httpx.AsyncClient(timeout=10.0) as client:

@@ -57,10 +57,41 @@ def validate_grounded_numbers(
 
     # Ignore common calendar years or date digits
     common_date_numbers = {
-        2024.0, 2025.0, 2026.0, 2027.0,
-        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-        11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0,
-        21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0,
+        2024.0,
+        2025.0,
+        2026.0,
+        2027.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        10.0,
+        11.0,
+        12.0,
+        13.0,
+        14.0,
+        15.0,
+        16.0,
+        17.0,
+        18.0,
+        19.0,
+        20.0,
+        21.0,
+        22.0,
+        23.0,
+        24.0,
+        25.0,
+        26.0,
+        27.0,
+        28.0,
+        29.0,
+        30.0,
+        31.0,
         100.0,
     }
 
@@ -76,8 +107,7 @@ def validate_grounded_numbers(
 
     if unsupported:
         violations = [
-            f"Number {n:.0f} in response does not match injected fact numbers"
-            for n in unsupported
+            f"Number {n:.0f} in response does not match injected fact numbers" for n in unsupported
         ]
         return False, violations
 

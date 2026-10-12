@@ -589,7 +589,11 @@ class AgmarknetFetcher:
         fallback_to_sample: bool = True,
     ) -> list[MandiPriceRecord]:
         """Fetch prices from data.gov.in API with query parameters."""
-        if not self.api_key:
+        if (
+            not self.api_key
+            or self.api_key.startswith("your_")
+            or "placeholder" in self.api_key.lower()
+        ):
             logger.warning("No data.gov.in API key configured (KS_DATA_GOV_API_KEY).")
             if fallback_to_sample:
                 logger.info("Using sample mock mandi data for local testing.")

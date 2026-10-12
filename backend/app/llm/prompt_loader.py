@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any
 
-PROMPTS_ROOT = Path("prompts")
+BASE_DIR = Path(__file__).resolve().parents[2]
+PROMPTS_ROOT = BASE_DIR / "prompts" if (BASE_DIR / "prompts").exists() else Path("prompts")
 SHARED_ROOT = PROMPTS_ROOT / "_shared"
 
 

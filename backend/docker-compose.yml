@@ -1,0 +1,32 @@
+# ==============================================================================
+# Kisan Sethu Backend - Docker Compose Setup
+# ==============================================================================
+# Usage:
+#   docker compose up --build -d   # Start in background
+#   docker compose logs -f         # Follow container logs
+#   docker compose down            # Stop and tear down
+# ==============================================================================
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kisan-sethu-backend:latest
+    container_name: kisan-sethu-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - KS_ENV=local
+    volumes:
+      # Mount data folder so RAG vector stores & audit logs persist on host
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

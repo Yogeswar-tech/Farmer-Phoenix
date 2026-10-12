@@ -56,9 +56,7 @@ class PriceChunker:
                 {"namespace": "commodity", "allow": [record.commodity.lower()]},
                 {"namespace": "state", "allow": [record.state.lower()]},
             ],
-            "numeric_restricts": [
-                {"namespace": "price_kg", "value_float": record.price_per_kg}
-            ],
+            "numeric_restricts": [{"namespace": "price_kg", "value_float": record.price_per_kg}],
         }
 
         return PriceChunk(chunk_id=chunk_id, text=text, metadata=metadata)

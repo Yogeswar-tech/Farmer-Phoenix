@@ -116,9 +116,7 @@ def main() -> None:
     parser.add_argument(
         "--commodity", type=str, default=None, help="Vegetable commodity (e.g. 'Tomato')"
     )
-    parser.add_argument(
-        "--state", type=str, default=None, help="State filter (e.g. 'Maharashtra')"
-    )
+    parser.add_argument("--state", type=str, default=None, help="State filter (e.g. 'Maharashtra')")
     parser.add_argument("--limit", type=int, default=200, help="Maximum records to ingest")
     parser.add_argument(
         "--local-dump", type=str, default=None, help="Path to local historical CSV/JSON dump"

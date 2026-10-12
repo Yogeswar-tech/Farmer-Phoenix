@@ -32,18 +32,28 @@ class LLMGateway:
         if self._client is not None:
             return self._client
 
-        if self.project_id:
+        if (
+            self.project_id
+            and not self.project_id.startswith("your_")
+            and "placeholder" not in self.project_id.lower()
+        ):
             logger.info("Initializing LLM Gateway in Vertex AI mode (%s)", self.project_id)
             self._client = genai.Client(
                 vertexai=True,
                 project=self.project_id,
                 location=self.location,
             )
-        elif self.api_key:
+        elif (
+            self.api_key
+            and not self.api_key.startswith("your_")
+            and "placeholder" not in self.api_key.lower()
+        ):
             logger.info("Initializing LLM Gateway with Gemini API Key")
             self._client = genai.Client(api_key=self.api_key)
         else:
-            logger.warning("No LLM credentials configured (KS_GEMINI_API_KEY / KS_GCP_PROJECT_ID)")
+            logger.warning(
+                "No valid LLM credentials configured (KS_GEMINI_API_KEY / KS_GCP_PROJECT_ID)"
+            )
             return None
 
         return self._client

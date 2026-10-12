@@ -46,9 +46,13 @@ class GoogleSheetsWriter:
         if self._service is not None:
             return self._service
 
-        if not self.service_account_path:
+        if (
+            not self.service_account_path
+            or self.service_account_path.startswith("your_")
+            or "path/to" in self.service_account_path
+        ):
             raise ValueError(
-                "Missing service account path. Please set KS_GOOGLE_SERVICE_ACCOUNT_PATH."
+                "Missing valid service account path. Please set KS_GOOGLE_SERVICE_ACCOUNT_PATH."
             )
 
         key_file = Path(self.service_account_path)

@@ -68,4 +68,3 @@ def test_insight_endpoint() -> None:
     assert "numbers" in data
     assert "provenance" in data
     assert "freshness" in data
-
