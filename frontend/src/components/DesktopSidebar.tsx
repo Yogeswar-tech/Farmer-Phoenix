@@ -1,4 +1,5 @@
 import type { FC, ReactNode } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { Language, NavigationTab } from '../types';
 import { translations } from '../data/i18n';
 import {
@@ -11,7 +12,8 @@ import {
   TestTube2,
   Landmark,
   Warehouse,
-  PhoneCall
+  PhoneCall,
+  BarChart3
 } from 'lucide-react';
 
 interface DesktopSidebarProps {
@@ -31,6 +33,7 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
 
   const menuItems: { id: NavigationTab; label: string; icon: ReactNode; badge?: string }[] = [
     { id: 'home', label: t.tabHome, icon: <Home size={18} /> },
+    { id: 'charts', label: t.tabCharts, icon: <BarChart3 size={18} />, badge: 'Guide' },
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={18} />, badge: 'ROI' },
     { id: 'rates', label: t.tabRates, icon: <TrendingUp size={18} />, badge: 'Live' },
     { id: 'climate', label: t.tabClimate, icon: <CloudSun size={18} /> },
@@ -42,48 +45,163 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
   ];
 
   return (
-    <aside className="desktop-sidebar-nav" aria-label="Desktop Navigation">
-      <div className="sidebar-inner">
-        <div className="sidebar-menu-header">
-          <span className="sidebar-section-title">
-            {currentLang === 'hi' ? 'कृषि सेवाएं (Agri Modules)' : currentLang === 'te' ? 'సేవలు (Services)' : 'Agri Command Center'}
-          </span>
-        </div>
+    <View style={styles.sidebar}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>
+          {currentLang === 'hi'
+            ? 'कृषि सेवाएं (Agri Modules)'
+            : currentLang === 'te'
+            ? 'సేవలు (Services)'
+            : 'Agri Command Center'}
+        </Text>
+      </View>
 
-        <nav className="sidebar-nav-list">
-          {menuItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelectTab(item.id)}
-                className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
-              >
-                <div className="item-icon-wrap">{item.icon}</div>
-                <span className="item-label">{item.label}</span>
-                {item.badge && <span className="item-badge">{item.badge}</span>}
-              </button>
-            );
-          })}
-        </nav>
+      <View style={styles.navList}>
+        {menuItems.map((item) => {
+          const isActive = activeTab === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => onSelectTab(item.id)}
+              style={[styles.navItem, isActive && styles.navItemActive]}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconWrap}>
+                {item.icon}
+              </View>
+              <Text style={[styles.itemLabel, isActive && styles.itemLabelActive]}>
+                {item.label}
+              </Text>
+              {item.badge && (
+                <View style={[styles.badge, isActive && styles.badgeActive]}>
+                  <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>
+                    {item.badge}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-        {/* Quick Sidebar Help Card */}
-        <div className="sidebar-helpline-box">
-          <div className="box-title">
-            <PhoneCall size={14} />
-            <span>{t.kisanCallCenter}</span>
-          </div>
-          <p className="box-sub">1551 ({t.tollFreeTag})</p>
-          <button
-            type="button"
-            onClick={() => onOpenHelpline('1551')}
-            className="sidebar-call-btn"
-          >
-            {t.freeCallBtn}
-          </button>
-        </div>
-      </div>
-    </aside>
+      <View style={styles.helplineBox}>
+        <View style={styles.helplineTitleRow}>
+          <PhoneCall size={14} color="#2D5A27" />
+          <Text style={styles.helplineTitle}>{t.kisanCallCenter}</Text>
+        </View>
+        <Text style={styles.helplineSub}>1551 ({t.tollFreeTag})</Text>
+        <TouchableOpacity
+          onPress={() => onOpenHelpline('1551')}
+          style={styles.callBtn}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.callBtnText}>{t.freeCallBtn}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  sidebar: {
+    width: 250,
+    backgroundColor: '#FFFFFF',
+    borderRightWidth: 1,
+    borderRightColor: '#E2E8F0',
+    padding: 16,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  header: {
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  headerTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  navList: {
+    gap: 4,
+    flex: 1,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  navItemActive: {
+    backgroundColor: '#EFF7EE',
+  },
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  itemLabelActive: {
+    color: '#2D5A27',
+    fontWeight: '800',
+  },
+  badge: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  badgeActive: {
+    backgroundColor: '#2D5A27',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  badgeTextActive: {
+    color: '#FFFFFF',
+  },
+  helplineBox: {
+    marginTop: 16,
+    backgroundColor: '#F0F9ED',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#D2EBD0',
+  },
+  helplineTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  helplineTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E3F1A',
+  },
+  helplineSub: {
+    fontSize: 11,
+    color: '#4B7746',
+    marginBottom: 8,
+  },
+  callBtn: {
+    backgroundColor: '#2D5A27',
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  callBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

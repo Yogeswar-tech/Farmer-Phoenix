@@ -1,4 +1,5 @@
 import { useState, type FC, type ReactNode } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Pressable } from 'react-native';
 import type { Language, NavigationTab } from '../types';
 import { translations } from '../data/i18n';
 import {
@@ -12,6 +13,7 @@ import {
   TestTube2,
   Landmark,
   Warehouse,
+  BarChart3,
   X
 } from 'lucide-react';
 
@@ -30,97 +32,207 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const mainTabs: { id: NavigationTab; label: string; icon: ReactNode }[] = [
-    { id: 'home', label: t.tabHome, icon: <Home size={19} /> },
-    { id: 'rates', label: t.tabRates, icon: <TrendingUp size={19} /> },
-    { id: 'climate', label: t.tabClimate.split(' ')[0], icon: <CloudSun size={19} /> },
-    { id: 'advisory', label: t.tabAdvisory.split(' ')[0], icon: <Leaf size={19} /> },
+    { id: 'home', label: t.tabHome, icon: <Home size={20} color={activeTab === 'home' ? '#2D5A27' : '#64748B'} /> },
+    { id: 'rates', label: t.tabRates, icon: <TrendingUp size={20} color={activeTab === 'rates' ? '#2D5A27' : '#64748B'} /> },
+    { id: 'climate', label: t.tabClimate.split(' ')[0], icon: <CloudSun size={20} color={activeTab === 'climate' ? '#2D5A27' : '#64748B'} /> },
+    { id: 'advisory', label: t.tabAdvisory.split(' ')[0], icon: <Leaf size={20} color={activeTab === 'advisory' ? '#2D5A27' : '#64748B'} /> },
   ];
 
   const moreItems: { id: NavigationTab; label: string; icon: ReactNode }[] = [
-    { id: 'logistics', label: t.tabLogistics, icon: <Truck size={20} /> },
-    { id: 'pesticides', label: t.tabPesticides, icon: <FlaskConical size={20} /> },
-    { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={20} /> },
-    { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={20} /> },
-    { id: 'storage', label: t.tabStorage, icon: <Warehouse size={20} /> },
+    { id: 'charts', label: t.tabCharts.split(' ')[0], icon: <BarChart3 size={22} color={activeTab === 'charts' ? '#2D5A27' : '#334155'} /> },
+    { id: 'logistics', label: t.tabLogistics, icon: <Truck size={22} color={activeTab === 'logistics' ? '#2D5A27' : '#334155'} /> },
+    { id: 'pesticides', label: t.tabPesticides, icon: <FlaskConical size={22} color={activeTab === 'pesticides' ? '#2D5A27' : '#334155'} /> },
+    { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={22} color={activeTab === 'soildoctor' ? '#2D5A27' : '#334155'} /> },
+    { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={22} color={activeTab === 'schemes' ? '#2D5A27' : '#334155'} /> },
+    { id: 'storage', label: t.tabStorage, icon: <Warehouse size={22} color={activeTab === 'storage' ? '#2D5A27' : '#334155'} /> },
   ];
 
-  const isMoreActive = moreItems.some(item => item.id === activeTab);
+  const isMoreActive = moreItems.some((item) => item.id === activeTab);
 
   return (
     <>
-      {/* Mobile Bottom Bar (56px) */}
-      <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
-        <div className="bottom-nav-inner">
-          {mainTabs.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onSelectTab(item.id);
-                  setIsMoreOpen(false);
-                }}
-                className={`nav-tab-btn ${isActive ? 'active' : ''}`}
-              >
-                <div className="nav-icon-wrap">{item.icon}</div>
-                <span className="nav-label">{item.label}</span>
-                {isActive && <span className="active-dot" />}
-              </button>
-            );
-          })}
+      {/* React Native Mobile Bottom Bar */}
+      <View style={styles.bottomBar}>
+        {mainTabs.map((item) => {
+          const isActive = activeTab === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => {
+                onSelectTab(item.id);
+                setIsMoreOpen(false);
+              }}
+              style={styles.tabBtn}
+              activeOpacity={0.7}
+            >
+              <View style={styles.iconWrap}>{item.icon}</View>
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                {item.label}
+              </Text>
+              {isActive && <View style={styles.activeDot} />}
+            </TouchableOpacity>
+          );
+        })}
 
-          {/* More Drawer Button */}
-          <button
-            type="button"
-            onClick={() => setIsMoreOpen(!isMoreOpen)}
-            className={`nav-tab-btn ${isMoreActive || isMoreOpen ? 'active' : ''}`}
-          >
-            <div className="nav-icon-wrap">
-              <Menu size={19} />
-            </div>
-            <span className="nav-label">{currentLang === 'hi' ? 'अन्य' : currentLang === 'te' ? 'మరిన్ని' : 'More'}</span>
-            {(isMoreActive || isMoreOpen) && <span className="active-dot" />}
-          </button>
-        </div>
-      </nav>
+        {/* More Drawer Button */}
+        <TouchableOpacity
+          onPress={() => setIsMoreOpen(!isMoreOpen)}
+          style={styles.tabBtn}
+          activeOpacity={0.7}
+        >
+          <View style={styles.iconWrap}>
+            <Menu size={20} color={isMoreActive || isMoreOpen ? '#2D5A27' : '#64748B'} />
+          </View>
+          <Text style={[styles.tabLabel, (isMoreActive || isMoreOpen) && styles.tabLabelActive]}>
+            {currentLang === 'hi' ? 'अन्य' : currentLang === 'te' ? 'మరిన్ని' : 'More'}
+          </Text>
+          {(isMoreActive || isMoreOpen) && <View style={styles.activeDot} />}
+        </TouchableOpacity>
+      </View>
 
-      {/* Slide-Up Drawer for Additional Modules */}
-      {isMoreOpen && (
-        <div className="mobile-drawer-backdrop" onClick={() => setIsMoreOpen(false)}>
-          <div className="mobile-drawer-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header">
-              <span className="drawer-title">{t.moreTools}</span>
-              <button
-                type="button"
-                onClick={() => setIsMoreOpen(false)}
-                className="drawer-close-btn"
+      {/* Modal Drawer for Additional Modules */}
+      <Modal
+        visible={isMoreOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsMoreOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setIsMoreOpen(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>{t.moreTools}</Text>
+              <TouchableOpacity
+                onPress={() => setIsMoreOpen(false)}
+                style={styles.closeBtn}
+                activeOpacity={0.7}
               >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="drawer-grid">
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.drawerGrid}>
               {moreItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
-                  <button
+                  <TouchableOpacity
                     key={item.id}
-                    type="button"
-                    onClick={() => {
+                    onPress={() => {
                       onSelectTab(item.id);
                       setIsMoreOpen(false);
                     }}
-                    className={`drawer-item-btn ${isActive ? 'active' : ''}`}
+                    style={[styles.gridItem, isActive && styles.gridItemActive]}
+                    activeOpacity={0.7}
                   >
-                    <div className="drawer-icon">{item.icon}</div>
-                    <span className="drawer-label">{item.label}</span>
-                  </button>
+                    <View style={styles.gridIcon}>{item.icon}</View>
+                    <Text style={[styles.gridLabel, isActive && styles.gridLabelActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
-            </div>
-          </div>
-        </div>
-      )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  bottomBar: {
+    height: 60,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    position: 'relative',
+  },
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  tabLabelActive: {
+    color: '#2D5A27',
+    fontWeight: '800',
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#2D5A27',
+    marginTop: 2,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  drawerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  drawerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  gridItem: {
+    width: '30%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  gridItemActive: {
+    backgroundColor: '#EFF7EE',
+    borderColor: '#2D5A27',
+  },
+  gridIcon: {
+    alignItems: 'center',
+  },
+  gridLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  gridLabelActive: {
+    color: '#2D5A27',
+  },
+});
