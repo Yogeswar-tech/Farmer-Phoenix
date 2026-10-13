@@ -3,6 +3,7 @@ import {
   Modal,
   View,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   TextInput,
@@ -18,7 +19,6 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  Bot,
   Send,
   X,
   CheckCircle2,
@@ -304,7 +304,11 @@ export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
           <View style={styles.header}>
             <View style={styles.branding}>
               <View style={styles.avatar}>
-                <Bot size={22} color="#FFFFFF" />
+                <Image
+                  source={{ uri: '/brinjal.png' }}
+                  style={{ width: 26, height: 26 }}
+                  resizeMode="contain"
+                />
                 {isAiModeEnabled && <View style={styles.pulseDot} />}
               </View>
               <View>
@@ -341,15 +345,15 @@ export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
                 {currentLang === 'hi'
                   ? 'एआई वॉइस सहायक बंद है'
                   : currentLang === 'te'
-                  ? 'AI వాయిస్ అసిస్టెంట్ ఆఫ్ చేయబడింది'
-                  : 'AI Voice Assistant is Disabled'}
+                    ? 'AI వాయిస్ అసిస్టెంట్ ఆఫ్ చేయబడింది'
+                    : 'AI Voice Assistant is Disabled'}
               </Text>
               <Text style={styles.disabledText}>
                 {currentLang === 'hi'
                   ? 'बोलकर प्रश्न पूछने हेतु ऊपर दिए गए स्विच से एआई मोड चालू करें।'
                   : currentLang === 'te'
-                  ? 'ప్రశ్నలు అడగడానికి పైన ఉన్న స్విచ్ ద్వారా AI మోడ్ ఆన్ చేయండి.'
-                  : 'Toggle the switch above to enable smart voice farm advisory.'}
+                    ? 'ప్రశ్నలు అడగడానికి పైన ఉన్న స్విచ్ ద్వారా AI మోడ్ ఆన్ చేయండి.'
+                    : 'Toggle the switch above to enable smart voice farm advisory.'}
               </Text>
               <TouchableOpacity
                 onPress={() => onToggleAiMode(true)}

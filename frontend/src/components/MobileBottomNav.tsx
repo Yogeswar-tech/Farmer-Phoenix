@@ -148,6 +148,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 8,
+    flexShrink: 0,
+    zIndex: 100,
+    boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.05)' as any,
   },
   tabBtn: {
     flex: 1,

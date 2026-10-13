@@ -111,6 +111,8 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'column',
     justifyContent: 'space-between',
+    flexShrink: 0,
+    overflow: 'scroll',
   },
   header: {
     marginBottom: 12,

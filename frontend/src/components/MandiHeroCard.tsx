@@ -1,5 +1,5 @@
 import { useState, type FC, type FormEvent } from 'react';
-import type { Language, MandiItem } from '../types';
+import type { Language, MandiItem, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, CHILLI_7DAY_TREND } from '../data/mockData';
 import {
@@ -15,14 +15,27 @@ import {
   Package,
   ArrowRight,
   Search,
+  X,
   Volume2,
   BarChart3,
   MapPin
 } from 'lucide-react';
 
+const CROP_BADGE_STYLES: Record<string, { bg: string; border: string; glow: string }> = {
+  chilli: { bg: '#FEE2E2', border: '#FCA5A5', glow: '#EF4444' },
+  tomato: { bg: '#FFE4E6', border: '#FDA4AF', glow: '#F43F5E' },
+  onion: { bg: '#F3E8FF', border: '#D8B4FE', glow: '#A855F7' },
+  groundnut: { bg: '#FEF3C7', border: '#FDE68A', glow: '#D97706' },
+  cotton: { bg: '#F0F9FF', border: '#BAE6FD', glow: '#0EA5E9' },
+  turmeric: { bg: '#FEF9C3', border: '#FDE047', glow: '#EAB308' },
+  banana: { bg: '#FEF08A', border: '#FACC15', glow: '#CA8A04' },
+  paddy: { bg: '#ECFDF5', border: '#A7F3D0', glow: '#10B981' }
+};
+
 interface MandiHeroCardProps {
   currentLang: Language;
   mandi: MandiItem;
+  currentLocation?: LocationOption;
   isSummaryOnly?: boolean;
   onViewAllGrades?: () => void;
   onOpenAlertModal: () => void;
@@ -34,6 +47,7 @@ interface MandiHeroCardProps {
 export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   currentLang,
   mandi,
+  currentLocation,
   isSummaryOnly = false,
   onViewAllGrades,
   onOpenAlertModal,
@@ -52,14 +66,18 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   const handleProductSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!productSearch.trim() || !onSelectCrop) return;
-    const term = productSearch.toLowerCase();
+    const term = productSearch.toLowerCase().trim();
     const found = CROP_CHIPS.find(
       (c) =>
         c.name[currentLang].toLowerCase().includes(term) ||
+        c.name.en.toLowerCase().includes(term) ||
+        c.name.hi.toLowerCase().includes(term) ||
+        c.name.te.toLowerCase().includes(term) ||
         c.key.toLowerCase().includes(term)
     );
     if (found) {
       onSelectCrop(found.key);
+      setProductSearch('');
     }
   };
 
@@ -109,36 +127,77 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
 
   return (
     <div className="mandi-hero-card">
-      {/* Product Search Panel (In Today's Price / Rates view) */}
+      {/* Product Search & Vegetable Selector Panel (Today's Price tab) */}
       {onSelectCrop && (
         <div className="rates-product-search-panel">
           <form onSubmit={handleProductSearchSubmit} className="rates-search-bar">
-            <Search size={18} className="rates-search-icon" />
+            <Search size={22} className="rates-search-icon" />
             <input
               type="text"
-              placeholder={t.productSearchPlaceholder}
+              placeholder={
+                currentLang === 'hi'
+                  ? 'सब्जी या फसल खोजें (उदा: मिर्च, टमाटर, प्याज, मूंगफली, कपास)...'
+                  : currentLang === 'te'
+                  ? 'కూరగాయ లేదా పంట వెతకండి (మిర్చి, టమోటా, ఉల్లిపాయ, వేరుశనగ, పత్తి)...'
+                  : 'Search vegetable or crop (e.g. Chilli, Tomato, Onion, Groundnut, Cotton)...'
+              }
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
               className="rates-search-input"
             />
+            {productSearch.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setProductSearch('')}
+                className="rates-search-clear-btn"
+                title="Clear input"
+              >
+                <X size={16} />
+              </button>
+            )}
             <button type="submit" className="rates-search-btn">
-              {t.searchBtn}
+              <Search size={16} />
+              <span>{t.searchBtn}</span>
             </button>
           </form>
 
-          {/* Quick Crop Selector Chips */}
+          {/* Quick Vegetable & Crop Selector Chips with clear icons */}
+          <div className="rates-crop-pills-header">
+            <span className="rates-crop-pills-title">
+              🌾 {currentLang === 'hi' ? 'सब्जियां व फसलें (त्वरित चयन):' : currentLang === 'te' ? 'కూరగాయలు & పంటలు (త్వరిత ఎంపిక):' : 'Vegetables & Crops (Quick Select):'}
+            </span>
+            <span className="rates-active-crop-name">
+              {currentLang === 'hi' ? 'सक्रिय भाव:' : currentLang === 'te' ? 'ప్రస్తుత పంట:' : 'Active Rate:'}{' '}
+              <strong className="rates-selected-badge">{mandi.cropName[currentLang]}</strong>
+            </span>
+          </div>
+
           <div className="rates-crop-pills-row">
             {CROP_CHIPS.map((c) => {
               const isSelected = c.key === mandi.cropKey;
+              const badgeStyle = CROP_BADGE_STYLES[c.key] || { bg: '#F1F5F9', border: '#CBD5E1', glow: '#16A34A' };
               return (
                 <button
                   key={c.key}
                   type="button"
                   onClick={() => onSelectCrop(c.key)}
                   className={`rates-crop-pill ${isSelected ? 'active' : ''}`}
+                  aria-pressed={isSelected}
+                  title={`${c.name[currentLang]} (${c.count})`}
                 >
-                  <span className="pill-icon">{c.icon}</span>
-                  <span className="pill-name">{c.name[currentLang]}</span>
+                  <span
+                    className="pill-icon-wrap"
+                    style={{
+                      backgroundColor: badgeStyle.bg,
+                      borderColor: badgeStyle.border
+                    }}
+                  >
+                    {c.icon}
+                  </span>
+                  <div className="pill-text-col">
+                    <span className="pill-name">{c.name[currentLang]}</span>
+                    <span className="pill-mandis-tag">{c.count}</span>
+                  </div>
                 </button>
               );
             })}
@@ -339,16 +398,24 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
           <div className="where-to-sell-card">
             <div className="wts-header">
               <MapPin size={18} className="wts-icon" />
-              <h4 className="wts-title">{t.whereToSellTitle}</h4>
+              <h4 className="wts-title">
+                {t.whereToSellTitle} {currentLocation ? `(${currentLocation.name[currentLang]})` : ''}
+              </h4>
             </div>
             <div className="wts-mandis-grid">
               <div className="wts-mandi-item current">
                 <div className="wts-item-top">
-                  <span className="wts-mandi-tag current">📍 {mandi.mandiName[currentLang]} (Local)</span>
+                  <span className="wts-mandi-tag current">
+                    📍 {mandi.mandiName[currentLang]} ({currentLang === 'hi' ? 'स्थानीय यार्ड · 0 किमी' : currentLang === 'te' ? 'స్థానిక మార్కెట్ · 0 కి.మీ' : 'Local Yard · 0 km'})
+                  </span>
                   <strong className="wts-price">₹{modalGrade.modalPrice.toLocaleString()}{t.quintalUnit}</strong>
                 </div>
                 <span className="wts-status-note">
-                  {currentLang === 'hi' ? 'स्थानीय यार्ड · शून्य अतिरिक्त भाड़ा' : currentLang === 'te' ? 'స్థానిక మార్కెట్ · అదనపు రవాణా ఖర్చు లేదు' : 'Local Yard · Zero Extra Freight'}
+                  {currentLang === 'hi'
+                    ? `स्थानीय यार्ड · शून्य अतिरिक्त भाड़ा`
+                    : currentLang === 'te'
+                    ? `స్థానిక మార్కెట్ · అదనపు రవాణా ఖర్చు లేదు`
+                    : `Local Yard · Zero Extra Freight`}
                 </span>
               </div>
 

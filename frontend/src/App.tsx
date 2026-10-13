@@ -1,14 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   SafeAreaView
 } from 'react-native';
 import type { Language, MandiItem, NavigationTab, LocationOption } from './types';
-import { MANDI_DATABASE, AGRICULTURAL_LOCATIONS } from './data/mockData';
+import {
+  MANDI_DATABASE,
+  AGRICULTURAL_LOCATIONS,
+  getLocationAdaptedMandi,
+  getNearestColdStorage,
+  getNearestLocationFromCoords,
+  getLanguageForLocation
+} from './data/mockData';
 import { translations } from './data/i18n';
 import { Header } from './components/Header';
 import { GovtLagNotice } from './components/GovtLagNotice';
@@ -36,13 +44,88 @@ import {
   Lock,
   BarChart3,
   Sparkles,
-  Mic,
-  Bot
+  Mic
 } from 'lucide-react';
 
 export function App() {
-  const [currentLang, setCurrentLang] = useState<Language>('hi');
-  const [currentLocation, setCurrentLocation] = useState<LocationOption>(AGRICULTURAL_LOCATIONS[0]);
+  // Initialize Location: Check localStorage first, otherwise default to AGRICULTURAL_LOCATIONS[0]
+  const [currentLocation, setCurrentLocation] = useState<LocationOption>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLocId = localStorage.getItem('ks_user_location_id');
+      if (savedLocId) {
+        const found = AGRICULTURAL_LOCATIONS.find((loc) => loc.id === savedLocId);
+        if (found) return found;
+      }
+    }
+    return AGRICULTURAL_LOCATIONS[0];
+  });
+
+  // Initialize Language: Check localStorage first, otherwise match regional language of location (Telugu for AP/Telangana)
+  const [currentLang, setCurrentLang] = useState<Language>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('ks_user_lang') as Language | null;
+      if (savedLang === 'hi' || savedLang === 'te' || savedLang === 'en') {
+        return savedLang;
+      }
+      const savedLocId = localStorage.getItem('ks_user_location_id');
+      if (savedLocId) {
+        const found = AGRICULTURAL_LOCATIONS.find((loc) => loc.id === savedLocId);
+        if (found) return getLanguageForLocation(found);
+      }
+    }
+    return getLanguageForLocation(AGRICULTURAL_LOCATIONS[0]);
+  });
+
+  // Automatically detect user's Geo location and configure location & regional language
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const nearest = getNearestLocationFromCoords(latitude, longitude);
+        const geoLang = getLanguageForLocation(nearest);
+
+        const hasManualLoc = localStorage.getItem('ks_loc_manual') === 'true';
+        if (!hasManualLoc) {
+          setCurrentLocation(nearest);
+          localStorage.setItem('ks_user_location_id', nearest.id);
+        }
+
+        const hasManualLang = localStorage.getItem('ks_lang_manual') === 'true';
+        if (!hasManualLang) {
+          setCurrentLang(geoLang);
+          localStorage.setItem('ks_user_lang', geoLang);
+        }
+      },
+      (err) => {
+        console.log('Browser geolocation:', err.message);
+      },
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+    );
+  }, []);
+
+  const handleLanguageChange = (lang: Language) => {
+    setCurrentLang(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_user_lang', lang);
+      localStorage.setItem('ks_lang_manual', 'true');
+    }
+  };
+
+  const handleLocationChange = (loc: LocationOption) => {
+    setCurrentLocation(loc);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_user_location_id', loc.id);
+      localStorage.setItem('ks_loc_manual', 'true');
+      const hasManualLang = localStorage.getItem('ks_lang_manual') === 'true';
+      if (!hasManualLang) {
+        const geoLang = getLanguageForLocation(loc);
+        setCurrentLang(geoLang);
+        localStorage.setItem('ks_user_lang', geoLang);
+      }
+    }
+  };
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [selectedCropKey, setSelectedCropKey] = useState<string>('chilli');
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
@@ -63,13 +146,18 @@ export function App() {
 
   const t = translations[currentLang];
 
-  // Active Mandi item based on selected crop or search query
-  const activeMandi: MandiItem =
+  // Active Mandi item based on selected crop or search query, dynamically adapted to user's selected location
+  const baseMandi: MandiItem =
     MANDI_DATABASE.find(
       (m) =>
         m.cropKey === selectedCropKey ||
         m.cropName[currentLang].toLowerCase().includes(searchQuery.toLowerCase())
     ) || MANDI_DATABASE[0];
+
+  const activeMandi: MandiItem = getLocationAdaptedMandi(baseMandi, currentLocation);
+
+  // Dynamically calculate nearest cold storage facility based on user's selected location
+  const nearestStorage = getNearestColdStorage(currentLocation);
 
   const handleOpenLogin = (feature?: string) => {
     setLockedFeatureName(feature);
@@ -104,7 +192,7 @@ export function App() {
         {/* Top Header */}
         <Header
           currentLang={currentLang}
-          onLanguageChange={setCurrentLang}
+          onLanguageChange={handleLanguageChange}
           isAiModeEnabled={isAiModeEnabled}
           onToggleAiMode={setIsAiModeEnabled}
           onOpenAiAssistant={() => setIsAiModalOpen(true)}
@@ -116,6 +204,7 @@ export function App() {
           userName={userName}
           currentLocation={currentLocation}
           onOpenLocationModal={() => setIsLocationModalOpen(true)}
+          onSelectLocation={handleLocationChange}
         />
 
         {/* Server Data Sync Notice */}
@@ -144,8 +233,8 @@ export function App() {
                         (currentLang === 'hi'
                           ? 'नमस्ते, किसान भाई'
                           : currentLang === 'te'
-                          ? 'నమస్తే, రైతు సోదరా'
-                          : 'Namaste, Respected Farmer')}
+                            ? 'నమస్తే, రైతు సోదరా'
+                            : 'Namaste, Respected Farmer')}
                     </Text>
                     <Text style={styles.locationTag}>
                       📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]})
@@ -176,6 +265,7 @@ export function App() {
                   onShareWhatsApp={handleShareWhatsApp}
                   onOpenHelpline={handleOpenHelpline}
                   onSelectCrop={(key) => setSelectedCropKey(key)}
+                  currentLocation={currentLocation}
                 />
 
                 {/* Educational Charts Banner Strip */}
@@ -193,15 +283,15 @@ export function App() {
                         {currentLang === 'hi'
                           ? 'व्यापार शैक्षणिक तुलना चार्ट (Education Guide)'
                           : currentLang === 'te'
-                          ? 'మార్కెట్ విద్యా & గ్రేడింగ్ చార్ట్‌లు (Education Guide)'
-                          : 'Market Education & Quality Grading Charts'}
+                            ? 'మార్కెట్ విద్యా & గ్రేడింగ్ చార్ట్‌లు (Education Guide)'
+                            : 'Market Education & Quality Grading Charts'}
                       </Text>
                       <Text style={styles.eduBannerDesc}>
                         {currentLang === 'hi'
                           ? 'ग्रेड-ए एक्सपोर्ट बनाम ग्रेड-सी कटौती, नमी मानक व 5 मंडियों का नकद लाभ विश्लेषण देखें ➔'
                           : currentLang === 'te'
-                          ? 'గ్రేడ్-ఎ ఎగుమతి vs తాల కోతలు, తేమ శాతం మరియు 5 మార్కెట్ల నికర లాభాల విశ్లేషణ చూడండి ➔'
-                          : 'Compare Grade A export vs Grade C deductions, safe moisture limits & net mandi profit ➔'}
+                            ? 'గ్రేడ్-ఎ ఎగుమతి vs తాల కోతలు, తేమ శాతం మరియు 5 మార్కెట్ల నికర లాభాల విశ్లేషణ చూడండి ➔'
+                            : 'Compare Grade A export vs Grade C deductions, safe moisture limits & net mandi profit ➔'}
                       </Text>
                     </View>
                   </View>
@@ -227,7 +317,7 @@ export function App() {
                       <CloudRain size={20} color="#2563EB" />
                     </View>
                     <Text style={styles.cardMainBold}>Rain Thu 31°C</Text>
-                    <Text style={styles.cardSubHint}>(Delay spraying)</Text>
+                    <Text style={styles.cardSubHint}>📍 {currentLocation.name[currentLang]} (Delay spraying)</Text>
                   </TouchableOpacity>
 
                   {/* Doctor */}
@@ -243,7 +333,7 @@ export function App() {
                       <Stethoscope size={20} color="#16A34A" />
                     </View>
                     <Text style={styles.cardMainBold}>{activeMandi.cropName[currentLang]}</Text>
-                    <Text style={styles.cardSubHint}>leaf curl check</Text>
+                    <Text style={styles.cardSubHint}>{currentLocation.district[currentLang]} KVK</Text>
                   </TouchableOpacity>
 
                   {/* Storage */}
@@ -256,8 +346,10 @@ export function App() {
                       <Text style={styles.cardTopLabel}>{t.nearestColdStorageCard}</Text>
                       <Warehouse size={20} color="#9333EA" />
                     </View>
-                    <Text style={styles.cardMainBold}>12 km</Text>
-                    <Text style={styles.cardSubHint}>({t.spaceFree})</Text>
+                    <Text style={styles.cardMainBold}>{nearestStorage.distanceKm} km</Text>
+                    <Text style={styles.cardSubHint}>
+                      {nearestStorage.facility.name[currentLang]} ({t.spaceFree})
+                    </Text>
                   </TouchableOpacity>
 
                   {/* Schemes */}
@@ -270,7 +362,7 @@ export function App() {
                       <Text style={styles.cardTopLabel}>{t.govSchemesCard}</Text>
                       <Landmark size={20} color="#D97706" />
                     </View>
-                    <Text style={styles.cardMainBold}>{t.schemesQualify}</Text>
+                    <Text style={styles.cardMainBold}>{currentLocation.state[currentLang]}</Text>
                     <Text style={styles.cardSubHint}>Helpline 1800-180-1551</Text>
                   </TouchableOpacity>
                 </View>
@@ -292,6 +384,7 @@ export function App() {
               <EducationalChartsView
                 currentLang={currentLang}
                 onOpenHelpline={handleOpenHelpline}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -300,6 +393,7 @@ export function App() {
               <MandiLogisticsView
                 currentLang={currentLang}
                 mandi={activeMandi}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -320,6 +414,7 @@ export function App() {
                   onShareWhatsApp={handleShareWhatsApp}
                   onOpenHelpline={handleOpenHelpline}
                   onSelectCrop={(key) => setSelectedCropKey(key)}
+                  currentLocation={currentLocation}
                 />
               </View>
             )}
@@ -331,7 +426,6 @@ export function App() {
                 isLoggedIn={isLoggedIn}
                 onOpenLogin={handleOpenLogin}
                 currentLocation={currentLocation}
-                onSelectLocation={setCurrentLocation}
               />
             )}
 
@@ -341,6 +435,7 @@ export function App() {
                 currentLang={currentLang}
                 selectedCropKey={selectedCropKey}
                 onOpenHelpline={handleOpenHelpline}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -348,6 +443,7 @@ export function App() {
             {activeTab === 'pesticides' && (
               <PesticideDosageView
                 currentLang={currentLang}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -356,6 +452,7 @@ export function App() {
               <SoilDoctorView
                 currentLang={currentLang}
                 onOpenBookingGate={handleOpenLogin}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -365,6 +462,7 @@ export function App() {
                 currentLang={currentLang}
                 onOpenHelpline={handleOpenHelpline}
                 onLockedFeatureClick={(feat) => handleOpenLogin(feat)}
+                currentLocation={currentLocation}
               />
             )}
 
@@ -374,6 +472,7 @@ export function App() {
                 currentLang={currentLang}
                 onOpenHelpline={handleOpenHelpline}
                 onOpenBookingGate={handleOpenLogin}
+                currentLocation={currentLocation}
               />
             )}
           </ScrollView>
@@ -393,7 +492,11 @@ export function App() {
             style={styles.floatingFab}
             activeOpacity={0.8}
           >
-            <Bot size={24} color="#FFFFFF" />
+            <Image
+              source={{ uri: '/brinjal.png' }}
+              style={styles.fabBrinjalIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.fabText}>
               {currentLang === 'hi' ? 'बोलकर पूछें' : currentLang === 'te' ? 'మాట్లాడండి' : 'Ask AI'}
             </Text>
@@ -430,7 +533,7 @@ export function App() {
           isOpen={isLocationModalOpen}
           onClose={() => setIsLocationModalOpen(false)}
           currentLocation={currentLocation}
-          onSelectLocation={setCurrentLocation}
+          onSelectLocation={handleLocationChange}
           currentLang={currentLang}
         />
       </View>
@@ -441,22 +544,33 @@ export function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    height: '100vh' as any,
+    maxHeight: '100vh' as any,
     backgroundColor: '#F8FAFC',
+    overflow: 'hidden' as any,
   },
   appContainer: {
     flex: 1,
+    height: '100vh' as any,
+    maxHeight: '100vh' as any,
     backgroundColor: '#F8FAFC',
     position: 'relative',
+    display: 'flex' as any,
+    flexDirection: 'column' as any,
+    overflow: 'hidden' as any,
   },
   bodyLayout: {
     flex: 1,
     flexDirection: 'row',
+    overflow: 'hidden' as any,
+    minHeight: 0,
   },
   mainScrollView: {
     flex: 1,
+    height: '100%' as any,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 88,
   },
   homeLayout: {
     padding: 16,
@@ -637,6 +751,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#A2DC9A',
     zIndex: 900,
+  },
+  fabBrinjalIcon: {
+    width: 26,
+    height: 26,
   },
   fabText: {
     color: '#FFFFFF',

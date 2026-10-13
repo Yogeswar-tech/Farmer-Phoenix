@@ -1,17 +1,19 @@
 import type { FC } from 'react';
-import type { Language, GovtScheme } from '../types';
+import type { Language, GovtScheme, LocationOption } from '../types';
 import { GOVT_SCHEMES } from '../data/mockData';
 import { translations } from '../data/i18n';
 import { Landmark, PhoneCall, ExternalLink, CheckCircle } from 'lucide-react';
 
 interface SchemesSectionProps {
   currentLang: Language;
+  currentLocation?: LocationOption;
   onOpenHelpline: (num: string) => void;
   onLockedFeatureClick: (featureName: string) => void;
 }
 
 export const SchemesSection: FC<SchemesSectionProps> = ({
   currentLang,
+  currentLocation,
   onOpenHelpline,
   onLockedFeatureClick
 }) => {
@@ -35,14 +37,22 @@ export const SchemesSection: FC<SchemesSectionProps> = ({
       <div className="schemes-header">
         <div className="header-title-row">
           <Landmark size={24} className="schemes-icon" />
-          <h2 className="schemes-title">{t.schemesTitle}</h2>
+          <h2 className="schemes-title">
+            {t.schemesTitle} {currentLocation ? `(${currentLocation.state[currentLang]} & Central)` : ''}
+          </h2>
         </div>
         <p className="schemes-sub">
-          {currentLang === 'hi'
-            ? 'सरकारी अनुदान, फसल बीमा दावा एवं रियायती कृषि ऋण की संपूर्ण जानकारी'
-            : currentLang === 'te'
-            ? 'ప్రభుత్వ రాయితీలు, పంట బీమా క్లెయిమ్‌లు & తక్కువ వడ్డీ రుణాల వివరాలు'
-            : 'Government subsidies, crop insurance claims & low-interest credit schemes'}
+          {currentLocation
+            ? (currentLang === 'hi'
+                ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.state[currentLang]}) के किसानों हेतु प्रत्यक्ष लाभ अंतरण, फसल बीमा एवं रियायती कृषि ऋण`
+                : currentLang === 'te'
+                ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.state[currentLang]}) రైతుల కోసం ప్రత్యక్ష ఆర్థిక సహాయం, పంట బీమా & రుణాలు`
+                : `📍 Government subsidies, crop insurance & low-interest credit schemes for farmers in ${currentLocation.name[currentLang]} (${currentLocation.state[currentLang]})`)
+            : (currentLang === 'hi'
+                ? 'सरकारी अनुदान, फसल बीमा दावा एवं रियायती कृषि ऋण की संपूर्ण जानकारी'
+                : currentLang === 'te'
+                ? 'ప్రభుత్వ రాయితీలు, పంట బీమా క్లెయిమ్‌లు & తక్కువ వడ్డీ రుణాల వివరాలు'
+                : 'Government subsidies, crop insurance claims & low-interest credit schemes')}
         </p>
       </div>
 

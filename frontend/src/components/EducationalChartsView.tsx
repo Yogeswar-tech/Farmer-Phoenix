@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet
 } from 'react-native';
-import type { Language } from '../types';
+import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
-import { CROP_CHIPS } from '../data/mockData';
+import { CROP_CHIPS, calculateLocationDistanceKm } from '../data/mockData';
 import {
   TrendingUp,
   Droplets,
@@ -21,6 +21,7 @@ import {
 
 interface EducationalChartsViewProps {
   currentLang: Language;
+  currentLocation?: LocationOption;
   onOpenHelpline?: (num: string) => void;
 }
 
@@ -105,6 +106,7 @@ const GRADE_EDUCATION_DATA: GradeComparisonRow[] = [
 ];
 
 interface MandiSpreadRow {
+  locationId: string;
   mandiName: Record<Language, string>;
   state: Record<Language, string>;
   modalPrice: number;
@@ -118,6 +120,7 @@ interface MandiSpreadRow {
 
 const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
   {
+    locationId: 'guntur',
     mandiName: { hi: 'गुंटूर एपीएमसी यार्ड', te: 'గుంటూరు మార్కెట్ యార్డ్', en: 'Guntur APMC Yard' },
     state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
     modalPrice: 14200,
@@ -133,6 +136,7 @@ const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
     isRecommended: true
   },
   {
+    locationId: 'warangal',
     mandiName: { hi: 'वारंगल एनाममुला मंडी', te: 'వరంగల్ ఏనుమాముల మార్కెట్', en: 'Warangal Enamamula Mandi' },
     state: { hi: 'तेलंगाना', te: 'తెలంగాణ', en: 'Telangana' },
     modalPrice: 13950,
@@ -148,6 +152,7 @@ const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
     isRecommended: false
   },
   {
+    locationId: 'khammam',
     mandiName: { hi: 'खम्मम मंडी यार्ड', te: 'ఖమ్మం మార్కెట్ యార్డ్', en: 'Khammam Mandi Yard' },
     state: { hi: 'तेलंगाना', te: 'తెలంగాణ', en: 'Telangana' },
     modalPrice: 13800,
@@ -163,6 +168,7 @@ const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
     isRecommended: false
   },
   {
+    locationId: 'chittoor',
     mandiName: { hi: 'मदनपल्ले यार्ड (टमाटर / बागवानी)', te: 'మదనపల్లె మార్కెట్ యార్డ్', en: 'Madanapalle Yard' },
     state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
     modalPrice: 13400,
@@ -178,6 +184,7 @@ const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
     isRecommended: false
   },
   {
+    locationId: 'kurnool',
     mandiName: { hi: 'कर्नूल एपीएमसी यार्ड', te: 'కర్నూలు మార్కెట్ యార్డ్', en: 'Kurnool APMC Yard' },
     state: { hi: 'आंध्र प्रदेश', te: 'ఆంధ్రప్రదేశ్', en: 'Andhra Pradesh' },
     modalPrice: 13650,
@@ -263,7 +270,7 @@ const COMMODITY_SAFE_MOISTURE = [
   { cropKey: 'turmeric', name: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' }, safePct: '9% - 10%', riskPct: '> 13%', lossPenalty: '₹500 - ₹1,100/qtl', storageSafeMonths: '18 महीने' }
 ];
 
-export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentLang }) => {
+export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentLang, currentLocation }) => {
   const t = translations[currentLang];
   const [selectedCommodity, setSelectedCommodity] = useState('chilli');
   const [simulatedMoisture, setSimulatedMoisture] = useState(15);
@@ -274,6 +281,30 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
   const simulatedNetRate = Math.max(7000, 14200 - moistureDeductionRate);
 
   const moistureOptions = [9, 11, 14, 16, 18, 22];
+
+  // Dynamic Regional Mandi Spread based on user's current location
+  const spreadData = REGIONAL_MANDI_SPREAD_DATA.map((item) => {
+    if (!currentLocation) return item;
+    const dist = calculateLocationDistanceKm(currentLocation.id, item.locationId);
+    const isLocal = dist === 0 || currentLocation.id === item.locationId;
+    const freight = isLocal ? 0 : Math.round(dist * 2.8);
+    const net = item.modalPrice - freight - item.marketCessAndHamali;
+
+    return {
+      ...item,
+      distanceKm: dist,
+      freightPerQtl: freight,
+      netInHandPerQtl: net,
+      isRecommended: isLocal || dist < 60,
+      verdict: isLocal
+        ? {
+            hi: '📍 आपका स्थानीय यार्ड (शून्य अतिरिक्त भाड़ा, अधिकतम तत्काल नकदी)',
+            te: '📍 మీ స్థానిక మార్కెట్ (రవాణా ఖర్చు సున్నా, పూర్తి లాభం)',
+            en: '📍 Your Local Yard (Zero freight overhead, maximum net take-home)'
+          }
+        : item.verdict
+    };
+  }).sort((a, b) => a.distanceKm - b.distanceKm);
 
   return (
     <View style={styles.container}>
@@ -475,28 +506,36 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
             <View style={styles.headingCol}>
               <Text style={styles.cardHeading}>
                 {currentLang === 'hi'
-                  ? 'क्षेत्रीय मंडियों का तुलनात्मक भाव एवं शुद्ध नकद प्राप्ति'
+                  ? `क्षेत्रीय मंडियों का तुलनात्मक भाव (${currentLocation ? currentLocation.name[currentLang] : 'क्षेत्रीय'})`
                   : currentLang === 'te'
-                  ? 'ప్రాంతీయ మార్కెట్ల ధరల పోలిక & చేతికి వచ్చే నికర నగదు'
-                  : 'Regional Mandi Price Spread & Net Bank Realization'}
+                  ? `ప్రాంతీయ మార్కెట్ల ధరల పోలిక (${currentLocation ? currentLocation.name[currentLang] : 'ప్రాంతీయ'})`
+                  : `Regional Mandi Price Spread & Net Bank Realization (${currentLocation ? currentLocation.name[currentLang] : 'Regional'})`}
               </Text>
               <Text style={styles.cardCaption}>
-                {currentLang === 'hi'
-                  ? 'भाड़ा व हम्माली काटकर किस मंडी से बैंक खाते में सबसे अधिक पैसा आएगा?'
-                  : currentLang === 'te'
-                  ? 'రవాణా ఖర్చులు పోను ఏ మార్కెట్లో ఎక్కువ నగదు మిగులుతుంది?'
-                  : 'Net cash take-home after freight, cess & unloading'}
+                {currentLocation
+                  ? (currentLang === 'hi'
+                      ? `${currentLocation.name[currentLang]} से दूरी व भाड़ा काटकर किस मंडी में सबसे अधिक शुद्ध लाभ मिलेगा?`
+                      : currentLang === 'te'
+                      ? `${currentLocation.name[currentLang]} నుండి రవాణా ఖర్చులు పోను ఏ మార్కెట్లో ఎక్కువ నగదు మిగులుతుంది?`
+                      : `Net cash take-home after transport freight from ${currentLocation.name[currentLang]}`)
+                  : (currentLang === 'hi'
+                      ? 'भाड़ा व हम्माली काटकर किस मंडी से बैंक खाते में सबसे अधिक पैसा आएगा?'
+                      : currentLang === 'te'
+                      ? 'రవాణా ఖర్చులు పోను ఏ మార్కెట్లో ఎక్కువ నగదు మిగులుతుంది?'
+                      : 'Net cash take-home after freight, cess & unloading')}
               </Text>
             </View>
           </View>
           <View style={[styles.spreadTag, { backgroundColor: '#E0F2FE' }]}>
             <Scale size={14} color="#0369A1" />
-            <Text style={[styles.spreadTagText, { color: '#0369A1' }]}>5 Mandis</Text>
+            <Text style={[styles.spreadTagText, { color: '#0369A1' }]}>
+              {currentLocation ? `📍 ${currentLocation.name[currentLang]}` : '5 Mandis'}
+            </Text>
           </View>
         </View>
 
         <View style={styles.mandiList}>
-          {REGIONAL_MANDI_SPREAD_DATA.map((mandi, idx) => (
+          {spreadData.map((mandi, idx) => (
             <View
               key={idx}
               style={[styles.mandiCard, mandi.isRecommended && styles.mandiCardRecommended]}

@@ -1,6 +1,6 @@
-import { useState, type FC, type FormEvent } from 'react';
-import type { Language, ColdStorageFacility } from '../types';
-import { COLD_STORAGES } from '../data/mockData';
+import { useState, useEffect, type FC, type FormEvent } from 'react';
+import type { Language, ColdStorageFacility, LocationOption } from '../types';
+import { COLD_STORAGES, calculateLocationDistanceKm } from '../data/mockData';
 import { translations } from '../data/i18n';
 import {
   Warehouse,
@@ -20,6 +20,7 @@ import {
 
 interface ColdStorageMapViewProps {
   currentLang: Language;
+  currentLocation?: LocationOption;
   onOpenHelpline: (num: string) => void;
   onOpenBookingGate: (facilityName: string) => void;
 }
@@ -28,6 +29,7 @@ type MapPointType = 'all' | 'storage' | 'mandi';
 
 interface MapPinItem {
   id: string;
+  locationId: string;
   type: 'storage' | 'mandi';
   name: Record<Language, string>;
   location: Record<Language, string>;
@@ -42,6 +44,7 @@ interface MapPinItem {
 
 export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
   currentLang,
+  currentLocation,
   onOpenHelpline,
   onOpenBookingGate
 }) => {
@@ -53,10 +56,11 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
   const [activePinId, setActivePinId] = useState<string>('cs-guntur-1');
 
   // Unified Map Pins Dataset (Both Mandis and Cold Storages)
-  const mapPins: MapPinItem[] = [
+  const baseMapPins: MapPinItem[] = [
     // Cold Storages
     {
       id: 'cs-guntur-1',
+      locationId: 'guntur',
       type: 'storage',
       name: COLD_STORAGES[0].name,
       location: COLD_STORAGES[0].location,
@@ -68,6 +72,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'cs-amaravati-2',
+      locationId: 'guntur',
       type: 'storage',
       name: COLD_STORAGES[1].name,
       location: COLD_STORAGES[1].location,
@@ -79,6 +84,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'cs-mirchi-yard-3',
+      locationId: 'guntur',
       type: 'storage',
       name: COLD_STORAGES[2].name,
       location: COLD_STORAGES[2].location,
@@ -90,6 +96,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'cs-anantapur-4',
+      locationId: 'anantapur',
       type: 'storage',
       name: COLD_STORAGES[3].name,
       location: COLD_STORAGES[3].location,
@@ -101,6 +108,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'cs-madanapalle-5',
+      locationId: 'chittoor',
       type: 'storage',
       name: COLD_STORAGES[4].name,
       location: COLD_STORAGES[4].location,
@@ -112,6 +120,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'cs-kadapa-6',
+      locationId: 'kadapa',
       type: 'storage',
       name: COLD_STORAGES[5].name,
       location: COLD_STORAGES[5].location,
@@ -121,9 +130,46 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
       contactPhone: COLD_STORAGES[5].contactPhone,
       storageRef: COLD_STORAGES[5]
     },
+    {
+      id: 'cs-kurnool-7',
+      locationId: 'kurnool',
+      type: 'storage',
+      name: COLD_STORAGES[6].name,
+      location: COLD_STORAGES[6].location,
+      coords: { x: 38, y: 38 },
+      distanceKm: COLD_STORAGES[6].distanceKm,
+      highlightText: `${COLD_STORAGES[6].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
+      contactPhone: COLD_STORAGES[6].contactPhone,
+      storageRef: COLD_STORAGES[6]
+    },
+    {
+      id: 'cs-warangal-8',
+      locationId: 'warangal',
+      type: 'storage',
+      name: COLD_STORAGES[7].name,
+      location: COLD_STORAGES[7].location,
+      coords: { x: 64, y: 20 },
+      distanceKm: COLD_STORAGES[7].distanceKm,
+      highlightText: `${COLD_STORAGES[7].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
+      contactPhone: COLD_STORAGES[7].contactPhone,
+      storageRef: COLD_STORAGES[7]
+    },
+    {
+      id: 'cs-vijayawada-9',
+      locationId: 'vijayawada',
+      type: 'storage',
+      name: COLD_STORAGES[8].name,
+      location: COLD_STORAGES[8].location,
+      coords: { x: 74, y: 44 },
+      distanceKm: COLD_STORAGES[8].distanceKm,
+      highlightText: `${COLD_STORAGES[8].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
+      contactPhone: COLD_STORAGES[8].contactPhone,
+      storageRef: COLD_STORAGES[8]
+    },
     // Mandi Yards
     {
       id: 'mandi-guntur',
+      locationId: 'guntur',
       type: 'mandi',
       name: { hi: 'गुंटूर मिर्ची यार्ड (APMC)', te: 'గుంటూరు మిర్చి యార్డ్ (APMC)', en: 'Guntur Mirchi Yard (APMC)' },
       location: { hi: 'गुंटूर, आंध्र प्रदेश', te: 'గుంటూరు, ఆంధ్రప్రదేశ్', en: 'Guntur, Andhra Pradesh' },
@@ -136,6 +182,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'mandi-anantapur',
+      locationId: 'anantapur',
       type: 'mandi',
       name: { hi: 'अनंतपुर मूंगफली यार्ड (APMC)', te: 'అనంతపురం మార్కెట్ యార్డ్', en: 'Anantapur Agri Market Yard' },
       location: { hi: 'अनंतपुर, आंध्र प्रदेश', te: 'అనంతపురం, ఆంధ్రప్రదేశ్', en: 'Anantapur, Andhra Pradesh' },
@@ -148,6 +195,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'mandi-madanapalle',
+      locationId: 'chittoor',
       type: 'mandi',
       name: { hi: 'मदनपल्ले एशिया टमाटर मंडी', te: 'మదనపల్లె టమోటా మార్కెట్', en: 'Madanapalle Tomato Yard' },
       location: { hi: 'चित्तूर जिला, आंध्र प्रदेश', te: 'చిత్తూరు జిల్లా, ఆంధ్రప్రదేశ్', en: 'Chittoor District, AP' },
@@ -160,6 +208,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'mandi-kadapa',
+      locationId: 'kadapa',
       type: 'mandi',
       name: { hi: 'कडपा (कृष्णा नगर) यार्ड', te: 'కడప (కృష్ణా నగర్) మార్కెట్', en: 'Kadapa (Krishna Nagar) Market' },
       location: { hi: 'कडपा, आंध्र प्रदेश', te: 'కడప, ఆంధ్రప్రదేశ్', en: 'Kadapa, Andhra Pradesh' },
@@ -172,6 +221,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'mandi-kurnool',
+      locationId: 'kurnool',
       type: 'mandi',
       name: { hi: 'कर्नूल प्याज व कपास यार्ड', te: 'కర్నూలు ఉల్లి & పత్తి మార్కెట్', en: 'Kurnool Onion & Cotton Yard' },
       location: { hi: 'कर्नूल, आंध्र प्रदेश', te: 'కర్నూలు, ఆంధ్రప్రదేశ్', en: 'Kurnool, Andhra Pradesh' },
@@ -184,6 +234,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     },
     {
       id: 'mandi-adoni',
+      locationId: 'adoni',
       type: 'mandi',
       name: { hi: 'अदोनी कपास जिनिंग यार्ड', te: 'ఆదోని పత్తి మార్కెట్', en: 'Adoni Cotton Market' },
       location: { hi: 'कर्नूल जिला, आंध्र प्रदेश', te: 'కర్నూలు జిల్లా, ఆంధ్రప్రదేశ్', en: 'Kurnool District, AP' },
@@ -195,6 +246,32 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
       cropName: { hi: 'कपास', te: 'పత్తి', en: 'Cotton' }
     }
   ];
+
+  // Dynamic distance calculation relative to currentLocation
+  const mapPins: MapPinItem[] = baseMapPins.map((pin) => {
+    if (!currentLocation) return pin;
+    const isSameTown = pin.locationId === currentLocation.id;
+    let dist = 0;
+    if (isSameTown) {
+      dist = pin.type === 'storage' ? (pin.storageRef?.distanceKm || 6) : 0;
+    } else {
+      dist = calculateLocationDistanceKm(currentLocation.id, pin.locationId);
+    }
+    return {
+      ...pin,
+      distanceKm: dist
+    };
+  });
+
+  // Automatically select nearest facility when currentLocation changes
+  useEffect(() => {
+    if (currentLocation) {
+      const sorted = [...mapPins].sort((a, b) => a.distanceKm - b.distanceKm);
+      if (sorted.length > 0) {
+        setActivePinId(sorted[0].id);
+      }
+    }
+  }, [currentLocation?.id]);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -225,11 +302,17 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           <h2 className="view-title">{t.storageTitle}</h2>
         </div>
         <p className="view-desc">
-          {currentLang === 'hi'
-            ? 'अपने क्षेत्र के कोल्ड स्टोरेज, वेयरहाउस एवं एपीएमसी अनाज व फल मंडी यार्ड का लाइव नक्शा'
-            : currentLang === 'te'
-            ? 'మీ ప్రాంతంలోని కోల్డ్ స్టోరేజీలు, గోదాములు & మార్కెట్ యార్డుల సమగ్ర మ్యాప్'
-            : 'Interactive Regional Map of Cold Storages, Godowns & APMC Market Yards with Real Vacancy'}
+          {currentLocation
+            ? (currentLang === 'hi'
+                ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) के निकटतम कोल्ड स्टोरेज, वेयरहाउस एवं एपीएमसी अनाज व फल मंडी यार्ड का लाइव नक्शा`
+                : currentLang === 'te'
+                ? `📍 ${currentLocation.name[currentLang]} సమీపంలోని కోల్డ్ స్టోరేజీలు, గోదాములు & మార్కెట్ యార్డుల సమగ్ర మ్యాప్`
+                : `📍 Interactive map of Cold Storages & APMC Market Yards nearest to ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]})`)
+            : (currentLang === 'hi'
+                ? 'अपने क्षेत्र के कोल्ड स्टोरेज, वेयरहाउस एवं एपीएमसी अनाज व फल मंडी यार्ड का लाइव नक्शा'
+                : currentLang === 'te'
+                ? 'మీ ప్రాంతంలోని కోల్డ్ స్టోరేజీలు, గోదాములు & మార్కెట్ యార్డుల సమగ్ర మ్యాప్'
+                : 'Interactive Regional Map of Cold Storages, Godowns & APMC Market Yards with Real Vacancy')}
         </p>
       </div>
 

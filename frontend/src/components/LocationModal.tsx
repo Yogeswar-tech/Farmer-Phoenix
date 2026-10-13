@@ -1,8 +1,8 @@
 import { useState, type FC } from 'react';
 import type { Language, LocationOption } from '../types';
-import { AGRICULTURAL_LOCATIONS } from '../data/mockData';
+import { AGRICULTURAL_LOCATIONS, getNearestLocationFromCoords } from '../data/mockData';
 import { translations } from '../data/i18n';
-import { MapPin, Search, Check, X, Building2 } from 'lucide-react';
+import { MapPin, Search, Check, X, Building2, Navigation, Loader2 } from 'lucide-react';
 
 interface LocationModalProps {
   isOpen: boolean;
@@ -21,8 +21,36 @@ export const LocationModal: FC<LocationModalProps> = ({
 }) => {
   const t = translations[currentLang];
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleDetectGps = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      alert('Geolocation is not supported in this browser.');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const nearest = getNearestLocationFromCoords(pos.coords.latitude, pos.coords.longitude);
+        onSelectLocation(nearest);
+        onClose();
+      },
+      (_err) => {
+        setIsLocating(false);
+        alert(
+          currentLang === 'hi'
+            ? 'जीपीएस स्थान प्राप्त नहीं हुआ। कृपया सूची में से अपना जिला चुनें।'
+            : currentLang === 'te'
+            ? 'జీపీఎస్ స్థానం లభించలేదు. దయచేసి జాబితా నుండి మీ జిల్లాను ఎంచుకోండి.'
+            : 'Could not access GPS location. Please select your district from the list.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   const filteredLocations = AGRICULTURAL_LOCATIONS.filter((loc) => {
     const term = searchTerm.toLowerCase();
@@ -63,6 +91,22 @@ export const LocationModal: FC<LocationModalProps> = ({
             </button>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={handleDetectGps}
+          disabled={isLocating}
+          className="loc-gps-detect-btn"
+        >
+          {isLocating ? <Loader2 size={16} className="spin-icon" /> : <Navigation size={16} />}
+          <span>
+            {currentLang === 'hi'
+              ? 'वर्तमान जीपीएस स्थान से मंडी चुनें (Auto-Detect GPS)'
+              : currentLang === 'te'
+              ? 'ప్రస్తుత జీపీఎస్ లొకేషన్ ఆధారంగా మార్కెట్ (Auto-Detect GPS)'
+              : 'Use Current GPS Location (Auto-Detect)'}
+          </span>
+        </button>
 
         <div className="current-location-chip-banner">
           <span className="cur-label">{t.activeAgriZone}:</span>

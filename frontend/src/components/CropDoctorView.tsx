@@ -1,5 +1,5 @@
 import { useState, type FC } from 'react';
-import type { Language, CropDisease } from '../types';
+import type { Language, CropDisease, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, CROP_DISEASES } from '../data/mockData';
 import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
@@ -7,12 +7,14 @@ import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw } from 'lucide-re
 interface CropDoctorViewProps {
   currentLang: Language;
   selectedCropKey: string;
+  currentLocation?: LocationOption;
   onOpenHelpline: (number: string) => void;
 }
 
 export const CropDoctorView: FC<CropDoctorViewProps> = ({
   currentLang,
   selectedCropKey,
+  currentLocation,
   onOpenHelpline
 }) => {
   const t = translations[currentLang];
@@ -55,13 +57,20 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
         <div>
           <h3 className="doc-crop-title">
             {t.doctorTitle} - {matchedCrop?.name[currentLang] || selectedCropKey}
+            {currentLocation ? ` (${currentLocation.name[currentLang]})` : ''}
           </h3>
           <p className="doc-crop-desc">
-            {currentLang === 'hi'
-              ? 'एआई द्वारा रोग पहचान एवं मौसम-सुरक्षित उपचार अनुशंसा'
-              : currentLang === 'te'
-              ? 'AI ద్వారా పంట తెగుళ్ల గుర్తింపు & వాతావరణ అనుకూల నివారణ'
-              : 'AI Leaf Diagnostic & Weather-Aware Treatment Plan'}
+            {currentLocation
+              ? (currentLang === 'hi'
+                  ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) के लिए रोग पहचान एवं कृषि विज्ञान केंद्र अनुशंसा`
+                  : currentLang === 'te'
+                  ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) కోసం వ్యాధి గుర్తింపు & KVK సలహాలు`
+                  : `📍 Disease diagnosis & KVK advisory tailored for ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]})`)
+              : (currentLang === 'hi'
+                  ? 'एआई द्वारा रोग पहचान एवं मौसम-सुरक्षित उपचार अनुशंसा'
+                  : currentLang === 'te'
+                  ? 'AI ద్వారా పంట తెగుళ్ల గుర్తింపు & వాతావరణ అనుకూల నివారణ'
+                  : 'AI Leaf Diagnostic & Weather-Aware Treatment Plan')}
           </p>
         </div>
       </div>
@@ -138,9 +147,17 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
           <div className="spraying-caution-box">
             <div className="caution-header">
               <AlertCircle size={20} className="caution-icon" />
-              <strong>{t.weatherRiskLabel}</strong>
+              <strong>{t.weatherRiskLabel} {currentLocation ? `(${currentLocation.name[currentLang]})` : ''}</strong>
             </div>
-            <p className="caution-text">{activeDisease.sprayingWarning[currentLang]}</p>
+            <p className="caution-text">
+              {currentLocation
+                ? (currentLang === 'hi'
+                    ? `गुरुवार को ${currentLocation.name[currentLang]} में बारिश संभावित है! अतः बुधवार व गुरुवार को दवा छिड़कने से बचें अन्यथा दवा बह जाएगी।`
+                    : currentLang === 'te'
+                    ? `గురువారం ${currentLocation.name[currentLang]}లో వర్షం పడే అవకాశం ఉంది! కావున బుధవారం & గురువారం మందు పిచికారీ చేయవద్దు.`
+                    : `Heavy rain predicted in ${currentLocation.name[currentLang]} for Thursday! Do NOT spray on Wed/Thu as rain will wash away chemical.`)
+                : activeDisease.sprayingWarning[currentLang]}
+            </p>
           </div>
 
           {/* Treatments: Chemical + Organic */}
@@ -157,7 +174,15 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
 
           {/* Talk to Scientist */}
           <div className="doctor-helpline-bar">
-            <span>{t.talkToScientist}</span>
+            <span>
+              {currentLocation
+                ? (currentLang === 'hi'
+                    ? `📞 ${currentLocation.district[currentLang]} कृषि विज्ञान केंद्र (KVK) वैज्ञानिक से बात करें:`
+                    : currentLang === 'te'
+                    ? `📞 ${currentLocation.district[currentLang]} కృషి విజ్ఞాన కేంద్రం (KVK) శాస్త్రవేత్తతో మాట్లాడండి:`
+                    : `📞 Connect with ${currentLocation.district[currentLang]} Krishi Vigyan Kendra (KVK) Scientist:`)
+                : t.talkToScientist}
+            </span>
             <button
               type="button"
               onClick={() => onOpenHelpline('1551')}

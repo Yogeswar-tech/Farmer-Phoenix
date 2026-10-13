@@ -1,13 +1,14 @@
 import { useState, type FC } from 'react';
-import type { Language } from '../types';
+import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { FlaskConical, ShieldAlert, CheckSquare, Droplets, AlertTriangle } from 'lucide-react';
 
 interface PesticideDosageViewProps {
   currentLang: Language;
+  currentLocation?: LocationOption;
 }
 
-export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang }) => {
+export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang, currentLocation }) => {
   const t = translations[currentLang];
   const [tankLiters, setTankLiters] = useState<number>(15);
   const [acreArea, setAcreArea] = useState<number>(1);
@@ -27,16 +28,37 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang 
       <div className="view-header-strip">
         <div className="title-row">
           <FlaskConical size={24} className="view-icon" />
-          <h2 className="view-title">{t.pesticideTitle}</h2>
+          <h2 className="view-title">
+            {t.pesticideTitle} {currentLocation ? `(${currentLocation.name[currentLang]})` : ''}
+          </h2>
         </div>
+        {currentLocation && (
+          <p style={{ color: '#64748B', fontSize: 13, marginTop: 4 }}>
+            📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]}, {currentLocation.state[currentLang]})
+          </p>
+        )}
       </div>
 
       {/* Thursday Weather Risk Alert */}
       <div className="pesticide-weather-caution-ribbon">
         <AlertTriangle size={20} className="caution-icon" />
         <div className="caution-text">
-          <strong>गुरुवार बारिश चेतावनी (Thursday Rain Spray Advisory):</strong>
-          <span> गुरुवार को भारी बारिश संभावित है। बुधवार-गुरुवार को छिड़काव से बचें अन्यथा दवा बह जाएगी और आर्थिक नुकसान होगा।</span>
+          <strong>
+            {currentLang === 'hi'
+              ? `गुरुवार ${currentLocation?.name[currentLang] || ''} बारिश चेतावनी (Thursday Rain Spray Advisory):`
+              : currentLang === 'te'
+              ? `గురువారం ${currentLocation?.name[currentLang] || ''} వర్షం హెచ్చరిక (Thursday Rain Spray Advisory):`
+              : `Thursday ${currentLocation?.name[currentLang] || ''} Rain Spray Advisory:`}
+          </strong>
+          <span>
+            {currentLocation
+              ? (currentLang === 'hi'
+                  ? ` गुरुवार को ${currentLocation.name[currentLang]} में भारी बारिश संभावित है। बुधवार-गुरुवार को छिड़काव से बचें अन्यथा दवा बह जाएगी और आर्थिक नुकसान होगा।`
+                  : currentLang === 'te'
+                  ? ` గురువారం ${currentLocation.name[currentLang]}లో భారీ వర్షం కురిసే అవకాశం ఉంది. బుధ-గురువారాల్లో పిచికారీ నివారించండి.`
+                  : ` Heavy rain expected in ${currentLocation.name[currentLang]} on Thursday. Avoid spraying on Wed/Thu as chemicals will wash away.`)
+              : ' गुरुवार को भारी बारिश संभावित है। बुधवार-गुरुवार को छिड़काव से बचें अन्यथा दवा बह जाएगी और आर्थिक नुकसान होगा।'}
+          </span>
         </div>
       </div>
 

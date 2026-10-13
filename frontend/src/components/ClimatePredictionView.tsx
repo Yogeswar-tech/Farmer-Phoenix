@@ -1,4 +1,4 @@
-import { useState, type FC, type FormEvent } from 'react';
+import { useState, useEffect, type FC, type FormEvent } from 'react';
 import type { Language, LocationOption } from '../types';
 import { WEATHER_FORECAST, SEASONAL_CLIMATE, AGRICULTURAL_LOCATIONS, CROP_SUITABILITY_MAP } from '../data/mockData';
 import { translations } from '../data/i18n';
@@ -9,30 +9,35 @@ interface ClimatePredictionViewProps {
   isLoggedIn: boolean;
   onOpenLogin: (featureName: string) => void;
   currentLocation: LocationOption;
-  onSelectLocation?: (loc: LocationOption) => void;
 }
 
 export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   currentLang,
   isLoggedIn,
   onOpenLogin,
-  currentLocation,
-  onSelectLocation
+  currentLocation
 }) => {
   const t = translations[currentLang];
   const [searchInput, setSearchInput] = useState('');
-  const [searchedAreaName, setSearchedAreaName] = useState<string | null>(null);
+  // Local preview location for climate tab, defaults to user's location
+  const [selectedLocation, setSelectedLocation] = useState<LocationOption>(currentLocation);
+  const [customAreaName, setCustomAreaName] = useState<string | null>(null);
 
-  const activeArea = AGRICULTURAL_LOCATIONS.find(
-    (loc) => loc.id === currentLocation.id
-  ) || AGRICULTURAL_LOCATIONS[0];
+  // If user's global location changes (e.g. via Header dropdown), sync default to it
+  useEffect(() => {
+    setSelectedLocation(currentLocation);
+    setCustomAreaName(null);
+    setSearchInput('');
+  }, [currentLocation.id]);
+
+  const isViewingUserLocation = !customAreaName && selectedLocation.id === currentLocation.id;
 
   const handleAreaSearch = (e: FormEvent) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
 
     const matched = AGRICULTURAL_LOCATIONS.find((loc) => {
-      const q = searchInput.toLowerCase();
+      const q = searchInput.toLowerCase().trim();
       return (
         loc.name[currentLang].toLowerCase().includes(q) ||
         loc.name.en.toLowerCase().includes(q) ||
@@ -43,24 +48,31 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
       );
     });
 
-    if (matched && onSelectLocation) {
-      onSelectLocation(matched);
-      setSearchedAreaName(matched.name[currentLang]);
+    if (matched) {
+      // Updates ONLY this Climate tab preview; NEVER updates the user's global location
+      setSelectedLocation(matched);
+      setCustomAreaName(null);
     } else {
-      // User entered custom village/taluk (e.g. Kadapa alias Krishna Nagar)
-      setSearchedAreaName(searchInput.trim());
+      // User entered custom village / taluk
+      setCustomAreaName(searchInput.trim());
     }
   };
 
   const handleQuickLocationClick = (loc: LocationOption) => {
-    if (onSelectLocation) {
-      onSelectLocation(loc);
-    }
-    setSearchedAreaName(loc.name[currentLang]);
+    // Updates ONLY this Climate tab preview; NEVER updates the user's global location
+    setSelectedLocation(loc);
+    setCustomAreaName(null);
     setSearchInput(loc.name[currentLang]);
   };
 
-  const displayAreaName = searchedAreaName || activeArea.name[currentLang];
+  const handleResetToUserLocation = () => {
+    setSelectedLocation(currentLocation);
+    setCustomAreaName(null);
+    setSearchInput('');
+  };
+
+  const activeArea = selectedLocation;
+  const displayAreaName = customAreaName || activeArea.name[currentLang];
   const displayStateName = activeArea.state[currentLang];
   const displayPincode = activeArea.pincode;
 
@@ -79,8 +91,8 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
           {currentLang === 'hi'
             ? 'आईएमडी एवं उपग्रह मॉडल द्वारा 7-दिवसीय दैनिक मौसम एवं दीर्घकालिक मौसमीय जलवायु आउटलुक'
             : currentLang === 'te'
-            ? 'ఐఎండి & ఉపగ్రహ డేటా ఆధారంగా 7 రోజుల వాతావరణం & దీర్ఘకాలిక శీతోష్ణస్థితి అంచనా'
-            : 'IMD & Satellite Driven 7-Day Operational Weather and Long-Range Seasonal Climate Outlook'}
+              ? 'ఐఎండి & ఉపగ్రహ డేటా ఆధారంగా 7 రోజుల వాతావరణం & దీర్ఘకాలిక శీతోష్ణస్థితి అంచనా'
+              : 'IMD & Satellite Driven 7-Day Operational Weather and Long-Range Seasonal Climate Outlook'}
         </p>
       </div>
 
@@ -131,7 +143,22 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
               <strong className="area-heading">
                 📍 {displayAreaName}, {displayStateName} ({displayPincode})
               </strong>
-              <span className="area-radar-sync">{t.satelliteRadarSync}</span>
+              <div className="area-status-subrow">
+                <span className="area-radar-sync">{t.satelliteRadarSync}</span>
+                {isViewingUserLocation ? (
+                  <span className="user-loc-tag">
+                    {currentLang === 'hi' ? '● आपका मुख्य स्थान' : currentLang === 'te' ? '● మీ ప్రస్తుత స్థానం' : '● Your Main Location'}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResetToUserLocation}
+                    className="reset-user-loc-btn"
+                  >
+                    ↩ {currentLang === 'hi' ? 'मेरे स्थान का मौसम देखें' : currentLang === 'te' ? 'నా ప్రాంతం వాతావరణం' : 'View My Location Weather'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <span className="forecast-active-badge">
@@ -198,7 +225,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
       <div className="rain-risk-banner">
         <AlertTriangle size={20} className="banner-alert-icon" />
         <div className="banner-text">
-          <strong>{t.thursdayRainAlertTitle}</strong>
+          <strong>{t.thursdayRainAlertTitle} ({displayAreaName}):</strong>
           <span> {t.thursdayRainAlertDesc}</span>
         </div>
       </div>
@@ -271,8 +298,8 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
               {currentLang === 'hi'
                 ? `मौसमीय जलवायु आउटलुक (Seasonal Climate Outlook) - ${displayAreaName}`
                 : currentLang === 'te'
-                ? `శీతోష్ణస్థితి అంచనా (Seasonal Outlook) - ${displayAreaName}`
-                : `Seasonal Climate Outlook - ${displayAreaName}`}
+                  ? `శీతోష్ణస్థితి అంచనా (Seasonal Outlook) - ${displayAreaName}`
+                  : `Seasonal Climate Outlook - ${displayAreaName}`}
             </span>
           </h3>
         </div>
@@ -319,8 +346,8 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
               {currentLang === 'hi'
                 ? 'अपने गांव के 1 किमी दायरे का सटीक मौसम रडार एवं उपग्रह मानचित्र अनलॉक करने हेतु लॉगिन करें।'
                 : currentLang === 'te'
-                ? 'మీ గ్రామానికి సంబంధించిన 1 కి.మీ ఖచ్చితమైన వాతావరణ రాడార్ కోసం లాగిన్ అవ్వండి.'
-                : 'Log in to unlock hyper-local 1km satellite microclimate radar for your specific village.'}
+                  ? 'మీ గ్రామానికి సంబంధించిన 1 కి.మీ ఖచ్చితమైన వాతావరణ రాడార్ కోసం లాగిన్ అవ్వండి.'
+                  : 'Log in to unlock hyper-local 1km satellite microclimate radar for your specific village.'}
             </span>
           </div>
           <button

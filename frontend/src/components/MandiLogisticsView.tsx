@@ -1,17 +1,19 @@
-import { useState, type FC, type FormEvent } from 'react';
-import type { Language, MandiItem } from '../types';
+import { useState, useEffect, type FC, type FormEvent } from 'react';
+import type { Language, MandiItem, LocationOption } from '../types';
 import { translations } from '../data/i18n';
-import { CROP_CHIPS } from '../data/mockData';
+import { CROP_CHIPS, calculateLocationDistanceKm } from '../data/mockData';
 import { Truck, Calculator, CheckCircle2, AlertTriangle, DollarSign, Search, Sparkles, ArrowRight } from 'lucide-react';
 
 interface MandiLogisticsViewProps {
   currentLang: Language;
   mandi: MandiItem;
+  currentLocation?: LocationOption;
 }
 
 const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   name: Record<Language, string>;
   icon: string;
+  destinationLocationId: string;
   localMandi: Record<Language, string>;
   localPrice: number;
   recommendedMandi: Record<Language, string>;
@@ -22,6 +24,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   chilli: {
     name: { hi: 'मिर्च', te: 'మిర్చి', en: 'Chilli' },
     icon: '🌶️',
+    destinationLocationId: 'guntur',
     localMandi: { hi: 'तेनाली स्थानीय यार्ड', te: 'తెనాలి లోకల్ యార్డ్', en: 'Tenali Local Yard' },
     localPrice: 13900,
     recommendedMandi: { hi: 'गुंटूर मिर्ची यार्ड (एशिया प्रसिद्ध)', te: 'గుంటూరు మిర్చి యార్డ్ (ఆసియాలోనే ప్రసిద్ధి)', en: 'Guntur Mirchi Yard' },
@@ -36,6 +39,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   tomato: {
     name: { hi: 'टमाटर', te: 'టమోటా', en: 'Tomato' },
     icon: '🍅',
+    destinationLocationId: 'chittoor',
     localMandi: { hi: 'चित्तूर स्थानीय यार्ड', te: 'చిత్తూరు లోకల్ యార్డ్', en: 'Chittoor Local Yard' },
     localPrice: 2600,
     recommendedMandi: { hi: 'मदनपल्ले एशिया टमाटर मंडी', te: 'మదనపల్లె టమోటా మార్కెట్', en: 'Madanapalle Tomato Yard' },
@@ -50,6 +54,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   groundnut: {
     name: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut' },
     icon: '🥜',
+    destinationLocationId: 'anantapur',
     localMandi: { hi: 'धर्मावरम स्थानीय मंडी', te: 'ధర్మవరం స్థానిక మార్కెట్', en: 'Dharmavaram Local Mandi' },
     localPrice: 7100,
     recommendedMandi: { hi: 'अनंतपुर व कादिरी मूंगफली यार्ड', te: 'అనంతపురం & కదిరి వేరుశనగ యార్డ్', en: 'Anantapur & Kadiri APMC Yard' },
@@ -64,6 +69,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   cotton: {
     name: { hi: 'कपास', te: 'పత్తి', en: 'Cotton' },
     icon: '⚪',
+    destinationLocationId: 'adoni',
     localMandi: { hi: 'नंद्याल स्थानीय यार्ड', te: 'నంద్యాల స్థానిక యార్డ్', en: 'Nandyal Local Yard' },
     localPrice: 7100,
     recommendedMandi: { hi: 'अदोनी कपास व जिनिंग मंडी', te: 'ఆదోని పత్తి మార్కెట్ యార్డ్', en: 'Adoni Cotton & Ginning Yard' },
@@ -78,6 +84,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   turmeric: {
     name: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' },
     icon: '🟡',
+    destinationLocationId: 'kadapa',
     localMandi: { hi: 'प्रौద్దుటూరు स्थानीय यार्ड', te: 'ప్రొద్దుటూరు స్థానిక యార్డ్', en: 'Proddatur Local Yard' },
     localPrice: 15200,
     recommendedMandi: { hi: 'कडपा (कृष्णा नगर) / निजामाबाद मंडी', te: 'కడప (కృష్ణా నగర్) / నిజామాబాద్ యార్డ్', en: 'Kadapa (Krishna Nagar) APMC Yard' },
@@ -92,6 +99,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   banana: {
     name: { hi: 'केला', te: 'అరటి', en: 'Banana' },
     icon: '🍌',
+    destinationLocationId: 'kadapa',
     localMandi: { hi: 'राजमपेट स्थानीय बाजार', te: 'రాజంపేట స్థానిక మార్కెట్', en: 'Rajampet Local Market' },
     localPrice: 1750,
     recommendedMandi: { hi: 'कडपा व पुलिवेंदुला केला टर्मिनल', te: 'కడప & పులివెందుల అరటి టెర్మినల్', en: 'Kadapa & Pulivendula Export Terminal' },
@@ -106,6 +114,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   onion: {
     name: { hi: 'प्याज', te: 'ఉల్లిపాయ', en: 'Onion' },
     icon: '🧅',
+    destinationLocationId: 'kurnool',
     localMandi: { hi: 'धोने स्थानीय यार्ड', te: 'డోన్ స్థానిక యార్డ్', en: 'Dhone Local Yard' },
     localPrice: 1950,
     recommendedMandi: { hi: 'कर्नूल प्याज व कमोडिटी मंडी', te: 'కర్నూలు ఉల్లి మార్కెట్ యార్డ్', en: 'Kurnool Onion Yard' },
@@ -120,6 +129,7 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
   paddy: {
     name: { hi: 'धान', te: 'వరి', en: 'Paddy' },
     icon: '🌾',
+    destinationLocationId: 'vijayawada',
     localMandi: { hi: 'बापटला स्थानीय राइस यार्ड', te: 'బాపట్ల లోకల్ యార్డ్', en: 'Bapatla Local Yard' },
     localPrice: 2183,
     recommendedMandi: { hi: 'मिर्यालगुडा / नेल्लोर राइस टर्मिनल', te: 'మిర్యాలగూడ / నెల్లూరు రైస్ టెర్మినల్', en: 'Miryalaguda / Nellore Rice Terminal' },
@@ -135,7 +145,8 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
 
 export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
   currentLang,
-  mandi
+  mandi,
+  currentLocation
 }) => {
   const t = translations[currentLang];
   const [selectedCropKey, setSelectedCropKey] = useState<string>(mandi.cropKey || 'chilli');
@@ -143,16 +154,26 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
 
   const currentIntel = PRODUCT_DESTINATION_INTELLIGENCE[selectedCropKey] || PRODUCT_DESTINATION_INTELLIGENCE['chilli'];
 
-  const [distanceKm, setDistanceKm] = useState(currentIntel.distanceKm);
+  const computeDistance = (cropKey: string) => {
+    const intel = PRODUCT_DESTINATION_INTELLIGENCE[cropKey] || currentIntel;
+    if (!currentLocation) return intel.distanceKm;
+    if (currentLocation.id === intel.destinationLocationId) return 18;
+    return calculateLocationDistanceKm(currentLocation.id, intel.destinationLocationId);
+  };
+
+  const [distanceKm, setDistanceKm] = useState(() => computeDistance(selectedCropKey));
   const [vehicle, setVehicle] = useState<'tractor' | 'pickup'>('tractor');
   const [loadQuintals, setLoadQuintals] = useState(50);
 
+  useEffect(() => {
+    setDistanceKm(computeDistance(selectedCropKey));
+  }, [currentLocation?.id, selectedCropKey]);
+
+  const effectiveLocalMandi = currentLocation ? currentLocation.mandiName[currentLang] : currentIntel.localMandi[currentLang];
+
   const handleProductSelect = (cropKey: string) => {
     setSelectedCropKey(cropKey);
-    const intel = PRODUCT_DESTINATION_INTELLIGENCE[cropKey];
-    if (intel) {
-      setDistanceKm(intel.distanceKm);
-    }
+    setDistanceKm(computeDistance(cropKey));
   };
 
   const handleProductSearch = (e: FormEvent) => {
@@ -191,7 +212,15 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
           <Truck size={24} className="view-icon" />
           <h2 className="view-title">{t.logisticsTitle}</h2>
         </div>
-        <p className="view-desc">{t.logisticsDesc}</p>
+        <p className="view-desc">
+          {currentLocation
+            ? (currentLang === 'hi'
+                ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) से अन्य प्रमुख मंडियों तक माल भेजने का शुद्ध लाभ कैलकुलेटर`
+                : currentLang === 'te'
+                ? `📍 ${currentLocation.name[currentLang]} నుండి ఇతర ప్రధాన మార్కెట్లకు రవాణా చేసి అమ్మితే నికర లాభం విశ్లేషణ`
+                : `📍 Net transport ROI calculator from ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) to major terminal mandis`)
+            : t.logisticsDesc}
+        </p>
       </div>
 
       {/* Product Search & Quick Selection Chips */}
@@ -239,7 +268,7 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
             <span className="spotlight-crop-icon">{currentIntel.icon}</span>
             <div className="spotlight-mandi-info">
               <h3 className="spotlight-mandi-name">
-                📍 {currentIntel.recommendedMandi[currentLang]}
+                📍 {currentIntel.recommendedMandi[currentLang]} {currentLocation ? `(${distanceKm} km from ${currentLocation.name[currentLang]})` : ''}
               </h3>
               <p className="spotlight-reason">
                 {currentIntel.reason[currentLang]}
@@ -348,7 +377,7 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
               <span className="cmp-badge">
                 {currentLang === 'hi' ? 'स्थानीय मंडी' : currentLang === 'te' ? 'స్థానిక మార్కెట్' : 'Local Mandi'}
               </span>
-              <span className="cmp-name">{currentIntel.localMandi[currentLang]}</span>
+              <span className="cmp-name">📍 {effectiveLocalMandi}</span>
               <span className="cmp-price">₹{localPrice.toLocaleString()} {t.quintalUnit}</span>
             </div>
             <div className="cmp-arrow">

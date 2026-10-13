@@ -1,21 +1,27 @@
 import { useState, type FC } from 'react';
-import type { Language } from '../types';
+import type { Language, LocationOption } from '../types';
 import { SOIL_DATA } from '../data/mockData';
 import { translations } from '../data/i18n';
 import { TestTube2, FileText, CheckCircle2, AlertCircle, UploadCloud, ShieldCheck } from 'lucide-react';
 
 interface SoilDoctorViewProps {
   currentLang: Language;
+  currentLocation?: LocationOption;
   onOpenBookingGate: (featureName: string) => void;
 }
 
 export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   currentLang,
+  currentLocation,
   onOpenBookingGate
 }) => {
   const t = translations[currentLang];
   const [uploading, setUploading] = useState(false);
   const [reportUploaded, setReportUploaded] = useState(true);
+
+  const sampleId = currentLocation
+    ? `SHC-${currentLocation.state.en.substring(0, 2).toUpperCase()}-${currentLocation.id.toUpperCase()}-2026-88`
+    : SOIL_DATA.sampleId;
 
   const handleSimulatePdfUpload = () => {
     setUploading(true);
@@ -33,7 +39,11 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
           <TestTube2 size={24} className="view-icon" />
           <h2 className="view-title">{t.soilDoctorTitle}</h2>
         </div>
-        <p className="view-desc">{t.soilCardDesc}</p>
+        <p className="view-desc">
+          {currentLocation
+            ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.district[currentLang]}) - ${t.soilCardDesc}`
+            : t.soilCardDesc}
+        </p>
       </div>
 
       <div className="soil-layout-grid">
@@ -44,10 +54,18 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
               <ShieldCheck size={14} />
               <span>सत्यापित मृदा स्वास्थ्य कार्ड (Verified SHC)</span>
             </span>
-            <span className="sample-id">नमूना आईडी: {SOIL_DATA.sampleId}</span>
+            <span className="sample-id">नमूना आईडी: {sampleId}</span>
           </div>
 
           <div className="soil-meta-grid">
+            {currentLocation && (
+              <div className="meta-item">
+                <span className="meta-lbl">
+                  {currentLang === 'hi' ? 'खेत का स्थान:' : currentLang === 'te' ? 'పొలం ప్రాంతం:' : 'Field Location:'}
+                </span>
+                <span className="meta-val">📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]})</span>
+              </div>
+            )}
             <div className="meta-item">
               <span className="meta-lbl">{currentLang === 'hi' ? 'मिट्टी का प्रकार:' : 'Soil Classification:'}</span>
               <span className="meta-val">{SOIL_DATA.soilType[currentLang]}</span>
@@ -162,11 +180,25 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
           <div className="book-soil-test-strip">
             <AlertCircle size={20} className="soil-alert-icon" />
             <div className="strip-text">
-              <strong>{currentLang === 'hi' ? 'निःशुल्क सरकारी मृदा जांच' : 'Free Government Soil Testing'}</strong>
+              <strong>
+                {currentLocation
+                  ? (currentLang === 'hi'
+                      ? `निःशुल्क सरकारी मृदा जांच (${currentLocation.name[currentLang]})`
+                      : currentLang === 'te'
+                      ? `ఉచిత ప్రభుత్వ నేల పరీక్ష (${currentLocation.name[currentLang]})`
+                      : `Free Government Soil Testing (${currentLocation.name[currentLang]})`)
+                  : (currentLang === 'hi' ? 'निःशुल्क सरकारी मृदा जांच' : 'Free Government Soil Testing')}
+              </strong>
               <p>
-                {currentLang === 'hi'
-                  ? 'अपने निकटतम कृषि विज्ञान केंद्र (KVK) से मिट्टी जांच करवाएं'
-                  : 'Register sample pickup from nearest Krishi Vigyan Kendra'}
+                {currentLocation
+                  ? (currentLang === 'hi'
+                      ? `निकटतम ${currentLocation.district[currentLang]} कृषि विज्ञान केंद्र (KVK) लैब से नमूना जांच करवाएं`
+                      : currentLang === 'te'
+                      ? `సమీప ${currentLocation.district[currentLang]} కృషి విజ్ఞాన కేంద్రం (KVK) ల్యాబ్‌కు శాంపిల్ పంపండి`
+                      : `Register sample testing at nearest ${currentLocation.district[currentLang]} Krishi Vigyan Kendra (KVK Lab)`)
+                  : (currentLang === 'hi'
+                      ? 'अपने निकटतम कृषि विज्ञान केंद्र (KVK) से मिट्टी जांच करवाएं'
+                      : 'Register sample pickup from nearest Krishi Vigyan Kendra')}
               </p>
             </div>
             <button

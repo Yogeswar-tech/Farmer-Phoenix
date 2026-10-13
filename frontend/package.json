@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "test": "node --test src/tests/farmerLogic.test.ts",
+    "dev": "node run.cjs dev",
+    "build": "node run.cjs build",
+    "test": "node run.cjs test",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "node run.cjs preview"
   },
   "dependencies": {
     "lucide-react": "^1.55.0",
