@@ -473,6 +473,7 @@ export function App() {
                 onOpenHelpline={handleOpenHelpline}
                 onOpenBookingGate={handleOpenLogin}
                 currentLocation={currentLocation}
+                onSelectLocation={handleLocationChange}
               />
             )}
           </ScrollView>

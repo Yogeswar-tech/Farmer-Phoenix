@@ -4553,12 +4553,12 @@ body {
 .storage-map-canvas-frame {
   position: relative;
   width: 100%;
-  height: 480px;
-  background: #112210;
+  height: 580px;
+  background: #0D1A0D;
   border-radius: 20px;
   overflow: hidden;
   border: 2px solid #234320;
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.7);
   margin-bottom: 24px;
 }
 
@@ -4768,6 +4768,11 @@ body {
 .legend-color.corridor {
   background: #F59E0B;
   border-radius: 2px;
+}
+
+.legend-color.user {
+  background: #F59E0B;
+  border: 1.5px solid #FFFFFF;
 }
 
 /* Selected Facility Spotlight Card */
@@ -4981,6 +4986,332 @@ body {
 
 .s-book-btn:hover {
   background: #21431D;
+}
+
+/* ============================================================
+   INDIA APMC MANDI & COLD STORAGE MAP - ENHANCED GIS STYLES
+   ============================================================ */
+
+.header-top-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.active-user-loc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid #F59E0B;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #92400E;
+}
+
+.loc-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: locPulse 1.8s infinite;
+}
+
+@keyframes locPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.loc-text {
+  font-weight: 500;
+  color: #1F2937;
+}
+
+.quick-loc-select {
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1F2937;
+  cursor: pointer;
+  outline: none;
+}
+
+.quick-loc-select:focus {
+  border-color: #F59E0B;
+}
+
+.map-focus-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1.5px solid #D1D5DB;
+  color: #374151;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.map-focus-btn:hover {
+  border-color: #F59E0B;
+  color: #D97706;
+  background: #FFFBEB;
+}
+
+.map-focus-btn.active {
+  background: #F59E0B;
+  border-color: #D97706;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+
+.india-national-border {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+/* NEARBY MANDI LOCATIONS SECTION (RANKED BY DISTANCE) */
+.nearby-mandis-section {
+  background: #FFFFFF;
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+.nearby-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.n-title-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.n-icon {
+  color: #16A34A;
+  margin-top: 3px;
+}
+
+.nearby-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.nearby-sub {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0;
+}
+
+.nearby-count-pill {
+  background: #DCFCE7;
+  color: #15803D;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #BBF7D0;
+}
+
+.nearby-mandis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.nearby-mandi-card {
+  background: #F9FAFB;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+.nearby-mandi-card:hover {
+  border-color: #16A34A;
+  background: #F0FDF4;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.1);
+}
+
+.nearby-mandi-card.active {
+  border-color: #16A34A;
+  background: #F0FDF4;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.3);
+}
+
+.nearby-mandi-card.closest-highlight {
+  border-color: #F59E0B;
+  background: #FFFDF5;
+}
+
+.card-dist-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.distance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #E5E7EB;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.distance-pill.closest {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+
+.closest-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #F59E0B;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.price-trend-up {
+  font-size: 10px;
+  font-weight: 700;
+  color: #15803D;
+  background: #DCFCE7;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mandi-card-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.mandi-card-loc {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0 0 12px;
+}
+
+.mandi-card-stats-box {
+  display: flex;
+  justify-content: space-between;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.stat-unit {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #6B7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.stat-val.price {
+  font-size: 15px;
+  font-weight: 900;
+  color: #15803D;
+}
+
+.stat-val.arrivals {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.mandi-card-footer {
+  display: flex;
+  gap: 8px;
+}
+
+.card-inspect-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: #FFFFFF;
+  border: 1px solid #16A34A;
+  color: #16A34A;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card-inspect-btn:hover {
+  background: #16A34A;
+  color: #FFFFFF;
+}
+
+.card-call-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.card-call-btn:hover {
+  background: #E5E7EB;
 }
 
 /* ============================================================
