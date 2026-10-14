@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   getLanguageForLocation
 } from './data/mockData';
 import { translations } from './data/i18n';
+import { KisanSethuApi } from './services/api';
 import { Header } from './components/Header';
 import { GovtLagNotice } from './components/GovtLagNotice';
 import { DesktopSidebar } from './components/DesktopSidebar';
@@ -143,8 +144,50 @@ export function App() {
 
   // Price Alert Modal State
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [liveMandiRecord, setLiveMandiRecord] = useState<any | null>(null);
+  const [liveWeatherRecord, setLiveWeatherRecord] = useState<any | null>(null);
+  const [_isLiveFromBackend, setIsLiveFromBackend] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   const t = translations[currentLang];
+
+  // Fetch live Mandi rates from Backend whenever selected crop or location changes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveMandi = async () => {
+      try {
+        const rates = await KisanSethuApi.getMandiRates(selectedCropKey, currentLocation.state.en);
+        if (isMounted && rates && rates.length > 0) {
+          const matched = rates.find((r: any) => 
+            r.commodity?.toLowerCase() === selectedCropKey.toLowerCase()
+          ) || rates[0];
+          setLiveMandiRecord(matched);
+          setIsLiveFromBackend(true);
+        }
+      } catch (e) {
+        if (isMounted) setIsLiveFromBackend(false);
+      }
+    };
+    fetchLiveMandi();
+    return () => { isMounted = false; };
+  }, [selectedCropKey, currentLocation.id, refreshTrigger]);
+
+  // Fetch live operational weather from Backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveWeather = async () => {
+      try {
+        const weatherList = await KisanSethuApi.getWeatherAdvisories(currentLocation.id);
+        if (isMounted && weatherList && weatherList.length > 0) {
+          setLiveWeatherRecord(weatherList[0]);
+        }
+      } catch (e) {
+        // Fallback
+      }
+    };
+    fetchLiveWeather();
+    return () => { isMounted = false; };
+  }, [currentLocation.id, refreshTrigger]);
 
   // Active Mandi item based on selected crop or search query, dynamically adapted to user's selected location
   const baseMandi: MandiItem =
@@ -154,7 +197,50 @@ export function App() {
         m.cropName[currentLang].toLowerCase().includes(searchQuery.toLowerCase())
     ) || MANDI_DATABASE[0];
 
-  const activeMandi: MandiItem = getLocationAdaptedMandi(baseMandi, currentLocation);
+  const activeMandi: MandiItem = useMemo(() => {
+    const base = getLocationAdaptedMandi(baseMandi, currentLocation);
+    if (liveMandiRecord && liveMandiRecord.modal_price_qtl) {
+      const liveModalQtl = Number(liveMandiRecord.modal_price_qtl);
+      const liveMinQtl = Number(liveMandiRecord.min_price_qtl || liveModalQtl * 0.9);
+      const liveMaxQtl = Number(liveMandiRecord.max_price_qtl || liveModalQtl * 1.1);
+      const liveMarket = liveMandiRecord.market || base.mandiName.en;
+      const liveDate = liveMandiRecord.arrival_date || base.lastUpdated;
+
+      return {
+        ...base,
+        mandiName: {
+          en: liveMarket,
+          hi: liveMarket,
+          te: liveMarket
+        },
+        variety: liveMandiRecord.variety || base.variety,
+        lastUpdated: `${liveDate} (Agmarknet Live • DB Synced)`,
+        isLive: true,
+        grades: base.grades.map(g => {
+          if (g.gradeCode === 'MODAL') {
+            return {
+              ...g,
+              modalPrice: liveModalQtl,
+              minPrice: liveMinQtl,
+              maxPrice: liveMaxQtl,
+              priceRange: `₹${liveMinQtl.toLocaleString()} - ₹${liveMaxQtl.toLocaleString()}`
+            };
+          }
+          if (g.gradeCode === 'A') {
+            return {
+              ...g,
+              modalPrice: Math.round(liveModalQtl * 1.08),
+              minPrice: Math.round(liveMinQtl * 1.05),
+              maxPrice: Math.round(liveMaxQtl * 1.12),
+              priceRange: `₹${Math.round(liveMinQtl * 1.05).toLocaleString()} - ₹${Math.round(liveMaxQtl * 1.12).toLocaleString()}`
+            };
+          }
+          return g;
+        })
+      };
+    }
+    return base;
+  }, [baseMandi, currentLocation, liveMandiRecord]);
 
   // Dynamically calculate nearest cold storage facility based on user's selected location
   const nearestStorage = getNearestColdStorage(currentLocation);
@@ -208,7 +294,10 @@ export function App() {
         />
 
         {/* Server Data Sync Notice */}
-        <GovtLagNotice currentLang={currentLang} />
+        <GovtLagNotice
+          currentLang={currentLang}
+          onRefreshTriggered={() => setRefreshTrigger((prev) => prev + 1)}
+        />
 
         {/* Body Layout: Sidebar + Main Content */}
         <View style={styles.bodyLayout}>
@@ -316,8 +405,14 @@ export function App() {
                       </Text>
                       <CloudRain size={20} color="#2563EB" />
                     </View>
-                    <Text style={styles.cardMainBold}>Rain Thu 31°C</Text>
-                    <Text style={styles.cardSubHint}>📍 {currentLocation.name[currentLang]} (Delay spraying)</Text>
+                    <Text style={styles.cardMainBold}>
+                      {liveWeatherRecord
+                        ? `${liveWeatherRecord.temp_max_c}°C • ${liveWeatherRecord.condition_text}`
+                        : 'Rain Thu 31°C'}
+                    </Text>
+                    <Text style={styles.cardSubHint}>
+                      📍 {currentLocation.name[currentLang]} ({liveWeatherRecord?.spray_status ? `Spray: ${liveWeatherRecord.spray_status}` : 'Delay spraying'})
+                    </Text>
                   </TouchableOpacity>
 
                   {/* Doctor */}
@@ -478,19 +573,27 @@ export function App() {
           </ScrollView>
         </View>
 
-        {/* Sticky Mobile Bottom Navigation */}
-        <MobileBottomNav
-          currentLang={currentLang}
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-        />
+        {/* Sticky Mobile-Only Bottom Navigation (Hidden on Web/Desktop to keep clean single sidebar) */}
+        <div className="mobile-bottom-nav-wrap" data-testid="mobile-bottom-nav">
+          <MobileBottomNav
+            currentLang={currentLang}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+          />
+        </div>
 
-        {/* Floating AI Voice Assistant Button */}
+        {/* Floating AI Voice Assistant Button (Instant Click Response) */}
         {isAiModeEnabled && (
           <TouchableOpacity
             onPress={() => setIsAiModalOpen(true)}
+            {...({
+              onClick: (e: any) => {
+                e.stopPropagation();
+                setIsAiModalOpen(true);
+              }
+            } as any)}
             style={styles.floatingFab}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
             <Image
               source={{ uri: '/brinjal.png' }}

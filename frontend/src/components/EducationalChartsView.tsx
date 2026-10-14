@@ -203,20 +203,20 @@ const REGIONAL_MANDI_SPREAD_DATA: MandiSpreadRow[] = [
 
 interface LogisticsVehicleRow {
   vehicleType: Record<Language, string>;
-  capacityQtl: string;
+  capacityQtl: Record<Language, string>;
   costPerKm: number;
   costPerQtlKm: number;
-  optimalDistance: string;
+  optimalDistance: Record<Language, string>;
   bestFor: Record<Language, string>;
 }
 
 const VEHICLE_LOGISTICS_DATA: LogisticsVehicleRow[] = [
   {
     vehicleType: { hi: '3-पहिया ऑटो / पियाजियो', te: '3-వీలర్ ఆటో / పియాజియో', en: '3-Wheeler Cargo Auto' },
-    capacityQtl: '10 - 15 क्विंटल',
+    capacityQtl: { hi: '10 - 15 क्विंटल', te: '10 - 15 క్వింటాళ్లు', en: '10 - 15 Quintals' },
     costPerKm: 18,
     costPerQtlKm: 1.5,
-    optimalDistance: '0 - 25 किमी (लोकल)',
+    optimalDistance: { hi: '0 - 25 किमी (लोकल)', te: '0 - 25 కి.మీ (లోకల్)', en: '0 - 25 km (Local)' },
     bestFor: {
       hi: 'छोटे किसान, कम दूरी की स्थानीय मंडी',
       te: 'చిన్న రైతులు, తక్కువ దూరం గల స్థానిక మార్కెట్',
@@ -225,10 +225,10 @@ const VEHICLE_LOGISTICS_DATA: LogisticsVehicleRow[] = [
   },
   {
     vehicleType: { hi: '1.5-टन छोटा हाथी (टाटा ऐस)', te: '1.5-టన్నుల టాటా ఏస్', en: '1.5-Ton Tata Ace (Pickup)' },
-    capacityQtl: '25 - 35 क्विंटल',
+    capacityQtl: { hi: '25 - 35 क्विंटल', te: '25 - 35 క్వింటాళ్లు', en: '25 - 35 Quintals' },
     costPerKm: 26,
     costPerQtlKm: 0.86,
-    optimalDistance: '25 - 80 किमी',
+    optimalDistance: { hi: '25 - 80 किमी', te: '25 - 80 కి.మీ', en: '25 - 80 km' },
     bestFor: {
       hi: 'मध्यम किसान, अंतर-जिला प्रमुख यार्ड',
       te: 'మధ్యస్థ రైతులు, జిల్లా స్థాయి ప్రధాన మార్కెట్',
@@ -237,10 +237,10 @@ const VEHICLE_LOGISTICS_DATA: LogisticsVehicleRow[] = [
   },
   {
     vehicleType: { hi: 'ट्रैक्टर ट्रॉली (4-पहिया)', te: 'ట్రాక్టర్ ట్రాలీ', en: 'Tractor Trolley (Farmer Owned)' },
-    capacityQtl: '40 - 60 क्विंटल',
+    capacityQtl: { hi: '40 - 60 क्विंटल', te: '40 - 60 క్వింటాళ్లు', en: '40 - 60 Quintals' },
     costPerKm: 22,
     costPerQtlKm: 0.44,
-    optimalDistance: '15 - 60 किमी',
+    optimalDistance: { hi: '15 - 60 किमी', te: '15 - 60 కి.మీ', en: '15 - 60 km' },
     bestFor: {
       hi: 'सामूहिक परिवहन, भारी बोरियां, खेत से सीधा यार्ड',
       te: 'రైతుల సొంత రవాణా, పొలం నుండి నేరుగా మార్కెట్‌కు',
@@ -249,10 +249,10 @@ const VEHICLE_LOGISTICS_DATA: LogisticsVehicleRow[] = [
   },
   {
     vehicleType: { hi: '4-टन 6-पहिया ट्रक (आयशर)', te: '4-టన్నుల ట్రక్ (ఐషర్)', en: '4-Ton 6-Tyre Truck (Eicher)' },
-    capacityQtl: '70 - 100 क्विंटल',
+    capacityQtl: { hi: '70 - 100 क्विंटल', te: '70 - 100 క్వింటాళ్లు', en: '70 - 100 Quintals' },
     costPerKm: 38,
     costPerQtlKm: 0.42,
-    optimalDistance: '80 - 250 किमी',
+    optimalDistance: { hi: '80 - 250 किमी', te: '80 - 250 కి.మీ', en: '80 - 250 km' },
     bestFor: {
       hi: 'एफपीओ समूह, लंबी दूरी की प्रमुख निर्यात मंडी',
       te: 'రైతు సంఘాలు (FPO), సుదూర ఎగుమతి మార్కెట్',
@@ -262,12 +262,12 @@ const VEHICLE_LOGISTICS_DATA: LogisticsVehicleRow[] = [
 ];
 
 const COMMODITY_SAFE_MOISTURE = [
-  { cropKey: 'chilli', name: { hi: 'मिर्च', te: 'మిర్చి', en: 'Dry Red Chilli' }, safePct: '10% - 11%', riskPct: '> 14%', lossPenalty: '₹450 - ₹900/qtl', storageSafeMonths: '8 - 12 महीने' },
-  { cropKey: 'cotton', name: { hi: 'कपास', te: 'పత్తి', en: 'Cotton (Kapas)' }, safePct: '8% - 9%', riskPct: '> 12%', lossPenalty: '₹350 - ₹700/qtl', storageSafeMonths: '6 - 9 महीने' },
-  { cropKey: 'paddy', name: { hi: 'धान', te: 'వరి', en: 'Paddy / Rice' }, safePct: '13% - 14%', riskPct: '> 17%', lossPenalty: '₹200 - ₹400/qtl', storageSafeMonths: '12 महीने' },
-  { cropKey: 'groundnut', name: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut Pods' }, safePct: '7% - 8%', riskPct: '> 10%', lossPenalty: '₹400 - ₹800/qtl', storageSafeMonths: '6 महीने' },
-  { cropKey: 'maize', name: { hi: 'मक्का', te: 'మొక్కజొన్న', en: 'Maize / Corn' }, safePct: '12% - 13%', riskPct: '> 15%', lossPenalty: '₹250 - ₹500/qtl', storageSafeMonths: '8 महीने' },
-  { cropKey: 'turmeric', name: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' }, safePct: '9% - 10%', riskPct: '> 13%', lossPenalty: '₹500 - ₹1,100/qtl', storageSafeMonths: '18 महीने' }
+  { cropKey: 'chilli', name: { hi: 'मिर्च', te: 'మిర్చి', en: 'Dry Red Chilli' }, safePct: '10% - 11%', riskPct: '> 14%', lossPenalty: '₹450 - ₹900/qtl', storageSafeMonths: { hi: '8 - 12 महीने', te: '8 - 12 నెలలు', en: '8 - 12 Months' } },
+  { cropKey: 'cotton', name: { hi: 'कपास', te: 'పత్తి', en: 'Cotton (Kapas)' }, safePct: '8% - 9%', riskPct: '> 12%', lossPenalty: '₹350 - ₹700/qtl', storageSafeMonths: { hi: '6 - 9 महीने', te: '6 - 9 నెలలు', en: '6 - 9 Months' } },
+  { cropKey: 'paddy', name: { hi: 'धान', te: 'వరి', en: 'Paddy / Rice' }, safePct: '13% - 14%', riskPct: '> 17%', lossPenalty: '₹200 - ₹400/qtl', storageSafeMonths: { hi: '12 महीने', te: '12 నెలలు', en: '12 Months' } },
+  { cropKey: 'groundnut', name: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut Pods' }, safePct: '7% - 8%', riskPct: '> 10%', lossPenalty: '₹400 - ₹800/qtl', storageSafeMonths: { hi: '6 महीने', te: '6 నెలలు', en: '6 Months' } },
+  { cropKey: 'maize', name: { hi: 'मक्का', te: 'మొక్కజొన్న', en: 'Maize / Corn' }, safePct: '12% - 13%', riskPct: '> 15%', lossPenalty: '₹250 - ₹500/qtl', storageSafeMonths: { hi: '8 महीने', te: '8 నెలలు', en: '8 Months' } },
+  { cropKey: 'turmeric', name: { hi: 'हल्दी', te: 'పసుపు', en: 'Turmeric' }, safePct: '9% - 10%', riskPct: '> 13%', lossPenalty: '₹500 - ₹1,100/qtl', storageSafeMonths: { hi: '18 महीने', te: '18 నెలలు', en: '18 Months' } }
 ];
 
 export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentLang, currentLocation }) => {
@@ -604,10 +604,10 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
             <View key={i} style={styles.vehicleCard}>
               <View style={styles.vehicleTop}>
                 <Text style={styles.vehicleTitle}>{v.vehicleType[currentLang]}</Text>
-                <Text style={styles.vehicleDistBadge}>{v.optimalDistance}</Text>
+                <Text style={styles.vehicleDistBadge}>{v.optimalDistance[currentLang]}</Text>
               </View>
               <View style={styles.vehicleStatsRow}>
-                <Text style={styles.vStat}>Capacity: {v.capacityQtl}</Text>
+                <Text style={styles.vStat}>Capacity: {v.capacityQtl[currentLang]}</Text>
                 <Text style={styles.vStat}>Rate: ₹{v.costPerKm}/km</Text>
                 <Text style={styles.vStatBold}>Cost: ₹{v.costPerQtlKm}/qtl-km</Text>
               </View>
@@ -645,7 +645,7 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
               </View>
               <Text style={styles.cropMRisk}>Risk: {item.riskPct}</Text>
               <Text style={styles.cropMPenalty}>Yard Cut: {item.lossPenalty}</Text>
-              <Text style={styles.cropMLife}>Safe Storage: {item.storageSafeMonths}</Text>
+              <Text style={styles.cropMLife}>Safe Storage: {item.storageSafeMonths[currentLang]}</Text>
             </View>
           ))}
         </View>

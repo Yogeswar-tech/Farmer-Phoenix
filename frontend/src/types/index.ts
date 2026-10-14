@@ -19,6 +19,8 @@ export type LocationOption = {
   district: Record<Language, string>;
   mandiName: Record<Language, string>;
   pincode: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type CropGrade = {
@@ -96,13 +98,17 @@ export type CropDisease = {
 
 export type GovtScheme = {
   id: string;
+  category?: string;
   title: Record<Language, string>;
   shortDesc: Record<Language, string>;
-  benefitAmount: string;
+  benefitAmount: string | Record<Language, string>;
+  interestRate?: string;
+  maxLimit?: string;
   eligibility: Record<Language, string>;
   helpline: string;
   applyUrl: string;
   tag: Record<Language, string>;
+  sourcePortal?: string;
 };
 
 export type ColdStorageFacility = {

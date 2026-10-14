@@ -107,7 +107,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
       <div className="home-mockup-hero-card" onClick={onViewAllGrades} role="button" tabIndex={0}>
         <div className="hero-top-info">
           <span className="hero-subtext">
-            {mandi.mandiName[currentLang]} · {mandi.cropName[currentLang]} · Agmarknet 9:00 AM
+            📍 {mandi.mandiName[currentLang]} · {mandi.cropName[currentLang]} · 🟢 {mandi.lastUpdated}
           </span>
         </div>
         <div className="hero-main-row">

@@ -171,7 +171,32 @@ async def get_insight(
     retail_price = 38.0
     provenance_items: list[dict[str, str]] = []
 
-    if results:
+    # Check database (PostgreSQL primary, SQLite fallback) for scraped rates
+    try:
+        from database.connection import get_db_cursor, is_postgres_active
+        use_pg = is_postgres_active()
+        ph = "%s" if use_pg else "?"
+        with get_db_cursor() as db_cur:
+            db_cur.execute(
+                f"SELECT market, modal_price_kg, modal_price_qtl, arrival_date, source "
+                f"FROM mandi_prices WHERE LOWER(commodity) = LOWER({ph}) ORDER BY arrival_date DESC LIMIT 1;",
+                (crop,)
+            )
+            db_row = db_cur.fetchone()
+            if db_row:
+                row_dict = dict(db_row)
+                mandi_price = float(row_dict["modal_price_kg"])
+                retail_price = round(mandi_price * 1.45, 1)
+                db_name = "PostgreSQL" if use_pg else "SQLite"
+                provenance_items.append({
+                    "label": f"{row_dict['market']} wholesale price",
+                    "as_of": str(row_dict["arrival_date"]),
+                    "source": f"{db_name} DB ({row_dict['source']})"
+                })
+    except Exception:
+        pass
+
+    if not provenance_items and results:
         top_meta = results[0].metadata
         modal_qtl = float(top_meta.get("modal_price", 2500.0))
         mandi_price = round(modal_qtl / 100.0, 1)  # convert quintal to kg

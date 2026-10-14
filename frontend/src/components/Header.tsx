@@ -434,7 +434,7 @@ export const Header: FC<HeaderProps> = ({
           <TouchableOpacity
             onPress={onOpenAiAssistant}
             style={[styles.aiModeBtn, isAiModeEnabled ? styles.aiModeActive : styles.aiModeDisabled]}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
             <Sparkles size={14} color={isAiModeEnabled ? '#FFE600' : '#94A3B8'} />
             <Text style={[styles.aiModeText, isAiModeEnabled && styles.aiModeTextActive]}>

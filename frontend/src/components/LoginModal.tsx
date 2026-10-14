@@ -113,7 +113,13 @@ export const LoginModal: FC<LoginModalProps> = ({
               <label className="form-label">{nameLabel}</label>
               <input
                 type="text"
-                placeholder={currentLang === 'en' ? 'e.g. David / Venkat' : 'उदा: शिवकुमार / Venkat'}
+                placeholder={
+                  currentLang === 'hi'
+                    ? 'उदा: शिवकुमार / राजेश'
+                    : currentLang === 'te'
+                    ? 'ఉదా: శివకుమార్ / వెంకట్'
+                    : 'e.g. David / Venkat'
+                }
                 value={farmerName}
                 onChange={(e) => setFarmerName(e.target.value)}
                 className="form-input"

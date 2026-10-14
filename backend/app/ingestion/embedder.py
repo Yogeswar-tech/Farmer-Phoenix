@@ -4,10 +4,16 @@ import hashlib
 import logging
 import math
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None  # type: ignore
+    types = None  # type: ignore
 
 from app.ingestion.models import PriceChunk
+from typing import Any
+
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -29,9 +35,9 @@ class VertexAIEmbedder:
         self.location = location or settings.gcp_location
         self.api_key = api_key or settings.gemini_api_key
         self.model_name = model_name or settings.embedding_model
-        self._client: genai.Client | None = None
+        self._client: Any = None
 
-    def _get_client(self) -> genai.Client:
+    def _get_client(self) -> Any:
         """Initialize google.genai client for Vertex AI or Gemini Developer API."""
         if self._client is not None:
             return self._client

@@ -1,13 +1,58 @@
 # ==============================================================================
-# Kisan Sethu Backend - Docker Compose Setup
+# Kisan Sethu Full-Stack Architecture - Docker Compose Setup
+# Services: FastAPI Backend + PostgreSQL 16 (pgvector) + Redis 7 + Scraper Worker
 # ==============================================================================
 # Usage:
-#   docker compose up --build -d   # Start in background
+#   docker compose up --build -d   # Start all services
 #   docker compose logs -f         # Follow container logs
-#   docker compose down            # Stop and tear down
+#   docker compose down            # Stop all services
 # ==============================================================================
 
 services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL 16 with pgvector & JSONB Unstructured Support
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kisan-sethu-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kisan_sethu
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kisan_sethu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. Redis 7 Alpine Cache Server
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: kisan-sethu-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. FastAPI Core Application Server
+  # ----------------------------------------------------------------------------
   backend:
     build:
       context: .
@@ -20,13 +65,47 @@ services:
     env_file:
       - .env
     environment:
-      - KS_ENV=local
+      - KS_ENV=production
+      - KS_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/kisan_sethu
+      - KS_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      # Mount data folder so RAG vector stores & audit logs persist on host
       - ./data:/app/data
+      - ../scrapers:/app/scrapers
+      - ../database:/app/database
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health')"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # 4. Recurring 6-Hour Background Scraper Worker
+  # ----------------------------------------------------------------------------
+  scraper_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kisan-sethu-scraper
+    restart: unless-stopped
+    command: python scrapers/scheduler.py
+    environment:
+      - KS_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/kisan_sethu
+      - KS_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../scrapers:/app/scrapers
+      - ../database:/app/database
+
+volumes:
+  pgdata:
+  redisdata:

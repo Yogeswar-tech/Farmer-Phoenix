@@ -52,9 +52,21 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
           <div className="card-badge-row">
             <span className="shc-badge">
               <ShieldCheck size={14} />
-              <span>सत्यापित मृदा स्वास्थ्य कार्ड (Verified SHC)</span>
+              <span>
+                {currentLang === 'hi'
+                  ? 'सत्यापित मृदा स्वास्थ्य कार्ड (Verified SHC)'
+                  : currentLang === 'te'
+                  ? 'ధృవీకరించబడిన భూసార కార్డు (Verified SHC)'
+                  : 'Verified Soil Health Card (SHC)'}
+              </span>
             </span>
-            <span className="sample-id">नमूना आईडी: {sampleId}</span>
+            <span className="sample-id">
+              {currentLang === 'hi'
+                ? `नमूना आईडी: ${sampleId}`
+                : currentLang === 'te'
+                ? `నమూనా ID: ${sampleId}`
+                : `Sample ID: ${sampleId}`}
+            </span>
           </div>
 
           <div className="soil-meta-grid">
@@ -67,7 +79,9 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
               </div>
             )}
             <div className="meta-item">
-              <span className="meta-lbl">{currentLang === 'hi' ? 'मिट्टी का प्रकार:' : 'Soil Classification:'}</span>
+              <span className="meta-lbl">
+                {currentLang === 'hi' ? 'मिट्टी का प्रकार:' : currentLang === 'te' ? 'నేల రకం:' : 'Soil Classification:'}
+              </span>
               <span className="meta-val">{SOIL_DATA.soilType[currentLang]}</span>
             </div>
             <div className="meta-item">
@@ -75,11 +89,17 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
               <span className="meta-val ph">{SOIL_DATA.ph} ({SOIL_DATA.phStatus[currentLang]})</span>
             </div>
             <div className="meta-item">
-              <span className="meta-lbl">{currentLang === 'hi' ? 'जैविक कार्बन:' : 'Organic Carbon:'}</span>
-              <span className="meta-val">{SOIL_DATA.organicCarbon}% (संतोषजनक)</span>
+              <span className="meta-lbl">
+                {currentLang === 'hi' ? 'जैविक कार्बन:' : currentLang === 'te' ? 'సేంద్రీయ కర్బనం:' : 'Organic Carbon:'}
+              </span>
+              <span className="meta-val">
+                {SOIL_DATA.organicCarbon}% ({currentLang === 'hi' ? 'संतोषजनक' : currentLang === 'te' ? 'సంతృప్తికరం' : 'Optimal'})
+              </span>
             </div>
             <div className="meta-item">
-              <span className="meta-lbl">{currentLang === 'hi' ? 'जांच दिनांक:' : 'Test Date:'}</span>
+              <span className="meta-lbl">
+                {currentLang === 'hi' ? 'जांच दिनांक:' : currentLang === 'te' ? 'పరీక్షించిన తేదీ:' : 'Test Date:'}
+              </span>
               <span className="meta-val">{SOIL_DATA.testDate}</span>
             </div>
           </div>
@@ -154,7 +174,11 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
               className="soil-upload-btn"
             >
               <FileText size={16} />
-              <span>{uploading ? 'जांच हो रही है...' : t.uploadPdfBtn}</span>
+              <span>
+                {uploading
+                  ? (currentLang === 'hi' ? 'जांच हो रही है...' : currentLang === 'te' ? 'విశ్లేషిస్తోంది...' : 'Analyzing Report...')
+                  : t.uploadPdfBtn}
+              </span>
             </button>
           </div>
 

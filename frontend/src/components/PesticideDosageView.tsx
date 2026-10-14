@@ -57,7 +57,11 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
                   : currentLang === 'te'
                   ? ` గురువారం ${currentLocation.name[currentLang]}లో భారీ వర్షం కురిసే అవకాశం ఉంది. బుధ-గురువారాల్లో పిచికారీ నివారించండి.`
                   : ` Heavy rain expected in ${currentLocation.name[currentLang]} on Thursday. Avoid spraying on Wed/Thu as chemicals will wash away.`)
-              : ' गुरुवार को भारी बारिश संभावित है। बुधवार-गुरुवार को छिड़काव से बचें अन्यथा दवा बह जाएगी और आर्थिक नुकसान होगा।'}
+              : (currentLang === 'hi'
+                  ? ' गुरुवार को भारी बारिश संभावित है। बुधवार-गुरुवार को छिड़काव से बचें अन्यथा दवा बह जाएगी और आर्थिक नुकसान होगा।'
+                  : currentLang === 'te'
+                  ? ' గురువారం భారీ వర్షం కురిసే అవకాశం ఉంది. బుధ-గురువారాల్లో పిచికారీ నివారించండి.'
+                  : ' Heavy rain expected on Thursday. Avoid spraying on Wed/Thu as chemicals will wash away.')}
           </span>
         </div>
       </div>
@@ -105,21 +109,27 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
           </div>
 
           <div className="form-group">
-            <label className="form-label">दवा का प्रकार (Treatment Mode):</label>
+            <label className="form-label">
+              {currentLang === 'hi'
+                ? 'दवा का प्रकार (Treatment Mode):'
+                : currentLang === 'te'
+                ? 'చికిత్స రకం (Treatment Mode):'
+                : 'Treatment Mode:'}
+            </label>
             <div className="mode-toggle-row">
               <button
                 type="button"
                 onClick={() => setChemicalType('chemical')}
                 className={`mode-btn ${chemicalType === 'chemical' ? 'active-chem' : ''}`}
               >
-                💊 रासायनिक (Chemical)
+                {currentLang === 'hi' ? '💊 रासायनिक (Chemical)' : currentLang === 'te' ? '💊 రసాయన మందు (Chemical)' : '💊 Chemical'}
               </button>
               <button
                 type="button"
                 onClick={() => setChemicalType('organic')}
                 className={`mode-btn ${chemicalType === 'organic' ? 'active-org' : ''}`}
               >
-                🌿 जैविक (Organic Neem)
+                {currentLang === 'hi' ? '🌿 जैविक (Organic Neem)' : currentLang === 'te' ? '🌿 సేంద్రీయ వేప (Organic Neem)' : '🌿 Organic (Neem)'}
               </button>
             </div>
           </div>
@@ -134,9 +144,15 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
 
           <div className="prescribed-numbers-box">
             <div className="p-num-item">
-              <span className="p-lbl">प्रति पंप मात्रा (Per {tankLiters}L Tank):</span>
+              <span className="p-lbl">
+                {currentLang === 'hi'
+                  ? `प्रति पंप मात्रा (Per ${tankLiters}L Tank):`
+                  : currentLang === 'te'
+                  ? `ప్రతి పంపుకు మోతాదు (Per ${tankLiters}L Tank):`
+                  : `Dosage Per ${tankLiters}L Tank:`}
+              </span>
               <span className="p-val highlight">
-                {dosageGramsOrMl} {chemicalType === 'chemical' ? 'ग्राम (g)' : 'मिली (ml)'}
+                {dosageGramsOrMl} {chemicalType === 'chemical' ? (currentLang === 'hi' ? 'ग्राम (g)' : currentLang === 'te' ? 'గ్రాములు (g)' : 'g') : (currentLang === 'hi' ? 'मिली (ml)' : currentLang === 'te' ? 'మి.లీ (ml)' : 'ml')}
               </span>
               <span className="p-sub">
                 {chemicalType === 'chemical' ? 'Thiamethoxam 25% WG' : 'Neem Oil 10,000 PPM'}
@@ -144,15 +160,33 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
             </div>
 
             <div className="p-num-item">
-              <span className="p-lbl">कुल पंप संख्या (Total Pumps):</span>
-              <span className="p-val">{pumpsRequired} पंप</span>
-              <span className="p-sub">{acreArea} एकड़ क्षेत्र हेतु (150L पानी/एकड़)</span>
+              <span className="p-lbl">
+                {currentLang === 'hi' ? 'कुल पंप संख्या (Total Pumps):' : currentLang === 'te' ? 'మొత్తం పంపులు:' : 'Total Sprayer Tanks:'}
+              </span>
+              <span className="p-val">
+                {pumpsRequired} {currentLang === 'hi' ? 'पंप' : currentLang === 'te' ? 'ట్యాంకులు' : 'Tanks'}
+              </span>
+              <span className="p-sub">
+                {currentLang === 'hi'
+                  ? `${acreArea} एकड़ क्षेत्र हेतु (150L पानी/एकड़)`
+                  : currentLang === 'te'
+                  ? `${acreArea} ఎకరాల కోసం (150L నీరు/ఎకరా)`
+                  : `For ${acreArea} Acres (150L water/acre)`}
+              </span>
             </div>
 
             <div className="p-num-item total">
-              <span className="p-lbl">कुल आवश्यक दवा (Total Quantity):</span>
+              <span className="p-lbl">
+                {currentLang === 'hi' ? 'कुल आवश्यक दवा (Total Quantity):' : currentLang === 'te' ? 'మొత్తం మందు పరిమాణం:' : 'Total Required Quantity:'}
+              </span>
               <span className="p-val total-amt">{totalQuantity}</span>
-              <span className="p-sub">अनुमानित खर्च: ~₹{chemicalType === 'chemical' ? '180/एकड़' : '120/एकड़'}</span>
+              <span className="p-sub">
+                {currentLang === 'hi'
+                  ? `अनुमानित खर्च: ~₹${chemicalType === 'chemical' ? '180/एकड़' : '120/एकड़'}`
+                  : currentLang === 'te'
+                  ? `అంచనా వ్యయం: ~₹${chemicalType === 'chemical' ? '180/ఎకరా' : '120/ఎకరా'}`
+                  : `Est. Cost: ~₹${chemicalType === 'chemical' ? '180/acre' : '120/acre'}`}
+              </span>
             </div>
           </div>
 
@@ -163,9 +197,27 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
               <span>{t.safetyChecklistTitle}</span>
             </h4>
             <ul className="safety-list">
-              <li>😷 छिड़काव के दौरान चेहरे पर मास्क व हाथों में दस्ताने पहनें।</li>
-              <li>💨 हमेशा हवा की दिशा में छिड़काव करें (हवा के विपरीत कभी न जाएं)।</li>
-              <li>☀️ सुबह 10 बजे से पहले या शाम 4 बजे के बाद ही छिड़काव करें।</li>
+              <li>
+                {currentLang === 'hi'
+                  ? '😷 छिड़काव के दौरान चेहरे पर मास्क व हाथों में दस्ताने पहनें।'
+                  : currentLang === 'te'
+                  ? '😷 స్ప్రే చేసే సమయంలో ముఖానికి మాస్క్ మరియు చేతులకు గ్లౌజులు ధరించండి.'
+                  : '😷 Wear safety face mask and protective gloves during chemical spraying.'}
+              </li>
+              <li>
+                {currentLang === 'hi'
+                  ? '💨 हमेशा हवा की दिशा में छिड़काव करें (हवा के विपरीत कभी न जाएं)।'
+                  : currentLang === 'te'
+                  ? '💨 ఎల్లప్పుడూ గాలి వీచే దిశలోనే స్ప్రే చేయండి (ఎదురుగాలిలో చేయవద్దు).'
+                  : '💨 Always spray along the direction of the wind (never spray against the wind).'}
+              </li>
+              <li>
+                {currentLang === 'hi'
+                  ? '☀️ सुबह 10 बजे से पहले या शाम 4 बजे के बाद ही छिड़काव करें।'
+                  : currentLang === 'te'
+                  ? '☀️ ఉదయం 10 గంటల లోపు లేదా సాయంత్రం 4 గంటల తర్వాత మాత్రమే స్ప్రే చేయండి.'
+                  : '☀️ Spray strictly before 10:00 AM or after 4:00 PM to avoid leaf scorch.'}
+              </li>
             </ul>
           </div>
         </div>
