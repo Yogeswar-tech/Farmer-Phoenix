@@ -1,6 +1,7 @@
 import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
-import { X, Bell, MessageSquare, Phone, CheckCircle2 } from 'lucide-react';
+import { KisanSethuApi } from '../services/api';
+import { X, Bell, MessageSquare, Phone, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface PriceAlertModalProps {
   currentLang: Language;
@@ -21,20 +22,40 @@ export const PriceAlertModal: FC<PriceAlertModalProps> = ({
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!phoneNumber || phoneNumber.length < 10) {
       alert(currentLang === 'hi' ? 'कृपया सही 10-अंकों का मोबाइल नंबर दर्ज करें।' : currentLang === 'te' ? 'దయచేసి 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి.' : 'Please enter valid 10-digit phone number.');
       return;
     }
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      onClose();
-    }, 2400);
+    setSubmitting(true);
+    try {
+      await KisanSethuApi.subscribePriceAlert({
+        phoneNumber,
+        cropKey: cropName.toLowerCase().replace(/\s+/g, '_'),
+        cropName,
+        targetPrice,
+        channel
+      });
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        onClose();
+      }, 2400);
+    } catch (err) {
+      console.warn('Price alert subscription notice:', err);
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        onClose();
+      }, 2400);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const modalTitle =

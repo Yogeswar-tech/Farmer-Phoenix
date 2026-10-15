@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, calculateLocationDistanceKm } from '../data/mockData';
+import { KisanSethuApi } from '../services/api';
 import {
   TrendingUp,
   Droplets,
@@ -274,6 +275,23 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
   const t = translations[currentLang];
   const [selectedCommodity, setSelectedCommodity] = useState('chilli');
   const [simulatedMoisture, setSimulatedMoisture] = useState(15);
+  const [backendMatrix, setBackendMatrix] = useState<any | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadGrading() {
+      try {
+        const matrix = await KisanSethuApi.getEducationalGradingMatrix(selectedCommodity, currentLang);
+        if (isMounted && matrix && matrix.status === 'success') {
+          setBackendMatrix(matrix);
+        }
+      } catch (err) {
+        console.warn('Grading matrix load error:', err);
+      }
+    }
+    loadGrading();
+    return () => { isMounted = false; };
+  }, [selectedCommodity, currentLang]);
 
   const baseStandard = 11;
   const excessMoisture = Math.max(0, simulatedMoisture - baseStandard);

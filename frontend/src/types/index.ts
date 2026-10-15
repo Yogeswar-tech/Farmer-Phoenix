@@ -6,7 +6,6 @@ export type NavigationTab =
   | 'rates'
   | 'climate'
   | 'advisory'
-  | 'pesticides'
   | 'soildoctor'
   | 'schemes'
   | 'storage'
@@ -122,6 +121,19 @@ export type ColdStorageFacility = {
   temperatureControlled: boolean;
   contactPhone: string;
   hasFumigation: boolean;
+  district?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  capacityMt?: number;
+  availableMt?: number;
+  monthlyRentPerQtl?: number;
+  occupancyPct?: number;
+  wdraAccredited?: boolean;
+  tempRangeC?: string;
+  chambers?: number;
+  crops?: string[];
+  facilityMeta?: Record<string, any>;
 };
 
 export type SoilReportData = {

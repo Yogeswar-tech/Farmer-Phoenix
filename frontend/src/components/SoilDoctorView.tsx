@@ -1,8 +1,9 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import type { Language, LocationOption } from '../types';
 import { SOIL_DATA } from '../data/mockData';
 import { translations } from '../data/i18n';
-import { TestTube2, FileText, CheckCircle2, AlertCircle, UploadCloud, ShieldCheck } from 'lucide-react';
+import { KisanSethuApi } from '../services/api';
+import { TestTube2, FileText, CheckCircle2, AlertCircle, UploadCloud, ShieldCheck, RefreshCw } from 'lucide-react';
 
 interface SoilDoctorViewProps {
   currentLang: Language;
@@ -18,18 +19,59 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   const t = translations[currentLang];
   const [uploading, setUploading] = useState(false);
   const [reportUploaded, setReportUploaded] = useState(true);
+  const [soilCard, setSoilCard] = useState<any | null>(null);
+  const [soilRecs, setSoilRecs] = useState<any | null>(null);
 
-  const sampleId = currentLocation
+  const locId = currentLocation?.id || 'guntur';
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSoilData() {
+      try {
+        const card = await KisanSethuApi.getSoilHealthCard(locId, currentLang);
+        if (isMounted && card && card.status === 'success') {
+          setSoilCard(card);
+        }
+        const recs = await KisanSethuApi.calculateSoilRecommendation({
+          cropKey: 'chilli',
+          acres: 1.0,
+          locationId: locId,
+          lang: currentLang
+        });
+        if (isMounted && recs && recs.status === 'success') {
+          setSoilRecs(recs);
+        }
+      } catch (err) {
+        console.warn('Soil Doctor API notice:', err);
+      }
+    }
+    loadSoilData();
+    return () => { isMounted = false; };
+  }, [locId, currentLang]);
+
+  const sampleId = soilCard?.sample_id || (currentLocation
     ? `SHC-${currentLocation.state.en.substring(0, 2).toUpperCase()}-${currentLocation.id.toUpperCase()}-2026-88`
-    : SOIL_DATA.sampleId;
+    : SOIL_DATA.sampleId);
 
-  const handleSimulatePdfUpload = () => {
+  const handleSimulatePdfUpload = async () => {
     setUploading(true);
-    setTimeout(() => {
-      setUploading(false);
+    try {
+      const recs = await KisanSethuApi.calculateSoilRecommendation({
+        cropKey: 'chilli',
+        acres: 1.0,
+        locationId: locId,
+        lang: currentLang
+      });
+      if (recs && recs.status === 'success') {
+        setSoilRecs(recs);
+      }
       setReportUploaded(true);
-      alert(currentLang === 'hi' ? 'मृदा जांच पर्चा सफलतापूर्वक अपलोड हो गया!' : 'Soil test report uploaded successfully!');
-    }, 1500);
+      alert(currentLang === 'hi' ? 'मृदा जांच पर्चा सफलतापूर्वक संसाधित हुआ!' : currentLang === 'te' ? 'భూసార నివేదిక విజయవంతంగా విశ్లేషించబడింది!' : 'Soil test report analyzed successfully!');
+    } catch (err) {
+      console.warn('Soil upload error:', err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -82,18 +124,18 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
               <span className="meta-lbl">
                 {currentLang === 'hi' ? 'मिट्टी का प्रकार:' : currentLang === 'te' ? 'నేల రకం:' : 'Soil Classification:'}
               </span>
-              <span className="meta-val">{SOIL_DATA.soilType[currentLang]}</span>
+              <span className="meta-val">{soilCard?.soil_type || SOIL_DATA.soilType[currentLang]}</span>
             </div>
             <div className="meta-item">
               <span className="meta-lbl">{t.phLabel}</span>
-              <span className="meta-val ph">{SOIL_DATA.ph} ({SOIL_DATA.phStatus[currentLang]})</span>
+              <span className="meta-val ph">{soilCard?.ph ?? SOIL_DATA.ph} ({soilCard?.ph_status || SOIL_DATA.phStatus[currentLang]})</span>
             </div>
             <div className="meta-item">
               <span className="meta-lbl">
                 {currentLang === 'hi' ? 'जैविक कार्बन:' : currentLang === 'te' ? 'సేంద్రీయ కర్బనం:' : 'Organic Carbon:'}
               </span>
               <span className="meta-val">
-                {SOIL_DATA.organicCarbon}% ({currentLang === 'hi' ? 'संतोषजनक' : currentLang === 'te' ? 'సంతృప్తికరం' : 'Optimal'})
+                {soilCard?.organic_carbon_pct ?? SOIL_DATA.organicCarbon}% ({currentLang === 'hi' ? 'संतोषजनक' : currentLang === 'te' ? 'సంతృప్తికరం' : 'Optimal'})
               </span>
             </div>
             <div className="meta-item">
@@ -114,9 +156,9 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
                   <span className="element-symbol">N</span>
                   <span className="element-name">{t.nitrogenLabel}</span>
                 </div>
-                <span className="nutrient-val">{SOIL_DATA.nitrogenKgPerHa} kg/ha</span>
+                <span className="nutrient-val">{soilCard?.nitrogen_kg_ha ?? SOIL_DATA.nitrogenKgPerHa} kg/ha</span>
                 <span className="nutrient-status-tag low">
-                  {currentLang === 'hi' ? 'कम (Low)' : 'Low'}
+                  {soilCard?.nitrogen_status?.toUpperCase() || (currentLang === 'hi' ? 'कम (Low)' : 'Low')}
                 </span>
                 <div className="nutrient-bar">
                   <div className="bar-fill low" style={{ width: '40%' }} />
@@ -129,9 +171,9 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
                   <span className="element-symbol">P</span>
                   <span className="element-name">{t.phosphorusLabel}</span>
                 </div>
-                <span className="nutrient-val">{SOIL_DATA.phosphorusKgPerHa} kg/ha</span>
+                <span className="nutrient-val">{soilCard?.phosphorus_kg_ha ?? SOIL_DATA.phosphorusKgPerHa} kg/ha</span>
                 <span className="nutrient-status-tag medium">
-                  {currentLang === 'hi' ? 'मध्यम (Medium)' : 'Medium'}
+                  {soilCard?.phosphorus_status?.toUpperCase() || (currentLang === 'hi' ? 'मध्यम (Medium)' : 'Medium')}
                 </span>
                 <div className="nutrient-bar">
                   <div className="bar-fill medium" style={{ width: '65%' }} />
@@ -144,9 +186,9 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
                   <span className="element-symbol">K</span>
                   <span className="element-name">{t.potassiumLabel}</span>
                 </div>
-                <span className="nutrient-val">{SOIL_DATA.potassiumKgPerHa} kg/ha</span>
+                <span className="nutrient-val">{soilCard?.potassium_kg_ha ?? SOIL_DATA.potassiumKgPerHa} kg/ha</span>
                 <span className="nutrient-status-tag high">
-                  {currentLang === 'hi' ? 'उच्च (High)' : 'High'}
+                  {soilCard?.potassium_status?.toUpperCase() || (currentLang === 'hi' ? 'उच्च (High)' : 'High')}
                 </span>
                 <div className="nutrient-bar">
                   <div className="bar-fill high" style={{ width: '90%' }} />
@@ -190,10 +232,13 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
                 <span>{t.fertilizerRecommendationTitle}</span>
               </h4>
               <ul className="rec-list">
-                {SOIL_DATA.recommendedFertilizers.map((rec, i) => (
+                {(soilRecs?.recommendations && soilRecs.recommendations.length > 0
+                  ? soilRecs.recommendations
+                  : SOIL_DATA.recommendedFertilizers.map((rec) => rec[currentLang])
+                ).map((recText: string, i: number) => (
                   <li key={i} className="rec-item">
                     <span className="rec-bullet">🌾</span>
-                    <span className="rec-text">{rec[currentLang]}</span>
+                    <span className="rec-text">{recText}</span>
                   </li>
                 ))}
               </ul>

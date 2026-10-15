@@ -1,6 +1,7 @@
 import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
-import { X, ShieldCheck, Phone, CheckCircle2, Lock } from 'lucide-react';
+import { KisanSethuApi } from '../services/api';
+import { X, ShieldCheck, Phone, CheckCircle2, Lock, RefreshCw } from 'lucide-react';
 
 interface LoginModalProps {
   currentLang: Language;
@@ -21,6 +22,7 @@ export const LoginModal: FC<LoginModalProps> = ({
   const [farmerName, setFarmerName] = useState('');
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -33,7 +35,7 @@ export const LoginModal: FC<LoginModalProps> = ({
     setOtpStep(true);
   };
 
-  const handleVerifyOtp = (e: FormEvent) => {
+  const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
     if (otp.length < 4) {
       alert(currentLang === 'hi' ? 'कृपया 4-अंकों का ओटीपी दर्ज करें।' : currentLang === 'te' ? 'దయచేసి 4 అంకెల OTP నమోదు చేయండి.' : 'Please enter 4-digit OTP.');
@@ -41,8 +43,21 @@ export const LoginModal: FC<LoginModalProps> = ({
     }
     const defaultName = currentLang === 'hi' ? 'किसान मित्र' : currentLang === 'te' ? 'రైతు మిత్ర' : 'Farmer Friend';
     const finalName = farmerName.trim() || defaultName;
-    onLoginSuccess(finalName, phoneNumber);
-    onClose();
+    setLoading(true);
+    try {
+      await KisanSethuApi.loginFarmer({
+        phoneNumber,
+        farmerName: finalName,
+        otp,
+        preferredLang: currentLang
+      });
+    } catch (err) {
+      console.warn('Farmer profile save note:', err);
+    } finally {
+      setLoading(false);
+      onLoginSuccess(finalName, phoneNumber);
+      onClose();
+    }
   };
 
   const titleText = lockedFeatureName

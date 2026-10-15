@@ -13,22 +13,22 @@ export const WeatherWidget: FC<WeatherWidgetProps> = ({ currentLang }) => {
 
   const locationText =
     currentLang === 'hi'
-      ? '📍 गुंटूर / अमरावती (IMD उपग्रह डाटा)'
+      ? '📍 लाइव उपग्रह एवं आईएमडी रडार (Live IMD Radar Sync)'
       : currentLang === 'te'
-      ? '📍 గుంటూరు / అమరావతి (IMD ఉపగ్రహ డేటా)'
-      : '📍 Guntur / Amaravati (IMD Satellite Sync)';
+      ? '📍 లైవ్ శాటిలైట్ & IMD రాడార్'
+      : '📍 Live Satellite & IMD Radar Sync';
 
   const rainUnit =
-    currentLang === 'hi' ? 'बारिश' : currentLang === 'te' ? 'వర్షం' : 'rain';
+    currentLang === 'hi' ? 'बारिश' : currentLang === 'te' ? 'వర్షం' : 'Rain';
 
   const stopSprayText =
-    currentLang === 'hi' ? '⛔ छिड़काव बंद' : currentLang === 'te' ? '⛔ పిచికారీ వద్దు' : '⛔ Stop Spray';
+    currentLang === 'hi' ? '⛔ छिड़काव बंद' : currentLang === 'te' ? '⛔ స్ప్రే చేయవద్దు' : '⛔ Stop Spray';
 
   const cautionText =
     currentLang === 'hi' ? '⚠️ सावधानी' : currentLang === 'te' ? '⚠️ జాగ్రత్త' : '⚠️ Caution';
 
   const safeDayText =
-    currentLang === 'hi' ? 'सुरक्षित दिन' : currentLang === 'te' ? 'అనుకూల దినం' : 'Safe to Spray';
+    currentLang === 'hi' ? 'सुरक्षित दिन' : currentLang === 'te' ? 'సురక్షితం' : 'Safe to Spray';
 
   return (
     <div className="weather-widget-container">
@@ -39,7 +39,7 @@ export const WeatherWidget: FC<WeatherWidgetProps> = ({ currentLang }) => {
         <span className="location-tag">{locationText}</span>
       </div>
 
-      {/* Thursday Weather Alert Ribbon */}
+      {/* Weather Alert Ribbon */}
       <div className="rain-risk-banner">
         <AlertTriangle size={20} className="banner-alert-icon" />
         <div className="banner-text">
@@ -60,14 +60,14 @@ export const WeatherWidget: FC<WeatherWidgetProps> = ({ currentLang }) => {
               className={`weather-day-card ${isDanger ? 'risk-danger' : isWarning ? 'risk-warning' : 'risk-safe'}`}
             >
               <div className="day-header">
-                <span className="day-name">{day.dayName[currentLang]}</span>
+                <span className="day-name">{day.dayName[currentLang] || day.dayName.en}</span>
                 <span className="day-date">{day.date}</span>
               </div>
 
               <div className="day-icon-row">
-                {day.condition === 'sunny' && <Sun size={32} className="sun-icon" />}
-                {day.condition === 'cloudy' && <Cloud size={32} className="cloud-icon" />}
-                {day.condition === 'rain' && <CloudRain size={32} className="rain-icon" />}
+                {day.condition === 'sunny' && <Sun size={30} className="sun-icon" />}
+                {day.condition === 'cloudy' && <Cloud size={30} className="cloud-icon" />}
+                {day.condition === 'rain' && <CloudRain size={30} className="rain-icon" />}
                 <div className="temp-block">
                   <span className="temp-max">{day.tempMax}°C</span>
                   <span className="temp-min">/{day.tempMin}°C</span>
@@ -75,7 +75,7 @@ export const WeatherWidget: FC<WeatherWidgetProps> = ({ currentLang }) => {
               </div>
 
               <div className="condition-label">
-                <span>{day.conditionText[currentLang]}</span>
+                <span>{day.conditionText[currentLang] || day.conditionText.en}</span>
                 <span className="rain-chance">💧 {day.rainChance}% {rainUnit}</span>
               </div>
 
@@ -91,7 +91,7 @@ export const WeatherWidget: FC<WeatherWidgetProps> = ({ currentLang }) => {
                     </span>
                   )}
                 </div>
-                <p className="advice-snippet">{day.sprayingAdvice[currentLang]}</p>
+                <p className="advice-snippet">{day.sprayingAdvice[currentLang] || day.sprayingAdvice.en}</p>
               </div>
             </div>
           );

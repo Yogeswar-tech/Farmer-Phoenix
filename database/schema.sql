@@ -228,3 +228,71 @@ CREATE TABLE IF NOT EXISTS scraper_audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_scraper_logs_date ON scraper_audit_logs (executed_at DESC);
+
+-- ------------------------------------------------------------------------------
+-- 10. Farmer Price Alert Subscriptions
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS price_alerts (
+    id BIGSERIAL PRIMARY KEY,
+    phone_number VARCHAR(20) NOT NULL,
+    crop_key VARCHAR(50) NOT NULL,
+    crop_name VARCHAR(100),
+    target_price NUMERIC(10, 2) NOT NULL,
+    channel VARCHAR(20) DEFAULT 'whatsapp', -- whatsapp, sms
+    mandi_name VARCHAR(150),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_price_alerts_phone ON price_alerts (phone_number);
+CREATE INDEX IF NOT EXISTS idx_price_alerts_crop ON price_alerts (crop_key, is_active);
+
+-- ------------------------------------------------------------------------------
+-- 11. Farmer Profiles & Authentication
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS farmer_profiles (
+    id BIGSERIAL PRIMARY KEY,
+    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    farmer_name VARCHAR(150),
+    preferred_lang VARCHAR(10) DEFAULT 'en',
+    district VARCHAR(100),
+    state VARCHAR(100),
+    primary_crop VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_farmer_profiles_phone ON farmer_profiles (phone_number);
+
+-- ------------------------------------------------------------------------------
+-- 12. CIBRC Statutory Pesticide, Fungicide, Herbicide, & PGR Registry
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS cibrc_pesticide_registry (
+    id BIGSERIAL PRIMARY KEY,
+    category VARCHAR(50) NOT NULL, -- 'INSECTICIDE', 'FUNGICIDE', 'HERBICIDE', 'PGR', 'BIO-PESTICIDE'
+    pesticide_name VARCHAR(200) NOT NULL,
+    active_ingredient VARCHAR(150) NOT NULL,
+    formulation VARCHAR(80),
+    crop VARCHAR(100) NOT NULL,
+    crop_key VARCHAR(50) NOT NULL,
+    target_pest_or_disease TEXT NOT NULL,
+    ai_dose VARCHAR(100),
+    formulation_dose VARCHAR(120),
+    dilution_water_liters VARCHAR(100),
+    waiting_period_days VARCHAR(60),
+    pump_dose_15l VARCHAR(100),
+    application_method VARCHAR(150) DEFAULT 'Foliar Spray',
+    toxicity_band VARCHAR(30) DEFAULT 'green', -- 'green', 'blue', 'yellow', 'red', 'bio'
+    toxicity_label TEXT,
+    safety_warnings TEXT,
+    is_approved BOOLEAN DEFAULT TRUE,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cibrc_crop_key ON cibrc_pesticide_registry (crop_key);
+CREATE INDEX IF NOT EXISTS idx_cibrc_active_ing ON cibrc_pesticide_registry (active_ingredient);
+CREATE INDEX IF NOT EXISTS idx_cibrc_category ON cibrc_pesticide_registry (category);
+CREATE INDEX IF NOT EXISTS idx_cibrc_payload_gin ON cibrc_pesticide_registry USING gin (payload);
+

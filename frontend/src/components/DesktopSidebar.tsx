@@ -35,6 +35,7 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
     charts: { en: 'Guide', hi: 'गाइड', te: 'గైడ్' },
     logistics: { en: 'ROI', hi: 'मुनाफा', te: 'లాభం' },
     rates: { en: 'Live', hi: 'लाइव', te: 'లైవ్' },
+    advisory: { en: 'Doctor', hi: 'डॉक्टर', te: 'డాక్టర్' },
   };
 
   const menuItems: { id: NavigationTab; label: string; icon: ReactNode; badge?: string }[] = [
@@ -43,8 +44,7 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={18} />, badge: badges.logistics[currentLang] },
     { id: 'rates', label: t.tabRates, icon: <TrendingUp size={18} />, badge: badges.rates[currentLang] },
     { id: 'climate', label: t.tabClimate, icon: <CloudSun size={18} /> },
-    { id: 'advisory', label: t.tabAdvisory, icon: <Leaf size={18} /> },
-    { id: 'pesticides', label: t.tabPesticides, icon: <FlaskConical size={18} /> },
+    { id: 'advisory', label: t.tabAdvisory, icon: <Leaf size={18} />, badge: badges.advisory[currentLang] },
     { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={18} /> },
     { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={18} /> },
     { id: 'storage', label: t.tabStorage, icon: <Warehouse size={18} /> }

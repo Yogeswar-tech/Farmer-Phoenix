@@ -25,8 +25,7 @@ import { DesktopSidebar } from './components/DesktopSidebar';
 import { MandiHeroCard } from './components/MandiHeroCard';
 import { MandiLogisticsView } from './components/MandiLogisticsView';
 import { ClimatePredictionView } from './components/ClimatePredictionView';
-import { CropDoctorView } from './components/CropDoctorView';
-import { PesticideDosageView } from './components/PesticideDosageView';
+import { CropPesticideDoctorView } from './components/CropPesticideDoctorView';
 import { SoilDoctorView } from './components/SoilDoctorView';
 import { SchemesSection } from './components/SchemesSection';
 import { ColdStorageMapView } from './components/ColdStorageMapView';
@@ -293,11 +292,6 @@ export function App() {
           onSelectLocation={handleLocationChange}
         />
 
-        {/* Server Data Sync Notice */}
-        <GovtLagNotice
-          currentLang={currentLang}
-          onRefreshTriggered={() => setRefreshTrigger((prev) => prev + 1)}
-        />
 
         {/* Body Layout: Sidebar + Main Content */}
         <View style={styles.bodyLayout}>
@@ -524,21 +518,13 @@ export function App() {
               />
             )}
 
-            {/* TAB 6: Farm Advisory */}
+            {/* TAB 6: Unified Crop Advisory & Safety Doctor */}
             {activeTab === 'advisory' && (
-              <CropDoctorView
+              <CropPesticideDoctorView
                 currentLang={currentLang}
-                selectedCropKey={selectedCropKey}
+                currentLocation={currentLocation}
+                initialCropKey={selectedCropKey || 'tomato'}
                 onOpenHelpline={handleOpenHelpline}
-                currentLocation={currentLocation}
-              />
-            )}
-
-            {/* TAB 7: Pesticides */}
-            {activeTab === 'pesticides' && (
-              <PesticideDosageView
-                currentLang={currentLang}
-                currentLocation={currentLocation}
               />
             )}
 

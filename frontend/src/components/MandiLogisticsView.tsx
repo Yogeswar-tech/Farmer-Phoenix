@@ -2,6 +2,7 @@ import { useState, useEffect, type FC, type FormEvent } from 'react';
 import type { Language, MandiItem, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, calculateLocationDistanceKm } from '../data/mockData';
+import { KisanSethuApi } from '../services/api';
 import { Truck, Calculator, CheckCircle2, AlertTriangle, DollarSign, Search, Sparkles, ArrowRight } from 'lucide-react';
 
 interface MandiLogisticsViewProps {
@@ -164,12 +165,37 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
   const [distanceKm, setDistanceKm] = useState(() => computeDistance(selectedCropKey));
   const [vehicle, setVehicle] = useState<'tractor' | 'pickup'>('tractor');
   const [loadQuintals, setLoadQuintals] = useState(50);
+  const [backendRoi, setBackendRoi] = useState<any | null>(null);
 
   useEffect(() => {
     setDistanceKm(computeDistance(selectedCropKey));
   }, [currentLocation?.id, selectedCropKey]);
 
   const effectiveLocalMandi = currentLocation ? currentLocation.mandiName[currentLang] : currentIntel.localMandi[currentLang];
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchLiveRoi() {
+      try {
+        const res = await KisanSethuApi.calculateLogisticsRoi({
+          cropKey: selectedCropKey,
+          loadQuintals,
+          vehicleType: vehicle,
+          distanceKm,
+          originMandi: effectiveLocalMandi,
+          destinationMandi: currentIntel.recommendedMandi[currentLang],
+          lang: currentLang
+        });
+        if (isMounted && res && res.status === 'success') {
+          setBackendRoi(res);
+        }
+      } catch (err) {
+        console.warn('Live ROI fetch notice:', err);
+      }
+    }
+    fetchLiveRoi();
+    return () => { isMounted = false; };
+  }, [selectedCropKey, loadQuintals, vehicle, distanceKm, currentLang, currentLocation?.id]);
 
   const handleProductSelect = (cropKey: string) => {
     setSelectedCropKey(cropKey);
@@ -194,15 +220,15 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
     }
   };
 
-  // Calculations
+  // Calculations: Prioritize live backend values if available
   const ratePerKm = vehicle === 'tractor' ? 24 : 16;
-  const baseFreight = distanceKm * 2 * ratePerKm; // round trip diesel & driver
-  const localPrice = currentIntel.localPrice;
-  const distantMandiPrice = currentIntel.destinationPrice;
-  const priceDiffPerQt = Math.max(0, distantMandiPrice - localPrice);
-  const grossGain = loadQuintals * priceDiffPerQt;
-  const netProfit = grossGain - baseFreight;
-  const isProfitable = netProfit > 500;
+  const baseFreight = backendRoi?.expenses?.total_transport_cost ?? (distanceKm * 2 * ratePerKm);
+  const localPrice = backendRoi?.rates?.local_mandi_modal_qtl ?? currentIntel.localPrice;
+  const distantMandiPrice = backendRoi?.rates?.destination_mandi_modal_qtl ?? currentIntel.destinationPrice;
+  const priceDiffPerQt = backendRoi?.rates?.price_diff_per_qtl ?? Math.max(0, distantMandiPrice - localPrice);
+  const grossGain = backendRoi?.financials?.gross_spread ?? (loadQuintals * priceDiffPerQt);
+  const netProfit = backendRoi?.financials?.net_profit ?? (grossGain - baseFreight);
+  const isProfitable = backendRoi?.financials?.is_profitable ?? (netProfit > 500);
 
   return (
     <div className="logistics-view-container">

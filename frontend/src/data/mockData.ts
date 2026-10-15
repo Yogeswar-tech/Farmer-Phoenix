@@ -1643,6 +1643,141 @@ export const COLD_STORAGES: ColdStorageFacility[] = [
     temperatureControlled: true,
     contactPhone: '0866-241800',
     hasFumigation: true
+  },
+  {
+    id: 'cs-lasalgaon-10',
+    name: {
+      hi: 'सह्याद्री प्याज एवं अंगूर कोल्ड प्रिजर्वेशन टर्मिनल',
+      te: 'సహ్యాద్రి ఉల్లి & ద్రాక్ష కోల్డ్ టెర్మినల్',
+      en: 'Sahyadri Onion & Grape Cold Terminal'
+    },
+    location: {
+      hi: 'निफाड-लासलगांव रोड, नासिक, महाराष्ट्र',
+      te: 'నిఫాడ్-లాసల్‌గావ్ రోడ్, నాసిక్, మహారాష్ట్ర',
+      en: 'Niphad-Lasalgaon Road, Nashik, Maharashtra'
+    },
+    district: 'Nashik',
+    state: 'Maharashtra',
+    latitude: 20.1471,
+    longitude: 74.2254,
+    distanceKm: 420,
+    totalCapacityBags: 440000,
+    vacantCapacityBags: 136000,
+    rentPerBagPerMonth: 24,
+    temperatureControlled: true,
+    contactPhone: '+91 2592 245112',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '0°C to 4°C',
+    crops: ['Onion', 'Grapes', 'Pomegranate']
+  },
+  {
+    id: 'cs-kolar-11',
+    name: {
+      hi: 'कोलार मेगा फूड पार्क कोल्ड टर्मिनल',
+      te: 'కోలార్ మెగా ఫుడ్ పార్క్ కోల్డ్ టెర్మినల్',
+      en: 'Kolar Mega Food Park Cold Terminal'
+    },
+    location: {
+      hi: 'केआईएडीबी इंडस्ट्रियल एरिया, तमाका, कोलार, कर्नाटक',
+      te: 'కెఐఎడిబి ఇండస్ట్రియల్ ఏరియా, తమక, కోలార్, కర్ణాటక',
+      en: 'KIADB Industrial Area, Tamaka, Kolar, Karnataka'
+    },
+    district: 'Kolar',
+    state: 'Karnataka',
+    latitude: 13.1367,
+    longitude: 78.1292,
+    distanceKm: 180,
+    totalCapacityBags: 340000,
+    vacantCapacityBags: 92000,
+    rentPerBagPerMonth: 31,
+    temperatureControlled: true,
+    contactPhone: '+91 8152 234120',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '4°C to 12°C',
+    crops: ['Tomato', 'Mango', 'Beans', 'Capsicum']
+  },
+  {
+    id: 'cs-agra-12',
+    name: {
+      hi: 'ताज एग्रो आलू एवं मल्टी-चेंबर कोल्ड चेन',
+      te: 'తాజ్ అగ్రో బంగాళాదుంప కోల్డ్ చైన్',
+      en: 'Taj Agro Potato & Multi-Chamber Cold Chain'
+    },
+    location: {
+      hi: 'फतेहाबाद रोड, खंदारी बाईपास, आगरा, उत्तर प्रदेश',
+      te: 'ఫతేహాబాద్ రోడ్డు, ఖందారి బైపాస్, ఆగ్రా, ఉత్తరప్రదేశ్',
+      en: 'Fatehabad Road, Khandari By-pass, Agra, Uttar Pradesh'
+    },
+    district: 'Agra',
+    state: 'Uttar Pradesh',
+    latitude: 27.1767,
+    longitude: 78.0081,
+    distanceKm: 1250,
+    totalCapacityBags: 560000,
+    vacantCapacityBags: 150000,
+    rentPerBagPerMonth: 22,
+    temperatureControlled: true,
+    contactPhone: '+91 562 2280045',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '2°C to 4°C',
+    crops: ['Potato', 'Garlic', 'Carrot']
+  },
+  {
+    id: 'cs-shimla-13',
+    name: {
+      hi: 'हिमाचल सेब बेल्ट नियंत्रित वातावरण (CA) कोल्ड स्टोर',
+      te: 'హిమాచల్ యాపిల్ కంట్రోల్డ్ అట్మాస్ఫియర్ (సి.ఎ) స్టోర్',
+      en: 'Himachal Apple Belt Controlled Atmosphere (CA) Store'
+    },
+    location: {
+      hi: 'कोटखाई-थियोग फ्रूट टर्मिनल, शिमला, हिमाचल प्रदेश',
+      te: 'కోట్‌ఖాయ్-థియోగ్ ఫ్రూట్ టెర్మినల్, సిమ్లా, హిమాచల్ ప్రదేశ్',
+      en: 'Kotkhai-Theog Fruit Terminal, Shimla, Himachal Pradesh'
+    },
+    district: 'Shimla',
+    state: 'Himachal Pradesh',
+    latitude: 31.1048,
+    longitude: 77.1734,
+    distanceKm: 1650,
+    totalCapacityBags: 320000,
+    vacantCapacityBags: 78000,
+    rentPerBagPerMonth: 40,
+    temperatureControlled: true,
+    contactPhone: '+91 177 2652130',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '-1°C to 2°C',
+    crops: ['Apple', 'Pear', 'Cherry']
+  },
+  {
+    id: 'cs-deesa-14',
+    name: {
+      hi: 'डीसा मेगा आलू शीत भंडारण केंद्र',
+      te: 'డీసా మెగా బంగాళాదుంప కోల్డ్ హబ్',
+      en: 'Deesa Mega Potato Cold Hub'
+    },
+    location: {
+      hi: 'हाईवे रोड, एपीएमसी कोल्ड कॉम्प्लेक्स, डीसा, बनासकांठा, गुजरात',
+      te: 'హైవే రోడ్డు, డీసా మార్కెట్ యార్డ్, గుజరాత్',
+      en: 'Highway Road, APMC Complex, Deesa, Gujarat'
+    },
+    district: 'Banaskantha',
+    state: 'Gujarat',
+    latitude: 24.2586,
+    longitude: 72.1793,
+    distanceKm: 1100,
+    totalCapacityBags: 640000,
+    vacantCapacityBags: 178000,
+    rentPerBagPerMonth: 22,
+    temperatureControlled: true,
+    contactPhone: '+91 2744 220550',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '2°C to 4°C',
+    crops: ['Potato', 'Groundnut', 'Pomegranate']
   }
 ];
 

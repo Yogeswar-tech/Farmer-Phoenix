@@ -1,8 +1,9 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import type { Language, CropDisease, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, CROP_DISEASES } from '../data/mockData';
-import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
+import { KisanSethuApi } from '../services/api';
+import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface CropDoctorViewProps {
   currentLang: Language;
@@ -20,25 +21,67 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
   const t = translations[currentLang];
   const [analyzing, setAnalyzing] = useState(false);
   const [hasScanned, setHasScanned] = useState(true);
+  const [backendDiagnosis, setBackendDiagnosis] = useState<any | null>(null);
 
   const matchedCrop = CROP_CHIPS.find(c => c.key === selectedCropKey);
-  const activeDisease: CropDisease =
+  const fallbackDisease: CropDisease =
     CROP_DISEASES[selectedCropKey] || CROP_DISEASES['chilli'];
 
-  const handleSimulateScan = () => {
+  // Load disease intelligence when crop or location changes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDisease() {
+      try {
+        const diag = await KisanSethuApi.diagnoseCropDisease(
+          selectedCropKey,
+          undefined,
+          currentLocation?.id || 'guntur',
+          undefined,
+          currentLang
+        );
+        if (isMounted && diag && diag.status === 'success') {
+          setBackendDiagnosis(diag);
+        }
+      } catch (err) {
+        console.warn('Crop Doctor API notice:', err);
+      }
+    }
+    loadDisease();
+    return () => { isMounted = false; };
+  }, [selectedCropKey, currentLocation?.id, currentLang]);
+
+  const handleSimulateScan = async () => {
     setAnalyzing(true);
-    setTimeout(() => {
+    try {
+      const diag = await KisanSethuApi.diagnoseCropDisease(
+        selectedCropKey,
+        undefined,
+        currentLocation?.id || 'guntur',
+        undefined,
+        currentLang
+      );
+      if (diag && diag.status === 'success') {
+        setBackendDiagnosis(diag);
+      }
+    } catch (err) {
+      console.warn('Diagnosis call error:', err);
+    } finally {
       setAnalyzing(false);
       setHasScanned(true);
-    }, 1200);
+    }
   };
 
-  const confidenceText =
-    currentLang === 'hi'
-      ? 'AI विश्वसनीयता: 98%'
-      : currentLang === 'te'
-      ? 'AI ఖచ్చితత్వం: 98%'
-      : 'AI Accuracy: 98%';
+  const confidenceText = backendDiagnosis
+    ? (currentLang === 'hi'
+        ? `AI विश्वसनीयता: ${backendDiagnosis.confidence_pct}%`
+        : currentLang === 'te'
+        ? `AI ఖచ్చితత్వం: ${backendDiagnosis.confidence_pct}%`
+        : `AI Accuracy: ${backendDiagnosis.confidence_pct}%`)
+    : (currentLang === 'hi'
+        ? 'AI विश्वसनीयता: 98%'
+        : currentLang === 'te'
+        ? 'AI ఖచ్చితత్వం: 98%'
+        : 'AI Accuracy: 98%');
 
   const actionRequiredText =
     currentLang === 'hi'
@@ -46,6 +89,12 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
       : currentLang === 'te'
       ? 'తీవ్రమైన ప్రమాదం (చర్య అవసరం)'
       : 'High Severity (Action Required)';
+
+  const displayDiseaseName = backendDiagnosis?.disease_name || fallbackDisease.diseaseName[currentLang];
+  const displaySymptoms = backendDiagnosis?.symptoms || fallbackDisease.symptoms[currentLang];
+  const displayChemical = backendDiagnosis?.chemical_treatment || fallbackDisease.chemicalTreatment[currentLang];
+  const displayOrganic = backendDiagnosis?.organic_treatment || fallbackDisease.organicTreatment[currentLang];
+  const displayWarning = backendDiagnosis?.weather_spray_risk?.warning || backendDiagnosis?.spraying_warning || fallbackDisease.sprayingWarning[currentLang];
 
   return (
     <div className="crop-doctor-container">
@@ -134,45 +183,38 @@ export const CropDoctorView: FC<CropDoctorViewProps> = ({
                 <span>{actionRequiredText}</span>
               </span>
             </div>
-            <h3 className="disease-title">{activeDisease.diseaseName[currentLang]}</h3>
+            <h3 className="disease-title">{displayDiseaseName}</h3>
           </div>
 
           {/* Symptoms */}
           <div className="diagnosis-section">
             <h4 className="diag-subheading">{t.symptomsLabel}</h4>
-            <p className="diag-text">{activeDisease.symptoms[currentLang]}</p>
+            <p className="diag-text">{displaySymptoms}</p>
           </div>
 
-          {/* Weather & Spraying Warning (Thursday Rain Linkage!) */}
+          {/* Weather & Spraying Warning */}
           <div className="spraying-caution-box">
             <div className="caution-header">
               <AlertCircle size={20} className="caution-icon" />
               <strong>{t.weatherRiskLabel} {currentLocation ? `(${currentLocation.name[currentLang]})` : ''}</strong>
             </div>
-            <p className="caution-text">
-              {currentLocation
-                ? (currentLang === 'hi'
-                    ? `गुरुवार को ${currentLocation.name[currentLang]} में बारिश संभावित है! अतः बुधवार व गुरुवार को दवा छिड़कने से बचें अन्यथा दवा बह जाएगी।`
-                    : currentLang === 'te'
-                    ? `గురువారం ${currentLocation.name[currentLang]}లో వర్షం పడే అవకాశం ఉంది! కావున బుధవారం & గురువారం మందు పిచికారీ చేయవద్దు.`
-                    : `Heavy rain predicted in ${currentLocation.name[currentLang]} for Thursday! Do NOT spray on Wed/Thu as rain will wash away chemical.`)
-                : activeDisease.sprayingWarning[currentLang]}
-            </p>
+            <p className="caution-text">{displayWarning}</p>
           </div>
 
           {/* Treatments: Chemical + Organic */}
           <div className="treatment-grid">
             <div className="treatment-card chemical">
               <h5 className="treatment-title">{t.chemicalTreatmentLabel}</h5>
-              <p>{activeDisease.chemicalTreatment[currentLang]}</p>
+              <p>{displayChemical}</p>
             </div>
             <div className="treatment-card organic">
               <h5 className="treatment-title">{t.organicTreatmentLabel}</h5>
-              <p>{activeDisease.organicTreatment[currentLang]}</p>
+              <p>{displayOrganic}</p>
             </div>
           </div>
 
           {/* Talk to Scientist */}
+
           <div className="doctor-helpline-bar">
             <span>
               {currentLocation

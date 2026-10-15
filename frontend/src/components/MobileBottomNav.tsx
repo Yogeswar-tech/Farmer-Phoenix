@@ -35,13 +35,12 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
     { id: 'home', label: t.tabHome, icon: <Home size={20} color={activeTab === 'home' ? '#2D5A27' : '#64748B'} /> },
     { id: 'rates', label: t.tabRates, icon: <TrendingUp size={20} color={activeTab === 'rates' ? '#2D5A27' : '#64748B'} /> },
     { id: 'climate', label: t.tabClimate.split(' ')[0], icon: <CloudSun size={20} color={activeTab === 'climate' ? '#2D5A27' : '#64748B'} /> },
-    { id: 'advisory', label: t.tabAdvisory.split(' ')[0], icon: <Leaf size={20} color={activeTab === 'advisory' ? '#2D5A27' : '#64748B'} /> },
+    { id: 'advisory', label: currentLang === 'hi' ? 'डॉक्टर' : currentLang === 'te' ? 'డాక్టర్' : 'Doctor', icon: <Leaf size={20} color={activeTab === 'advisory' ? '#2D5A27' : '#64748B'} /> },
   ];
 
   const moreItems: { id: NavigationTab; label: string; icon: ReactNode }[] = [
     { id: 'charts', label: t.tabCharts.split(' ')[0], icon: <BarChart3 size={22} color={activeTab === 'charts' ? '#2D5A27' : '#334155'} /> },
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={22} color={activeTab === 'logistics' ? '#2D5A27' : '#334155'} /> },
-    { id: 'pesticides', label: t.tabPesticides, icon: <FlaskConical size={22} color={activeTab === 'pesticides' ? '#2D5A27' : '#334155'} /> },
     { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={22} color={activeTab === 'soildoctor' ? '#2D5A27' : '#334155'} /> },
     { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={22} color={activeTab === 'schemes' ? '#2D5A27' : '#334155'} /> },
     { id: 'storage', label: t.tabStorage, icon: <Warehouse size={22} color={activeTab === 'storage' ? '#2D5A27' : '#334155'} /> },
