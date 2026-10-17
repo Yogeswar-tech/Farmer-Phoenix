@@ -601,6 +601,61 @@ export class KisanSethuApi {
     }
   }
 
+  static async getSoilLiveTelemetry(lat: number = 16.3067, lng: number = 80.4365, lang: Language = 'en'): Promise<any | null> {
+    try {
+      const res = await this.request<any>(`/db/soil/live-telemetry?lat=${lat}&lng=${lng}&lang=${lang}`);
+      if (res && res.status === 'success') {
+        return res;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[API Client] Live soil telemetry error:', err);
+      return null;
+    }
+  }
+
+  static async scanSoilReport(imageBase64: string, mimeType: string = 'image/jpeg', lang: Language = 'en'): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/db/soil/scan-report', {
+        method: 'POST',
+        body: JSON.stringify({ image_base64: imageBase64, mime_type: mimeType, lang })
+      });
+      return res || null;
+    } catch (err) {
+      console.warn('[API Client] Soil report scan error:', err);
+      return null;
+    }
+  }
+
+  static async bookKvkSoilTest(params: {
+    farmerName: string;
+    farmerPhone: string;
+    locationId?: string;
+    crop?: string;
+    acres?: number;
+    address?: string;
+    lang?: Language;
+  }): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/db/soil/book-kvk-test', {
+        method: 'POST',
+        body: JSON.stringify({
+          farmer_name: params.farmerName,
+          farmer_phone: params.farmerPhone,
+          location_id: params.locationId || 'guntur',
+          crop: params.crop || 'chilli',
+          acres: params.acres || 1.0,
+          address: params.address || '',
+          lang: params.lang || 'en'
+        })
+      });
+      return res || null;
+    } catch (err) {
+      console.warn('[API Client] KVK soil test booking error:', err);
+      return null;
+    }
+  }
+
   /**
    * 11. Mandi Logistics & Inter-Market Arbitrage Calculator
    */
@@ -697,8 +752,115 @@ export class KisanSethuApi {
   }
 
   /**
-   * 13. Farmer Profile Authentication & Persistence
+   * 13. Farmer Profile Authentication & Persistence (Gmail Dedicated & DB Isolated)
    */
+  static async loginWithGmail(params: {
+    email: string;
+    farmerName?: string;
+    preferredLang?: Language;
+    locationId?: string;
+    locationName?: string;
+    district?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
+    pincode?: string;
+    primaryCrop?: string;
+  }): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/farmer/login-gmail', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: params.email,
+          farmer_name: params.farmerName,
+          preferred_lang: params.preferredLang || 'en',
+          location_id: params.locationId,
+          location_name: params.locationName,
+          district: params.district,
+          state: params.state,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          pincode: params.pincode,
+          primary_crop: params.primaryCrop
+        })
+      });
+      return res;
+    } catch (err) {
+      console.warn('[API Client] Gmail login error:', err);
+      throw err;
+    }
+  }
+
+  static async getFarmerProfileByEmail(email: string): Promise<any | null> {
+    try {
+      const res = await this.request<any>(`/farmer/profile-by-email?email=${encodeURIComponent(email)}`);
+      if (res && res.status === 'success' && res.profile) {
+        return res.profile;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[API Client] Farmer profile fetch by email error:', err);
+      return null;
+    }
+  }
+
+  static async updateFarmerLocation(params: {
+    email: string;
+    locationId: string;
+    locationName: string;
+    district: string;
+    state: string;
+    latitude?: number;
+    longitude?: number;
+    pincode?: string;
+  }): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/farmer/profile/location', {
+        method: 'PUT',
+        body: JSON.stringify({
+          email: params.email,
+          location_id: params.locationId,
+          location_name: params.locationName,
+          district: params.district,
+          state: params.state,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          pincode: params.pincode
+        })
+      });
+      return res;
+    } catch (err) {
+      console.warn('[API Client] Farmer location sync error:', err);
+      return null;
+    }
+  }
+
+  static async updateFarmerCrop(email: string, primaryCrop: string): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/farmer/profile/crop', {
+        method: 'PUT',
+        body: JSON.stringify({ email, primary_crop: primaryCrop })
+      });
+      return res;
+    } catch (err) {
+      console.warn('[API Client] Farmer crop sync error:', err);
+      return null;
+    }
+  }
+
+  static async getDemoAccounts(): Promise<any[]> {
+    try {
+      const res = await this.request<any>('/farmer/demo-accounts');
+      if (res && res.status === 'success' && res.accounts) {
+        return res.accounts;
+      }
+      return [];
+    } catch (err) {
+      console.warn('[API Client] Demo accounts fetch error:', err);
+      return [];
+    }
+  }
+
   static async loginFarmer(params: {
     phoneNumber: string;
     farmerName?: string;
@@ -745,7 +907,7 @@ export class KisanSethuApi {
   }
 
   /**
-   * 14. Educational Quality Grading Matrix
+   * 14. Educational Quality Grading Matrix (kisan_education_charts_db)
    */
   static async getEducationalGradingMatrix(cropKey: string = 'chilli', lang: Language = 'en'): Promise<any | null> {
     try {
@@ -756,6 +918,81 @@ export class KisanSethuApi {
       return null;
     } catch (err) {
       console.warn('[API Client] Educational grading matrix fetch error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 15. Today's Live Page Mandi Prices (kisan_live_today_db)
+   * Scraped twice daily (Morning 06:00 AM & Evening 06:00 PM)
+   */
+  static async getLiveTodayPrices(commodity?: string, state?: string, session?: string): Promise<any[]> {
+    try {
+      const params = new URLSearchParams();
+      if (commodity) params.append('commodity', commodity);
+      if (state) params.append('state', state);
+      if (session) params.append('session', session);
+
+      const res = await this.request<any>(`/db/live-today/prices?${params.toString()}`);
+      if (res && res.data && res.data.length > 0) {
+        return res.data;
+      }
+      return [];
+    } catch (err) {
+      console.warn('[API Client] Live today prices fetch error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * 16. Education Charts & 6-Day Stock Trends (kisan_education_charts_db)
+   * Scraped every 6 days
+   */
+  static async getEducationChartsData(commodity?: string, lang: Language = 'en'): Promise<any | null> {
+    try {
+      const params = new URLSearchParams();
+      if (commodity) params.append('commodity', commodity);
+      params.append('lang', lang);
+
+      const res = await this.request<any>(`/db/education/charts-data?${params.toString()}`);
+      if (res && res.status === 'success') {
+        return res;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[API Client] Education charts fetch error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 17. Unified Background Scrapers Telemetry
+   */
+  static async getScrapersTelemetry(): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/db/scrapers/telemetry');
+      if (res && res.status === 'active') {
+        return res;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[API Client] Scrapers telemetry fetch error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 18. Trigger Manual Scraper Ingestion Cycle
+   */
+  static async triggerScraper(scraperName: string): Promise<any | null> {
+    try {
+      const res = await this.request<any>('/db/scrapers/trigger', {
+        method: 'POST',
+        body: JSON.stringify({ scraper_name: scraperName })
+      });
+      return res;
+    } catch (err) {
+      console.warn('[API Client] Trigger scraper error:', err);
       return null;
     }
   }

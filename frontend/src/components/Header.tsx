@@ -259,6 +259,21 @@ export const Header: FC<HeaderProps> = ({
                   </TouchableOpacity>
                 </View>
 
+                {/* Auto GPS Trigger Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowLocationDropdown(false);
+                    onOpenLocationModal();
+                  }}
+                  style={styles.dropdownGpsActionRow}
+                  activeOpacity={0.8}
+                >
+                  <MapPin size={13} color="#15803D" />
+                  <Text style={styles.dropdownGpsActionText}>
+                    {currentLang === 'hi' ? '🛰️ ऑटो जीपीएस व अखिल भारतीय खोज' : currentLang === 'te' ? '🛰️ ఆటో జీపీఎస్ & అఖిల భారత శోధన' : '🛰️ Auto GPS & All-India Search'}
+                  </Text>
+                </TouchableOpacity>
+
                 {/* Quick Search inside Location Dropdown */}
                 <View style={styles.locSearchBox}>
                   <Search size={13} color="#64748B" />
@@ -445,18 +460,26 @@ export const Header: FC<HeaderProps> = ({
             <View style={[styles.aiStatusDot, isAiModeEnabled ? styles.aiDotOn : styles.aiDotOff]} />
           </TouchableOpacity>
 
-          {/* Profile / Login Button */}
+          {/* Profile / Gmail Login Button */}
           <TouchableOpacity
             onPress={onOpenLogin}
             style={[styles.authBtn, isLoggedIn && styles.authBtnLoggedIn]}
             activeOpacity={0.8}
-            accessibilityLabel={isLoggedIn ? verifiedBadgeText : t.loginBtn}
+            accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Sign in with Gmail'}
           >
-            <User size={15} color={isLoggedIn ? '#2D5A27' : '#FFFFFF'} />
+            {isLoggedIn ? (
+              <View style={styles.googleBadgePill}>
+                <Text style={styles.googleGLetter}>G</Text>
+              </View>
+            ) : (
+              <View style={styles.googleBadgeWhite}>
+                <Text style={styles.googleGLetterWhite}>G</Text>
+              </View>
+            )}
             <Text style={[styles.authBtnText, isLoggedIn && styles.authBtnTextLoggedIn]}>
               {isLoggedIn
-                ? (userName || (currentLang === 'hi' ? 'किसान प्रोफाइल' : currentLang === 'te' ? 'రైతు ప్రొఫైల్' : 'Farmer Profile'))
-                : t.loginBtn}
+                ? (userName || (currentLang === 'hi' ? 'Gmail प्रोफाइल' : currentLang === 'te' ? 'Gmail ప్రొఫైల్' : 'Gmail Profile'))
+                : (currentLang === 'hi' ? 'Gmail लॉगिन' : currentLang === 'te' ? 'Gmail లాగిన్' : 'Gmail Sign-In')}
             </Text>
             {isLoggedIn && <View style={styles.authDot} />}
           </TouchableOpacity>
@@ -708,6 +731,50 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#16A34A',
+  },
+  googleBadgePill: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EA4335',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleGLetter: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  googleBadgeWhite: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleGLetterWhite: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#EA4335',
+  },
+  dropdownGpsActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    cursor: 'pointer' as any,
+  },
+  dropdownGpsActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
   },
   dropdownContainer: {
     position: 'relative',

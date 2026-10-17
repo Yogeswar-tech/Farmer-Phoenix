@@ -32,7 +32,7 @@ import { ColdStorageMapView } from './components/ColdStorageMapView';
 import { EducationalChartsView } from './components/EducationalChartsView';
 import { AiVoiceAssistantModal } from './components/AiVoiceAssistantModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
-import { LoginModal } from './components/LoginModal';
+import { LoginModal, type FarmerProfile } from './components/LoginModal';
 import { LocationModal } from './components/LocationModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
@@ -48,9 +48,74 @@ import {
 } from 'lucide-react';
 
 export function App() {
-  // Initialize Location: Check localStorage first, otherwise default to AGRICULTURAL_LOCATIONS[0]
+  // User Profile from DB (strictly isolated per Gmail account)
+  const [currentUserProfile, setCurrentUserProfile] = useState<FarmerProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+    return null;
+  });
+
+  // Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return Boolean(localStorage.getItem('ks_auth_profile'));
+    }
+    return false;
+  });
+
+  const [userName, setUserName] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          return u.farmer_name || u.email?.split('@')[0];
+        } catch (e) {}
+      }
+    }
+    return undefined;
+  });
+
+  // Initialize Location: Prioritize DB profile of logged-in user, otherwise localStorage, otherwise default
   const [currentLocation, setCurrentLocation] = useState<LocationOption>(() => {
     if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.location_id) {
+            const matched = AGRICULTURAL_LOCATIONS.find((loc) => loc.id.toLowerCase() === u.location_id.toLowerCase());
+            if (matched) return matched;
+          }
+          if (u.district && u.state) {
+            const matched = AGRICULTURAL_LOCATIONS.find((loc) => loc.district.en.toLowerCase() === u.district.toLowerCase());
+            if (matched) return matched;
+            return {
+              id: u.location_id || `user-${u.district.toLowerCase()}`,
+              name: { en: u.location_name || u.district, hi: u.location_name || u.district, te: u.location_name || u.district },
+              state: { en: u.state, hi: u.state, te: u.state },
+              district: { en: u.district, hi: u.district, te: u.district },
+              mandiName: {
+                en: `${u.location_name || u.district} APMC Market`,
+                hi: `${u.location_name || u.district} कृषि मंडी`,
+                te: `${u.location_name || u.district} మార్కెట్ యార్డ్`
+              },
+              pincode: u.pincode || '',
+              lat: u.latitude ? Number(u.latitude) : 16.3067,
+              lng: u.longitude ? Number(u.longitude) : 80.4365
+            };
+          }
+        } catch (e) {}
+      }
+
       const savedLocId = localStorage.getItem('ks_user_location_id');
       if (savedLocId) {
         const found = AGRICULTURAL_LOCATIONS.find((loc) => loc.id === savedLocId);
@@ -60,9 +125,18 @@ export function App() {
     return AGRICULTURAL_LOCATIONS[0];
   });
 
-  // Initialize Language: Check localStorage first, otherwise match regional language of location (Telugu for AP/Telangana)
+  // Initialize Language: Check DB profile, then localStorage, otherwise match regional language of location
   const [currentLang, setCurrentLang] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.preferred_lang === 'hi' || u.preferred_lang === 'te' || u.preferred_lang === 'en') {
+            return u.preferred_lang;
+          }
+        } catch (e) {}
+      }
       const savedLang = localStorage.getItem('ks_user_lang') as Language | null;
       if (savedLang === 'hi' || savedLang === 'te' || savedLang === 'en') {
         return savedLang;
@@ -76,9 +150,24 @@ export function App() {
     return getLanguageForLocation(AGRICULTURAL_LOCATIONS[0]);
   });
 
-  // Automatically detect user's Geo location and configure location & regional language
+  // Initialize Selected Crop: Prioritize DB profile of logged-in user
+  const [selectedCropKey, setSelectedCropKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.primary_crop) return u.primary_crop;
+        } catch (e) {}
+      }
+    }
+    return 'chilli';
+  });
+
+  // Automatically detect user's Geo location if no user profile and no manual location set
   useEffect(() => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    if (localStorage.getItem('ks_auth_profile') || localStorage.getItem('ks_loc_manual') === 'true') return;
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -99,7 +188,7 @@ export function App() {
         }
       },
       (err) => {
-        console.log('Browser geolocation:', err.message);
+        console.log('Browser geolocation notice:', err.message);
       },
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
     );
@@ -113,21 +202,7 @@ export function App() {
     }
   };
 
-  const handleLocationChange = (loc: LocationOption) => {
-    setCurrentLocation(loc);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ks_user_location_id', loc.id);
-      localStorage.setItem('ks_loc_manual', 'true');
-      const hasManualLang = localStorage.getItem('ks_lang_manual') === 'true';
-      if (!hasManualLang) {
-        const geoLang = getLanguageForLocation(loc);
-        setCurrentLang(geoLang);
-        localStorage.setItem('ks_user_lang', geoLang);
-      }
-    }
-  };
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [selectedCropKey, setSelectedCropKey] = useState<string>('chilli');
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -135,9 +210,6 @@ export function App() {
   const [isAiModeEnabled, setIsAiModeEnabled] = useState(true);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
-  // Authentication State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState<string | undefined>(undefined);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [lockedFeatureName, setLockedFeatureName] = useState<string | undefined>(undefined);
 
@@ -249,9 +321,123 @@ export function App() {
     setIsLoginModalOpen(true);
   };
 
-  const handleLoginSuccess = (name: string) => {
+  const handleLocationChange = async (loc: LocationOption, _isAutoGps: boolean = false) => {
+    setCurrentLocation(loc);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_user_location_id', loc.id);
+      localStorage.setItem('ks_loc_manual', 'true');
+      const hasManualLang = localStorage.getItem('ks_lang_manual') === 'true';
+      if (!hasManualLang) {
+        const geoLang = getLanguageForLocation(loc);
+        setCurrentLang(geoLang);
+        localStorage.setItem('ks_user_lang', geoLang);
+      }
+    }
+
+    // Persist new location directly to DB profile if logged in!
+    if (currentUserProfile && currentUserProfile.email) {
+      try {
+        const res = await KisanSethuApi.updateFarmerLocation({
+          email: currentUserProfile.email,
+          locationId: loc.id,
+          locationName: loc.name.en,
+          district: loc.district.en,
+          state: loc.state.en,
+          latitude: loc.lat,
+          longitude: loc.lng,
+          pincode: loc.pincode
+        });
+        if (res && res.profile) {
+          setCurrentUserProfile(res.profile);
+          localStorage.setItem('ks_auth_profile', JSON.stringify(res.profile));
+        }
+      } catch (e) {
+        console.warn('Could not sync location to DB profile:', e);
+      }
+    }
+
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleGmailLoginSuccess = (profile: FarmerProfile) => {
+    setCurrentUserProfile(profile);
     setIsLoggedIn(true);
-    setUserName(name);
+    const displayName = profile.farmer_name || profile.email.split('@')[0];
+    setUserName(displayName);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_auth_profile', JSON.stringify(profile));
+      localStorage.setItem('ks_active_email', profile.email);
+    }
+
+    // 1. Resolve and cascade user's location strictly from their DB profile!
+    let matchedLoc: LocationOption | undefined;
+    if (profile.location_id) {
+      matchedLoc = AGRICULTURAL_LOCATIONS.find((l) => l.id.toLowerCase() === profile.location_id?.toLowerCase());
+    }
+    if (!matchedLoc && profile.district) {
+      matchedLoc = AGRICULTURAL_LOCATIONS.find((l) => l.district.en.toLowerCase() === profile.district?.toLowerCase());
+    }
+
+    if (matchedLoc) {
+      setCurrentLocation(matchedLoc);
+      localStorage.setItem('ks_user_location_id', matchedLoc.id);
+    } else if (profile.district && profile.state) {
+      const dynamicLoc: LocationOption = {
+        id: profile.location_id || `user-loc-${profile.district.toLowerCase()}`,
+        name: {
+          en: profile.location_name || profile.district,
+          hi: profile.location_name || profile.district,
+          te: profile.location_name || profile.district
+        },
+        state: { en: profile.state, hi: profile.state, te: profile.state },
+        district: { en: profile.district, hi: profile.district, te: profile.district },
+        mandiName: {
+          en: `${profile.location_name || profile.district} APMC Yard`,
+          hi: `${profile.location_name || profile.district} कृषि मंडी`,
+          te: `${profile.location_name || profile.district} మార్కెట్ యార్డ్`
+        },
+        pincode: profile.pincode || '',
+        lat: profile.latitude ? Number(profile.latitude) : 16.3067,
+        lng: profile.longitude ? Number(profile.longitude) : 80.4365
+      };
+      setCurrentLocation(dynamicLoc);
+      localStorage.setItem('ks_user_location_id', dynamicLoc.id);
+    }
+
+    // 2. Cascade user's primary crop strictly from their DB profile!
+    if (profile.primary_crop) {
+      setSelectedCropKey(profile.primary_crop);
+    }
+
+    // 3. Cascade user's preferred language strictly from their DB profile!
+    if (
+      profile.preferred_lang &&
+      (profile.preferred_lang === 'hi' || profile.preferred_lang === 'te' || profile.preferred_lang === 'en')
+    ) {
+      setCurrentLang(profile.preferred_lang);
+      localStorage.setItem('ks_user_lang', profile.preferred_lang);
+    }
+
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserName(undefined);
+    setCurrentUserProfile(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ks_auth_profile');
+      localStorage.removeItem('ks_active_email');
+    }
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleSelectCrop = (cropKey: string) => {
+    setSelectedCropKey(cropKey);
+    if (currentUserProfile && currentUserProfile.email) {
+      KisanSethuApi.updateFarmerCrop(currentUserProfile.email, cropKey).catch(() => {});
+    }
   };
 
   const handleShareWhatsApp = () => {
@@ -320,7 +506,8 @@ export function App() {
                             : 'Namaste, Respected Farmer')}
                     </Text>
                     <Text style={styles.locationTag}>
-                      📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]})
+                      📍 {currentLocation.name[currentLang] || currentLocation.name.en} ({currentLocation.district[currentLang] || currentLocation.district.en})
+                      {currentUserProfile?.email ? ` • ✉️ ${currentUserProfile.email} (DB Synced)` : ''}
                     </Text>
                   </View>
 
@@ -456,14 +643,29 @@ export function App() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Login Strip */}
+                {/* Login / Profile Strip */}
                 <TouchableOpacity
                   onPress={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
-                  style={styles.dashedLoginStrip}
+                  style={[styles.dashedLoginStrip, isLoggedIn && { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' }]}
                   activeOpacity={0.8}
                 >
-                  <Lock size={15} color="#475569" />
-                  <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
+                  {isLoggedIn ? (
+                    <>
+                      <Sparkles size={15} color="#16A34A" />
+                      <Text style={[styles.loginStripText, { color: '#15803D', fontWeight: '700' }]}>
+                        {currentLang === 'hi'
+                          ? `✅ प्रमाणित किसान: ${currentUserProfile?.email || userName} • डेटाबेस सिंक सक्रिय (प्रोफाइल बदलें)`
+                          : currentLang === 'te'
+                          ? `✅ ధృవీకరించిన రైతు: ${currentUserProfile?.email || userName} • డేటాబేస్ ప్రొఫైల్ యాక్టివ్ (మార్చండి)`
+                          : `✅ Verified Farm Profile: ${currentUserProfile?.email || userName} • Database Sync Active (Switch/Edit)`}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={15} color="#475569" />
+                      <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
@@ -614,7 +816,9 @@ export function App() {
           currentLang={currentLang}
           isOpen={isLoginModalOpen}
           onClose={() => setIsLoginModalOpen(false)}
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={handleGmailLoginSuccess}
+          onLogout={handleLogout}
+          currentUserProfile={currentUserProfile}
           lockedFeatureName={lockedFeatureName}
         />
 

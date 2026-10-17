@@ -189,3 +189,22 @@ VALUES
 ('guntur', 'Guntur', 'Guntur', 'Andhra Pradesh', '522004', CURRENT_DATE + INTERVAL '1 day', 33.5, 25.0, 15, 12.5, 'Clear Sky', 'safe', 'SAFE', 'Good condition for pesticide application. Keep nozzles clean.', 'Optimum 9 AM - 4 PM', '{"humidity_pct": 62}'::jsonb),
 ('guntur', 'Guntur', 'Guntur', 'Andhra Pradesh', '522004', CURRENT_DATE + INTERVAL '2 day', 32.0, 24.0, 40, 18.0, 'Partly Cloudy', 'warning', 'CAUTION', 'Scattered showers expected. Apply only systemic fungicides with sticker.', 'Caution 10 AM - 1 PM', '{"humidity_pct": 74}'::jsonb),
 ('guntur', 'Guntur', 'Guntur', 'Andhra Pradesh', '522004', CURRENT_DATE + INTERVAL '3 day', 29.5, 23.0, 85, 28.0, 'Heavy Rain & Squall', 'danger', 'PAUSED', 'Heavy thunderstorm alert. Immediately halt pesticide & fungicide spraying to avoid chemical runoff.', 'Suspended (High Rain)', '{"rain_accum_mm": 45.2, "humidity_pct": 92}'::jsonb);
+
+-- 6. Seed Farmer Profiles & Isolated Account Demo Personas
+INSERT INTO farmer_profiles (email, farmer_name, preferred_lang, location_id, location_name, district, state, latitude, longitude, pincode, primary_crop)
+VALUES
+('chittoor.farmer@gmail.com', 'Venkat Ramanathan', 'te', 'chittoor', 'Chittoor (Madanapalle Mandi)', 'Chittoor', 'Andhra Pradesh', 13.5560, 78.5010, '517325', 'tomato'),
+('hyderabad.grower@gmail.com', 'Kishore Reddy', 'te', 'hyderabad', 'Hyderabad (Bowenpally Mandi)', 'Hyderabad', 'Telangana', 17.3850, 78.4867, '500011', 'chilli'),
+('punjab.wheat@gmail.com', 'Harpreet Singh', 'hi', 'jalandhar', 'Jalandhar (Doaba Mandi)', 'Jalandhar', 'Punjab', 31.3260, 75.5762, '144001', 'potato')
+ON CONFLICT (email) DO UPDATE SET
+    farmer_name = EXCLUDED.farmer_name,
+    location_id = EXCLUDED.location_id,
+    location_name = EXCLUDED.location_name,
+    district = EXCLUDED.district,
+    state = EXCLUDED.state,
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
+    pincode = EXCLUDED.pincode,
+    primary_crop = EXCLUDED.primary_crop,
+    last_login_at = CURRENT_TIMESTAMP;
+

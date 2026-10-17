@@ -874,6 +874,68 @@ def calculate_soil_recommendations_endpoint(
     )
 
 
+@router.get("/soil/live-telemetry")
+def get_soil_live_telemetry_endpoint(
+    lat: float = Query(16.3067, description="Latitude"),
+    lng: float = Query(80.4365, description="Longitude"),
+    lang: str = Query("en", description="Preferred language (en, hi, te)")
+) -> dict[str, Any]:
+    """Retrieve real-time satellite topsoil moisture, temperature, and fertilizer feasibility."""
+    from app.domain.soil_service import soil_engine
+    return soil_engine.get_live_soil_telemetry(lat=lat, lng=lng, lang=lang)
+
+
+class SoilReportScanRequest(BaseModel):
+    image_base64: str = Field(..., description="Base64 encoded Soil Health Card report or lab certificate")
+    mime_type: str = Field("image/jpeg", description="MIME type e.g. image/jpeg, image/png, application/pdf")
+    lang: str = Field("en", description="Preferred language (en, hi, te)")
+
+
+@router.post("/soil/scan-report")
+async def scan_soil_report_endpoint(
+    payload: SoilReportScanRequest
+) -> dict[str, Any]:
+    """Analyze an uploaded Soil Health Card or lab testing PDF/photo using Gemini Vision."""
+    import base64
+    from app.domain.soil_service import soil_engine
+    clean_base64 = payload.image_base64
+    if "," in clean_base64:
+        clean_base64 = clean_base64.split(",", 1)[1]
+    image_bytes = base64.b64decode(clean_base64)
+    return await soil_engine.parse_soil_health_card_with_vision(
+        image_bytes=image_bytes,
+        mime_type=payload.mime_type,
+        lang=payload.lang
+    )
+
+
+class SoilKvkBookingRequest(BaseModel):
+    farmer_name: str = Field(..., description="Farmer full name")
+    farmer_phone: str = Field(..., description="Farmer 10-digit mobile number")
+    location_id: str = Field("guntur", description="Location ID")
+    crop: str = Field("chilli", description="Target crop e.g. chilli, tomato, paddy")
+    acres: float = Field(1.0, ge=0.1, le=100.0, description="Field size in acres")
+    address: str = Field("", description="Village / Address")
+    lang: str = Field("en", description="Preferred language")
+
+
+@router.post("/soil/book-kvk-test")
+def book_kvk_soil_test_endpoint(
+    payload: SoilKvkBookingRequest
+) -> dict[str, Any]:
+    """Book official free soil testing pickup/drop at nearest Krishi Vigyan Kendra (KVK)."""
+    from app.domain.soil_service import soil_engine
+    return soil_engine.book_kvk_soil_test(
+        farmer_name=payload.farmer_name,
+        farmer_phone=payload.farmer_phone,
+        location_id=payload.location_id,
+        crop=payload.crop,
+        acres=payload.acres,
+        address=payload.address,
+        lang=payload.lang
+    )
+
+
 # ==============================================================================
 # 12. Mandi Logistics & Inter-Market Transport Arbitrage Endpoints
 # ==============================================================================
@@ -996,7 +1058,7 @@ def get_price_alerts_endpoint(
 
 
 # ==============================================================================
-# 14. Educational Quality Grading & Moisture Dockage Endpoints
+# 14. Educational Quality Grading & Dedicated DB Endpoints
 # ==============================================================================
 
 @router.get("/educational/grading-matrix")
@@ -1005,7 +1067,163 @@ def get_educational_grading_matrix_endpoint(
     lang: str = Query("en", description="Preferred language (en, hi, te)")
 ) -> dict[str, Any]:
     """Retrieve statutory AGMARKNET quality grading criteria and moisture dockage tiers."""
+    from database.multi_db_manager import query_education_charts
+
+    key = crop_key.lower().strip()
+    try:
+        rows = query_education_charts(
+            "SELECT * FROM education_grading_matrix WHERE LOWER(crop_key) = %s ORDER BY id ASC;",
+            (key,)
+        )
+        if not rows:
+            # Fallback to chilli if specific crop not yet populated
+            rows = query_education_charts(
+                "SELECT * FROM education_grading_matrix WHERE LOWER(crop_key) = 'chilli' ORDER BY id ASC;"
+            )
+
+        dockage_rows = query_education_charts(
+            "SELECT * FROM education_moisture_dockage ORDER BY id ASC;"
+        )
+
+        if rows:
+            grades = []
+            for r in rows:
+                name_field = f"grade_name_{lang}" if f"grade_name_{lang}" in r else "grade_name_en"
+                crit_field = f"criteria_{lang}" if f"criteria_{lang}" in r else "criteria_en"
+                risk_field = f"deduction_risk_{lang}" if f"deduction_risk_{lang}" in r else "deduction_risk_en"
+
+                grades.append({
+                    "grade_code": r["grade_code"],
+                    "grade_name": r.get(name_field) or r["grade_name_en"],
+                    "criteria": r.get(crit_field) or r["criteria_en"],
+                    "moisture_limit": r["moisture_limit"],
+                    "price_per_qtl": float(r["benchmark_price_qtl"]),
+                    "deduction_risk": r.get(risk_field) or r["deduction_risk_en"],
+                    "badge_color": r.get("badge_color", "#1B5E20"),
+                    "meta_payload": r.get("meta_payload")
+                })
+
+            dockage = []
+            for d in dockage_rows:
+                st_field = f"tier_status_{lang}" if f"tier_status_{lang}" in d else "tier_status_en"
+                adv_field = f"advice_{lang}" if f"advice_{lang}" in d else "advice_en"
+                dockage.append({
+                    "tier": d["moisture_tier"],
+                    "status": d.get(st_field) or d["tier_status_en"],
+                    "dockage_pct": float(d["dockage_deduction_pct"]),
+                    "penalty_qtl": float(d.get("penalty_qtl", 0)),
+                    "advice": d.get(adv_field) or d["advice_en"]
+                })
+
+            return {
+                "status": "success",
+                "database_engine": "PostgreSQL (kisan_education_charts_db)",
+                "crop_key": key,
+                "grades": grades,
+                "moisture_dockage_tiers": dockage
+            }
+    except Exception as e:
+        pass
+
+    # Resilient fallback to domain educational service
     from app.domain.educational_service import get_grading_matrix
     return get_grading_matrix(crop_key=crop_key, lang=lang)
+
+
+# ==============================================================================
+# 15. Dedicated PostgreSQL Endpoints: Live Today & Education Charts
+# ==============================================================================
+
+@router.get("/live-today/prices")
+def get_live_today_prices(
+    commodity: str | None = Query(None, description="Crop name filter (e.g. Chilli, Tomato, Onion)"),
+    state: str | None = Query(None, description="State filter (e.g. Andhra Pradesh, Telangana)"),
+    session: str | None = Query(None, description="Session filter (MORNING or EVENING)"),
+    limit: int = Query(30, ge=1, le=100)
+) -> dict[str, Any]:
+    """Retrieve today's live scraped mandi prices from dedicated PostgreSQL `kisan_live_today_db`."""
+    from database.multi_db_manager import query_live_today
+
+    query = "SELECT * FROM live_today_mandi_prices WHERE 1=1"
+    params: list[Any] = []
+
+    if commodity:
+        query += " AND LOWER(commodity) = LOWER(%s)"
+        params.append(commodity)
+    if state:
+        query += " AND LOWER(state) = LOWER(%s)"
+        params.append(state)
+    if session:
+        query += " AND session = %s"
+        params.append(session.upper())
+
+    query += " ORDER BY id DESC LIMIT %s"
+    params.append(limit)
+
+    rows = query_live_today(query, tuple(params), use_cache=True)
+    return {
+        "status": "success",
+        "scraper_source": "Today's Live Page Python Scrap",
+        "target_database": "PostgreSQL (kisan_live_today_db)",
+        "count": len(rows),
+        "data": rows
+    }
+
+
+@router.get("/education/charts-data")
+def get_education_charts_data(
+    commodity: str | None = Query(None, description="Crop filter (e.g. chilli, tomato, onion)"),
+    lang: str = Query("en", description="Language: en, hi, te")
+) -> dict[str, Any]:
+    """Retrieve statutory grading matrix, moisture dockage schedule & 6-day stock trends from `kisan_education_charts_db`."""
+    from database.multi_db_manager import query_education_charts
+
+    grades_q = "SELECT * FROM education_grading_matrix"
+    grades_params = ()
+    if commodity:
+        grades_q += " WHERE LOWER(crop_key) = LOWER(%s)"
+        grades_params = (commodity,)
+    grades_q += " ORDER BY id ASC;"
+
+    grades = query_education_charts(grades_q, grades_params, use_cache=True)
+    dockage = query_education_charts("SELECT * FROM education_moisture_dockage ORDER BY id ASC;", (), use_cache=True)
+    trends = query_education_charts("SELECT * FROM education_stock_trends ORDER BY id ASC;", (), use_cache=True)
+
+    return {
+        "status": "success",
+        "scraper_source": "Education Charts 1 (Every 6 Days)",
+        "target_database": "PostgreSQL (kisan_education_charts_db)",
+        "grading_matrix": grades,
+        "moisture_dockage_tiers": dockage,
+        "stock_trends_6day": trends
+    }
+
+
+@router.get("/scrapers/telemetry")
+def get_scrapers_telemetry() -> dict[str, Any]:
+    """Retrieve real-time telemetry, execution schedules and status of all 3 background scrapers."""
+    from scrapers.unified_scheduler import get_all_scheduler_telemetry
+    return get_all_scheduler_telemetry()
+
+
+@router.post("/scrapers/trigger")
+def trigger_scraper_endpoint(
+    payload: dict[str, str] = Body(..., example={"scraper_name": "today_live"})
+) -> dict[str, Any]:
+    """Manually trigger an immediate execution cycle for any scraper."""
+    scraper_name = payload.get("scraper_name", "")
+    if not scraper_name:
+        raise HTTPException(status_code=400, detail="Must provide 'scraper_name' (today_live, education_charts, govt_policies)")
+
+    from scrapers.unified_scheduler import trigger_scraper_by_name
+    try:
+        result = trigger_scraper_by_name(scraper_name)
+        return {
+            "status": "success",
+            "message": f"Scraper '{scraper_name}' completed successfully.",
+            "execution_result": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 

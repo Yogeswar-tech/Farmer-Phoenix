@@ -252,16 +252,24 @@ CREATE INDEX IF NOT EXISTS idx_price_alerts_crop ON price_alerts (crop_key, is_a
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS farmer_profiles (
     id BIGSERIAL PRIMARY KEY,
-    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(150) UNIQUE,
+    phone_number VARCHAR(20),
     farmer_name VARCHAR(150),
     preferred_lang VARCHAR(10) DEFAULT 'en',
+    location_id VARCHAR(100),
+    location_name VARCHAR(150),
     district VARCHAR(100),
     state VARCHAR(100),
-    primary_crop VARCHAR(50),
+    pincode VARCHAR(20),
+    latitude NUMERIC(10, 6),
+    longitude NUMERIC(10, 6),
+    primary_crop VARCHAR(50) DEFAULT 'tomato',
+    profile_meta JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_farmer_profiles_email ON farmer_profiles (email);
 CREATE INDEX IF NOT EXISTS idx_farmer_profiles_phone ON farmer_profiles (phone_number);
 
 -- ------------------------------------------------------------------------------

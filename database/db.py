@@ -194,13 +194,43 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     );
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS farmer_profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        phone_number TEXT,
+        farmer_name TEXT,
+        preferred_lang TEXT DEFAULT 'en',
+        location_id TEXT,
+        location_name TEXT,
+        district TEXT,
+        state TEXT,
+        pincode TEXT,
+        latitude REAL,
+        longitude REAL,
+        primary_crop TEXT DEFAULT 'tomato',
+        profile_meta TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        last_login_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
     # Auto-migrate columns for existing SQLite databases
+    _ensure_column(cursor, "farmer_profiles", "email", "TEXT")
+    _ensure_column(cursor, "farmer_profiles", "location_id", "TEXT")
+    _ensure_column(cursor, "farmer_profiles", "location_name", "TEXT")
+    _ensure_column(cursor, "farmer_profiles", "latitude", "REAL")
+    _ensure_column(cursor, "farmer_profiles", "longitude", "REAL")
+    _ensure_column(cursor, "farmer_profiles", "pincode", "TEXT")
+    _ensure_column(cursor, "farmer_profiles", "profile_meta", "TEXT")
     _ensure_column(cursor, "weather_advisories", "radar_data", "TEXT")
     _ensure_column(cursor, "govt_policies_and_loans", "raw_criteria", "TEXT")
     _ensure_column(cursor, "govt_policies_and_loans", "updated_at", "TEXT")
     _ensure_column(cursor, "price_trends", "trend_meta", "TEXT")
     _ensure_column(cursor, "cold_storages", "facility_meta", "TEXT")
     _ensure_column(cursor, "scraper_audit_logs", "execution_log", "TEXT")
+
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_farmer_profiles_email ON farmer_profiles (email);")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_policies_cat ON govt_policies_and_loans (category, is_active);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mandi_commodity ON mandi_prices (commodity, arrival_date);")
