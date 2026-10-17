@@ -1,20 +1,38 @@
 # ==============================================================================
-# Kisan Sethu - Production Container Dockerfile for Google Cloud Run
+# Kisan Sethu - Production Full-Stack Container Dockerfile
 # ==============================================================================
-# Full-stack container bundling FastAPI Backend, Multi-Database, and Scrapers
-# Compliant with Google Cloud Run specifications:
-# 1. Binds dynamically to $PORT (default 8080) on 0.0.0.0
-# 2. Handles SIGTERM/SIGINT gracefully via exec
-# 3. Liveness/Readiness probes via /v1/health & /
-# 4. Runs as secure non-root user (appuser)
+# Multi-Stage Build:
+#   Stage 1: Node.js 20 - Builds frontend Vite SPA bundle
+#   Stage 2: Python 3.12 - Installs FastAPI backend, multi-database, and scrapers
+#   Result: Single unified production container serving frontend & backend
+# Compliant with Google Cloud Run, AWS ECS, Render, Railway, and standard Docker
 # ==============================================================================
 
-FROM python:3.12-slim-bookworm AS base
+# ------------------------------------------------------------------------------
+# STAGE 1: Frontend Build
+# ------------------------------------------------------------------------------
+FROM node:20-bookworm-slim AS frontend-builder
+WORKDIR /app/frontend
+
+# Install dependencies using lockfile caching
+COPY frontend/package.json ./
+# If package-lock exists, copy it as well
+COPY frontend/package*.json ./
+RUN npm install --legacy-peer-deps
+
+# Copy frontend source files and run production build
+COPY frontend/ ./
+RUN npm run build
+
+# ------------------------------------------------------------------------------
+# STAGE 2: Backend & Unified Production Runtime
+# ------------------------------------------------------------------------------
+FROM python:3.12-slim-bookworm AS runner
 
 # Install uv binary from the official Astral container image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Environment settings for Google Cloud Run & optimal Python container execution
+# Environment settings for optimal production execution
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
@@ -29,22 +47,19 @@ WORKDIR /app
 RUN groupadd -r appuser -g 1000 && \
     useradd -u 1000 -r -g appuser -m -d /home/appuser -s /bin/bash appuser
 
-# ------------------------------------------------------------------------------
 # 1. Dependency Resolution & Caching Layer
-# ------------------------------------------------------------------------------
 COPY backend/pyproject.toml backend/uv.lock ./
-
-# Install locked production dependencies into /app/.venv without installing the project yet
 RUN uv sync --frozen --no-dev --no-install-project
 
-# ------------------------------------------------------------------------------
 # 2. Application Source, Database & Scraper Modules
-# ------------------------------------------------------------------------------
 COPY backend/app ./app
 COPY backend/prompts ./prompts
 COPY backend/data ./data
 COPY database ./database
 COPY scrapers ./scrapers
+
+# 3. Copy compiled Frontend SPA bundle from Stage 1 into /app/static
+COPY --from=frontend-builder /app/frontend/dist /app/static
 
 # Final sync to install project bindings
 RUN uv sync --frozen --no-dev
@@ -55,7 +70,7 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user
 USER appuser
 
-# Expose default Cloud Run container port
+# Expose default Cloud Run / container port
 EXPOSE 8080
 
 # Container healthcheck using standard Python library on dynamic $PORT

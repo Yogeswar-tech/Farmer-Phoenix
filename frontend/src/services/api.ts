@@ -10,7 +10,19 @@
 import type { Language, GovtScheme } from '../types';
 import { MANDI_DATABASE, COLD_STORAGES, GOVT_SCHEMES, WEATHER_FORECAST } from '../data/mockData';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/v1';
+// Dynamic API Base URL: in production (when bundled in container) uses '/v1' relative path.
+// When running locally on Vite port 5173, falls back to http://127.0.0.1:8000/v1.
+const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '5173' || window.location.port === '3000') {
+      return 'http://127.0.0.1:8000/v1';
+    }
+    return '/v1';
+  }
+  return 'http://127.0.0.1:8000/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export class KisanSethuApi {
   /**

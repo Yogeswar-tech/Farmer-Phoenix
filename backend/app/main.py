@@ -51,12 +51,36 @@ app.include_router(farmer_router, prefix="/v1")
 app.include_router(db_router, prefix="/v1")
 
 
-@app.get("/")
-def root() -> dict[str, str]:
-    return {"status": "ok", "service": "kisan-sethu-api", "version": "1.0.0"}
-
-
 @app.get("/v1/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# ------------------------------------------------------------------------------
+# Production Static Frontend Mounting (Single-Container Full-Stack Mode)
+# ------------------------------------------------------------------------------
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if not STATIC_DIR.exists():
+    STATIC_DIR = Path("/app/static")
+
+if STATIC_DIR.exists() and (STATIC_DIR / "index.html").exists():
+    # Mount assets subfolder
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_frontend(full_path: str):
+        file_path = STATIC_DIR / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")
+else:
+    @app.get("/")
+    def root() -> dict[str, str]:
+        return {"status": "ok", "service": "kisan-sethu-api", "version": "1.0.0"}
 
