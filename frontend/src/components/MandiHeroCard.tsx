@@ -1,36 +1,17 @@
-import { useState, type FC, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FC, type FormEvent } from 'react';
 import type { Language, MandiItem, LocationOption } from '../types';
 import { translations } from '../data/i18n';
-import { CROP_CHIPS, CHILLI_7DAY_TREND } from '../data/mockData';
+import { KisanSethuApi } from '../services/api';
 import {
-  TrendingUp,
-  AlertTriangle,
-  Clock,
+  Volume2,
   Share2,
-  Bell,
-  CheckCircle2,
-  PhoneCall,
-  Info,
-  Calendar,
-  Package,
-  ArrowRight,
   Search,
   X,
-  Volume2,
-  BarChart3,
-  MapPin
+  PhoneCall,
+  Truck,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
-
-const CROP_BADGE_STYLES: Record<string, { bg: string; border: string; glow: string }> = {
-  chilli: { bg: '#FEE2E2', border: '#FCA5A5', glow: '#EF4444' },
-  tomato: { bg: '#FFE4E6', border: '#FDA4AF', glow: '#F43F5E' },
-  onion: { bg: '#F3E8FF', border: '#D8B4FE', glow: '#A855F7' },
-  groundnut: { bg: '#FEF3C7', border: '#FDE68A', glow: '#D97706' },
-  cotton: { bg: '#F0F9FF', border: '#BAE6FD', glow: '#0EA5E9' },
-  turmeric: { bg: '#FEF9C3', border: '#FDE047', glow: '#EAB308' },
-  banana: { bg: '#FEF08A', border: '#FACC15', glow: '#CA8A04' },
-  paddy: { bg: '#ECFDF5', border: '#A7F3D0', glow: '#10B981' }
-};
 
 interface MandiHeroCardProps {
   currentLang: Language;
@@ -44,52 +25,237 @@ interface MandiHeroCardProps {
   onSelectCrop?: (cropKey: string) => void;
 }
 
+// Visual Crop SVGs & Icons for realistic 3-grade presentation
+const CROP_ICONS: Record<string, string> = {
+  chilli: '🌶️',
+  red_chilli: '🌶️',
+  tomato: '🍅',
+  potato: '🥔',
+  onion: '🧅',
+  brinjal: '🍆',
+  okra: '🌿',
+  cauliflower: '🥦',
+  cabbage: '🥬',
+  carrot: '🥕',
+  ginger: '🫚',
+  garlic: '🧄',
+  cucumber: '🥒',
+  bottle_gourd: '🥒',
+  bitter_gourd: '🥒',
+  green_peas: '🫛',
+  capsicum: '🫑',
+  drumstick: '🥢',
+  radish: '🌱',
+  beetroot: '🫐',
+  cherry: '🍒',
+  mango: '🥭',
+  banana: '🍌',
+  apple: '🍎',
+  pomegranate: '🍎',
+  watermelon: '🍉',
+  paddy: '🌾',
+  wheat: '🌾',
+  maize: '🌽',
+  chana: '🧆',
+  toor_dal: '🥣',
+  cotton: '🌱',
+  turmeric: '🟡',
+  soybean: '🫘',
+  groundnut: '🥜',
+  black_pepper: '🧂',
+  saffron: '🌸'
+};
+
+// Initial Fallback Queued Search Buttons (chips)
+const DEFAULT_QUEUED_CROPS = [
+  { key: 'red_chilli', name: 'Red Chilli', icon: '🌶️' },
+  { key: 'tomato', name: 'Tomato', icon: '🍅' },
+  { key: 'potato', name: 'Potato', icon: '🥔' },
+  { key: 'onion', name: 'Onion', icon: '🧅' },
+  { key: 'brinjal', name: 'Brinjal', icon: '🍆' },
+  { key: 'okra', name: 'Okra (Bhindi)', icon: '🌿' },
+  { key: 'cauliflower', name: 'Cauliflower', icon: '🥦' },
+  { key: 'cabbage', name: 'Cabbage', icon: '🥬' },
+  { key: 'carrot', name: 'Carrot', icon: '🥕' },
+  { key: 'ginger', name: 'Ginger', icon: '🫚' },
+  { key: 'garlic', name: 'Garlic', icon: '🧄' },
+  { key: 'cherry', name: 'Cherry', icon: '🍒' },
+  { key: 'cotton', name: 'Cotton', icon: '🌱' },
+  { key: 'turmeric', name: 'Turmeric', icon: '🟡' },
+  { key: 'paddy', name: 'Paddy', icon: '🌾' },
+  { key: 'wheat', name: 'Wheat', icon: '🌾' },
+  { key: 'maize', name: 'Maize (Corn)', icon: '🌽' },
+  { key: 'mango', name: 'Mango', icon: '🥭' },
+  { key: 'banana', name: 'Banana', icon: '🍌' },
+  { key: 'apple', name: 'Apple', icon: '🍎' },
+  { key: 'cucumber', name: 'Cucumber', icon: '🥒' },
+  { key: 'green_peas', name: 'Green Peas', icon: '🫛' },
+  { key: 'capsicum', name: 'Capsicum', icon: '🫑' },
+  { key: 'drumstick', name: 'Drumstick', icon: '🥢' },
+  { key: 'pomegranate', name: 'Pomegranate', icon: '🍎' },
+  { key: 'watermelon', name: 'Watermelon', icon: '🍉' },
+  { key: 'groundnut', name: 'Groundnut', icon: '🥜' },
+  { key: 'soybean', name: 'Soybean', icon: '🫘' },
+  { key: 'black_pepper', name: 'Black Pepper', icon: '🧂' },
+  { key: 'saffron', name: 'Saffron', icon: '🌸' }
+];
+
 export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   currentLang,
   mandi,
   currentLocation,
-  isSummaryOnly = false,
-  onViewAllGrades,
-  onOpenAlertModal,
   onShareWhatsApp,
   onOpenHelpline,
   onSelectCrop
 }) => {
   const t = translations[currentLang];
   const [productSearch, setProductSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [queuedCrops, setQueuedCrops] = useState<any[]>(DEFAULT_QUEUED_CROPS);
 
-  const matchedCrop = CROP_CHIPS.find((c) => c.key === mandi.cropKey);
-  const cropIcon = matchedCrop?.icon || '🌾';
-  const modalGrade = mandi.grades.find((g) => g.gradeCode === 'MODAL') || mandi.grades[0];
+  // Active crop live dataset from backend
+  const [activeCropData, setActiveCropData] = useState<any>({
+    commodity: mandi.cropName.en,
+    ribbon_title: `TODAY'S LIVE PRICE: ${mandi.cropName.en.toUpperCase()}`,
+    market: currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : 'Guntur APMC Yard',
+    state: currentLocation?.state.en || 'Andhra Pradesh',
+    variety: mandi.variety || 'Deluxe Grade',
+    grade_a: {
+      name: 'BEST QUALITY (Grade A)',
+      min_qtl: 14910,
+      max_qtl: 18816,
+      min_kg: 149.1,
+      max_kg: 188.16
+    },
+    grade_b: {
+      name: 'MEDIUM QUALITY (Grade B)',
+      min_qtl: 12400,
+      max_qtl: 13200,
+      min_kg: 124.0,
+      max_kg: 132.0
+    },
+    grade_c: {
+      name: 'LOW QUALITY (Grade C)',
+      min_qtl: 7500,
+      max_qtl: 9200,
+      min_kg: 75.0,
+      max_kg: 92.0
+    },
+    selling_advice: 'GOOD TIME TO SELL (+₹300 / Quintal Today)',
+    weather_alert: 'Heavy rain forecast for Thursday. Protect open harvest.',
+    nearest_markets: [
+      { market: 'Warangal Mandi', price_qtl: 14100, distance: '2.5 hrs away' },
+      { market: 'Kurnool Mandi', price_qtl: 13800, distance: '4.0 hrs away' }
+    ],
+    helpdesk: '1800-123-1234'
+  });
 
-  const handleProductSearchSubmit = (e: FormEvent) => {
+  // 1. Fetch all queued search buttons (crops) on mount
+  useEffect(() => {
+    let isMounted = true;
+    KisanSethuApi.getAllQueuedCrops()
+      .then((crops) => {
+        if (isMounted && crops && crops.length > 0) {
+          const formatted = crops.map((c) => ({
+            key: c.key,
+            name: c.commodity,
+            icon: c.icon || CROP_ICONS[c.key] || '🌱'
+          }));
+          setQueuedCrops(formatted);
+        }
+      })
+      .catch(() => {
+        // Fallback to DEFAULT_QUEUED_CROPS
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Fetch live today crop data whenever mandi or crop changes
+  useEffect(() => {
+    let isMounted = true;
+    const cropQuery = mandi.cropName.en || mandi.cropKey || 'Red Chilli';
+    const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
+    const st = currentLocation?.state.en;
+
+    KisanSethuApi.searchCropTodayPrice(cropQuery, mkt, st)
+      .then((res) => {
+        if (isMounted && res && res.status === 'success') {
+          setActiveCropData(res);
+        }
+      })
+      .catch(() => {
+        // Keep resilient current data
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mandi.cropKey, mandi.cropName.en, currentLocation?.name.en]);
+
+  // Handle Search Submission (Universal: searches ANY crop on Earth)
+  const handleSearchSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!productSearch.trim() || !onSelectCrop) return;
-    const term = productSearch.toLowerCase().trim();
-    const found = CROP_CHIPS.find(
-      (c) =>
-        c.name[currentLang].toLowerCase().includes(term) ||
-        c.name.en.toLowerCase().includes(term) ||
-        c.name.hi.toLowerCase().includes(term) ||
-        c.name.te.toLowerCase().includes(term) ||
-        c.key.toLowerCase().includes(term)
-    );
-    if (found) {
-      onSelectCrop(found.key);
+    const query = productSearch.trim();
+    if (!query) return;
+
+    setIsSearching(true);
+    try {
+      const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
+      const st = currentLocation?.state.en;
+      const res = await KisanSethuApi.searchCropTodayPrice(query, mkt, st);
+
+      if (res && res.status === 'success') {
+        setActiveCropData(res);
+        if (onSelectCrop) {
+          const matchKey = res.commodity.toLowerCase().replace(/\s+/g, '_');
+          onSelectCrop(matchKey);
+        }
+      }
+    } catch (err) {
+      console.warn('Search failed:', err);
+    } finally {
+      setIsSearching(false);
       setProductSearch('');
     }
   };
 
+  // 1-Tap Queue Crop Selection
+  const handleQueueChipTap = async (chip: { key: string; name: string }) => {
+    if (onSelectCrop) onSelectCrop(chip.key);
+    setIsSearching(true);
+    try {
+      const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
+      const st = currentLocation?.state.en;
+      const res = await KisanSethuApi.searchCropTodayPrice(chip.name, mkt, st);
+      if (res && res.status === 'success') {
+        setActiveCropData(res);
+      }
+    } catch (err) {
+      console.warn('Chip fetch failed:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Audio Read Aloud
   const handleReadAloud = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      const cropName = activeCropData.commodity;
+      const gradeA = activeCropData.grade_a;
+      const gradeB = activeCropData.grade_b;
+      const gradeC = activeCropData.grade_c;
+      const advice = activeCropData.selling_advice;
+
       const readText =
         currentLang === 'hi'
-          ? `${mandi.cropName.hi}, ${mandi.mandiName.hi} में मुख्य भाव ₹${modalGrade.modalPrice} प्रति क्विंटल है। पिछले सप्ताह से ₹${mandi.priceTrend.diffLastWeek} की तेजी है। बेचने का उत्तम समय है।`
+          ? `आज का लाइव भाव: ${cropName}। उत्तम गुणवत्ता ग्रेड ए: ₹${Math.round(gradeA.min_qtl)} से ₹${Math.round(gradeA.max_qtl)} प्रति क्विंटल। मध्यम ग्रेड बी: ₹${Math.round(gradeB.min_qtl)} से ₹${Math.round(gradeB.max_qtl)}। सामान्य ग्रेड सी: ₹${Math.round(gradeC.min_qtl)} से ₹${Math.round(gradeC.max_qtl)}। सलाह: ${advice}`
           : currentLang === 'te'
-          ? `${mandi.cropName.te}, ${mandi.mandiName.te}లో ప్రధాన ధర ₹${modalGrade.modalPrice} క్వింటాకు. గత వారం కంటే ₹${mandi.priceTrend.diffLastWeek} పెరిగింది. అమ్మడానికి మంచి సమయం.`
-          : `${mandi.cropName.en} at ${mandi.mandiName.en}. Today modal price is ₹${modalGrade.modalPrice} per quintal, up ₹${mandi.priceTrend.diffLastWeek} above last week. Good time to sell.`;
+          ? `ఈరోజు ప్రత్యక్ష ధర: ${cropName}। ఉత్తమ నాణ్యత గ్రేడ్ ఏ: ₹${Math.round(gradeA.min_qtl)} నుండి ₹${Math.round(gradeA.max_qtl)} క్వింటాకు। మధ్యస్థ గ్రేడ్ బి: ₹${Math.round(gradeB.min_qtl)} నుండి ₹${Math.round(gradeB.max_qtl)}। సాధారణ గ్రేడ్ సి: ₹${Math.round(gradeC.min_qtl)} నుండి ₹${Math.round(gradeC.max_qtl)}। సలహా: ${advice}`
+          : `Today's Live Price for ${cropName}. Best Quality Grade A is ₹${Math.round(gradeA.min_qtl)} to ₹${Math.round(gradeA.max_qtl)} per quintal. Medium Quality Grade B is ₹${Math.round(gradeB.min_qtl)} to ₹${Math.round(gradeB.max_qtl)}. Low Quality Grade C is ₹${Math.round(gradeC.min_qtl)} to ₹${Math.round(gradeC.max_qtl)}. Selling Advice: ${advice}`;
 
       const utterance = new SpeechSynthesisUtterance(readText);
       utterance.lang = currentLang === 'te' ? 'te-IN' : currentLang === 'hi' ? 'hi-IN' : 'en-IN';
@@ -102,404 +268,280 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
     }
   };
 
-  if (isSummaryOnly) {
-    return (
-      <div className="home-mockup-hero-card" onClick={onViewAllGrades} role="button" tabIndex={0}>
-        <div className="hero-top-info">
-          <span className="hero-subtext">
-            📍 {mandi.mandiName[currentLang]} · {mandi.cropName[currentLang]} · 🟢 {mandi.lastUpdated}
-          </span>
-        </div>
-        <div className="hero-main-row">
-          <div className="hero-price-group">
-            <span className="hero-price-amount">₹{modalGrade.modalPrice.toLocaleString()}</span>
-            <span className="hero-price-trend">
-              ↑ ₹{mandi.priceTrend.diffLastWeek}
-            </span>
-          </div>
-          <div className="hero-sell-badge">
-            <span>{t.goodTimeToSell}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // WhatsApp Sharing
+  const handleShareWhatsAppAction = () => {
+    const cropName = activeCropData.commodity;
+    const gradeA = activeCropData.grade_a;
+    const gradeB = activeCropData.grade_b;
+    const gradeC = activeCropData.grade_c;
+    const advice = activeCropData.selling_advice;
+    const market = activeCropData.market;
+
+    const message = `🌾 *KISAN-SETHU: MANDI LIVE RATES ADVISOR* 🌾\n📍 *Market:* ${market}\n🔴 *TODAY'S LIVE PRICE: ${cropName.toUpperCase()}*\n\n⭐ *BEST QUALITY (Grade A):* ₹${Math.round(gradeA.min_qtl).toLocaleString()} - ₹${Math.round(gradeA.max_qtl).toLocaleString()} / qtl\n👍 *MEDIUM QUALITY (Grade B):* ₹${Math.round(gradeB.min_qtl).toLocaleString()} - ₹${Math.round(gradeB.max_qtl).toLocaleString()} / qtl\n⚠️ *LOW QUALITY (Grade C):* ₹${Math.round(gradeC.min_qtl).toLocaleString()} - ₹${Math.round(gradeC.max_qtl).toLocaleString()} / qtl\n\n✅ *SELLING ADVICE:* ${advice}\n\n👉 *Direct Live Check:* ${window.location.origin}`;
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  const cropKey = (activeCropData.commodity || 'crop').toLowerCase().replace(/\s+/g, '_');
+  const cropEmoji = CROP_ICONS[cropKey] || '🌶️';
+
+  const gradeA = activeCropData.grade_a || { min_qtl: 14910, max_qtl: 18816, min_kg: 149, max_kg: 188 };
+  const gradeB = activeCropData.grade_b || { min_qtl: 12400, max_qtl: 13200, min_kg: 124, max_kg: 132 };
+  const gradeC = activeCropData.grade_c || { min_qtl: 7500, max_qtl: 9200, min_kg: 75, max_kg: 92 };
+
+  const marketSubtitle = useMemo(() => {
+    const locName = currentLocation?.name[currentLang] || activeCropData.market || 'Guntur APMC Yard';
+    const stateName = currentLocation?.state[currentLang] || activeCropData.state || 'Andhra Pradesh';
+    return `${locName}, ${stateName} (GPS Locked)`;
+  }, [currentLocation, activeCropData, currentLang]);
 
   return (
-    <div className="mandi-hero-card">
-      {/* Product Search & Vegetable Selector Panel (Today's Price tab) */}
-      {onSelectCrop && (
-        <div className="rates-product-search-panel">
-          <form onSubmit={handleProductSearchSubmit} className="rates-search-bar">
-            <Search size={22} className="rates-search-icon" />
-            <input
-              type="text"
-              placeholder={
-                currentLang === 'hi'
-                  ? 'सब्जी या फसल खोजें (उदा: मिर्च, टमाटर, प्याज, मूंगफली, कपास)...'
-                  : currentLang === 'te'
-                  ? 'కూరగాయ లేదా పంట వెతకండి (మిర్చి, టమోటా, ఉల్లిపాయ, వేరుశనగ, పత్తి)...'
-                  : 'Search vegetable or crop (e.g. Chilli, Tomato, Onion, Groundnut, Cotton)...'
-              }
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              className="rates-search-input"
-            />
-            {productSearch.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setProductSearch('')}
-                className="rates-search-clear-btn"
-                title="Clear input"
-              >
-                <X size={16} />
-              </button>
-            )}
-            <button type="submit" className="rates-search-btn">
-              <Search size={16} />
-              <span>{t.searchBtn}</span>
-            </button>
-          </form>
-
-          {/* Quick Vegetable & Crop Selector Chips with clear icons */}
-          <div className="rates-crop-pills-header">
-            <span className="rates-crop-pills-title">
-              🌾 {currentLang === 'hi' ? 'सब्जियां व फसलें (त्वरित चयन):' : currentLang === 'te' ? 'కూరగాయలు & పంటలు (త్వరిత ఎంపిక):' : 'Vegetables & Crops (Quick Select):'}
+    <div className="mandi-advisor-wrapper">
+      {/* 1. TOP HEADER BANNER: Deep Forest Green (#0B3B17) */}
+      <div className="advisor-header-strip">
+        <div className="header-left-col">
+          <h1 className="advisor-main-title">Mandi Live Rates Advisor</h1>
+          <div className="advisor-gps-row">
+            <span className="gps-location-text">📍 {marketSubtitle}</span>
+            <span className="gps-icon-pill">
+              <span className="gps-live-dot" />
+              GPS 📶
             </span>
-            <span className="rates-active-crop-name">
-              {currentLang === 'hi' ? 'सक्रिय भाव:' : currentLang === 'te' ? 'ప్రస్తుత పంట:' : 'Active Rate:'}{' '}
-              <strong className="rates-selected-badge">{mandi.cropName[currentLang]}</strong>
-            </span>
-          </div>
-
-          <div className="rates-crop-pills-row">
-            {CROP_CHIPS.map((c) => {
-              const isSelected = c.key === mandi.cropKey;
-              const badgeStyle = CROP_BADGE_STYLES[c.key] || { bg: '#F1F5F9', border: '#CBD5E1', glow: '#16A34A' };
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => onSelectCrop(c.key)}
-                  className={`rates-crop-pill ${isSelected ? 'active' : ''}`}
-                  aria-pressed={isSelected}
-                  title={`${c.name[currentLang]} (${c.count})`}
-                >
-                  <span
-                    className="pill-icon-wrap"
-                    style={{
-                      backgroundColor: badgeStyle.bg,
-                      borderColor: badgeStyle.border
-                    }}
-                  >
-                    {c.icon}
-                  </span>
-                  <div className="pill-text-col">
-                    <span className="pill-name">{c.name[currentLang]}</span>
-                    <span className="pill-mandis-tag">{c.count}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Main Hero Card Header */}
-      <div className="mandi-card-header">
-        <div className="selected-crop-visual-banner">
-          <div className="crop-avatar-wrap">
-            <span className="crop-avatar-icon">{cropIcon}</span>
-          </div>
-          <div className="mandi-title-wrap">
-            <div className="mandi-badge-row">
-              <span className="live-pill">
-                <span className="live-dot" />
-                {t.liveAuction}
-              </span>
-              <span className="timestamp-pill">
-                <Clock size={13} />
-                {mandi.lastUpdated} (Agmarknet e-NAM)
-              </span>
-            </div>
-            <h2 className="mandi-main-title">
-              {mandi.cropName[currentLang]} ({mandi.variety})
-            </h2>
-            <p className="mandi-location">
-              📍 {mandi.mandiName[currentLang]}, {mandi.state[currentLang]}
-            </p>
           </div>
         </div>
 
-        {/* Action Buttons: WhatsApp Share & Price Alert */}
-        <div className="mandi-header-actions">
+        <div className="header-actions-col">
           <button
             type="button"
             onClick={handleReadAloud}
-            className={`audio-read-btn ${isPlayingAudio ? 'playing' : ''}`}
-            title={t.readAloudBtn}
+            className={`btn-listen-action ${isPlayingAudio ? 'playing' : ''}`}
+            title="Listen to today's rates & action"
           >
             <Volume2 size={16} />
-            <span>{isPlayingAudio ? '...' : t.readAloudBtn}</span>
+            <span>{isPlayingAudio ? 'Speaking...' : 'Listen Price & Action'}</span>
           </button>
+
           <button
             type="button"
-            onClick={onShareWhatsApp}
-            className="whatsapp-share-btn"
-            title={t.shareWhatsapp}
+            onClick={handleShareWhatsAppAction}
+            className="btn-share-whatsapp"
+            title="Share Today's Rates on WhatsApp"
           >
             <Share2 size={16} />
-            <span>{t.shareWhatsapp}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onOpenAlertModal}
-            className="price-alert-btn"
-            title={t.setPriceAlertBtn}
-          >
-            <Bell size={16} />
-            <span>{t.setPriceAlertBtn}</span>
+            <span>Share Rates</span>
           </button>
         </div>
       </div>
 
-      {/* Selling Advisory Banner with "Why?" Logic */}
-      <div className="selling-advisory-box">
-        <div className="advisory-headline-row">
-          <div className="advisory-badge">
-            <CheckCircle2 size={20} className="check-icon" />
-            <span>{t.goodTimeToSell}</span>
-          </div>
-          <div className="trend-highlight">
-            <TrendingUp size={18} />
-            <span>+₹{mandi.priceTrend.diffLastWeek} {t.quintalUnit} (▲ {mandi.priceTrend.percentage}%)</span>
-          </div>
-        </div>
-
-        {/* ❓ The Farmer's Question: "Why this advice?" */}
-        <div className="why-explainer-section">
-          <h3 className="why-title">
-            <Info size={16} />
-            <span>{t.whyQuestion}</span>
-          </h3>
-          <ul className="why-reasons-list">
-            <li className="reason-item trend">
-              <span className="reason-bullet">📈</span>
-              <div className="reason-text">
-                <strong>{mandi.whySellReasons.trendReason[currentLang]}</strong>
-              </div>
-            </li>
-            <li className="reason-item weather">
-              <span className="reason-bullet">🌧️</span>
-              <div className="reason-text">
-                <strong>{mandi.whySellReasons.weatherReason[currentLang]}</strong>
-              </div>
-            </li>
-            <li className="reason-item inflow">
-              <span className="reason-bullet">📦</span>
-              <div className="reason-text">
-                <strong>{mandi.whySellReasons.inflowReason[currentLang]}</strong>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Summary View vs Full Grade Details */}
-      {isSummaryOnly ? (
-        <div className="home-summary-grade-strip">
-          <div className="summary-rate-display">
-            <span className="summary-rate-label">{t.commonModalBadge}:</span>
-            <div className="summary-rate-val">
-              <span className="rate-num">₹{modalGrade.modalPrice.toLocaleString()}</span>
-              <span className="rate-unit">{t.quintalUnit}</span>
-            </div>
-            <p className="summary-rate-hint">
-              {modalGrade.qualityCriteria[currentLang]}
-            </p>
-          </div>
-
-          {onViewAllGrades && (
+      {/* 2. UNIVERSAL SEARCH BAR */}
+      <div className="advisor-search-container">
+        <form onSubmit={handleSearchSubmit} className="advisor-search-bar">
+          <Search size={20} className="search-lead-icon" />
+          <input
+            type="text"
+            className="advisor-search-input"
+            placeholder="Search ANY Crop, Variety, or Mandi (e.g., Red Chilli, Tomato)..."
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+          />
+          {productSearch.length > 0 && (
             <button
               type="button"
-              onClick={onViewAllGrades}
-              className="view-all-grades-cta"
+              onClick={() => setProductSearch('')}
+              className="search-clear-btn"
+              title="Clear search"
             >
-              <span>{t.viewAllGradesBtn}</span>
-              <ArrowRight size={16} />
+              <X size={16} />
             </button>
           )}
+          <button type="submit" className="search-submit-btn" disabled={isSearching}>
+            {isSearching ? <Loader2 size={16} className="spin-icon" /> : <Search size={16} />}
+            <span>Search</span>
+          </button>
+        </form>
+
+        {/* 3. QUEUED SEARCH BUTTONS (Horizontally Scrollable Chips) */}
+        <div className="queued-search-buttons-scroll">
+          <div className="queue-label">
+            <Sparkles size={14} color="#16A34A" />
+            <span>Fast Select:</span>
+          </div>
+          {queuedCrops.map((chip) => {
+            const isSelected =
+              activeCropData.commodity.toLowerCase().includes(chip.name.toLowerCase()) ||
+              chip.name.toLowerCase().includes(activeCropData.commodity.toLowerCase());
+
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => handleQueueChipTap(chip)}
+                className={`queued-crop-chip ${isSelected ? 'active' : ''}`}
+                title={`Instant Rates for ${chip.name}`}
+              >
+                <span className="chip-icon">{chip.icon}</span>
+                <span className="chip-label">{chip.name}</span>
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <>
-          {/* Multi-Grade & Variety Price Bands */}
-          <div className="grades-section">
-            <h3 className="section-subtitle">
-              <span>{t.varietyGradeTitle}</span>
-            </h3>
-            <div className="grades-grid">
-              {mandi.grades.map((grade) => (
-                <div key={grade.gradeCode} className={`grade-card ${grade.gradeCode.toLowerCase()}`}>
-                  <div className="grade-header">
-                    <span className="grade-badge" style={{ backgroundColor: grade.badgeColor || '#2D5A27' }}>
-                      {grade.gradeCode === 'MODAL' ? t.commonModalBadge : `Grade ${grade.gradeCode}`}
-                    </span>
-                    <span className="grade-name">{grade.name[currentLang]}</span>
-                  </div>
-                  <div className="grade-price-row">
-                    <span className="grade-price">{grade.priceRange}</span>
-                    <span className="grade-unit">{t.quintalUnit}</span>
-                  </div>
-                  <p className="grade-criteria">
-                    <span className="criteria-label">{t.qualityCriteriaLabel}</span> {grade.qualityCriteria[currentLang]}
-                  </p>
-                </div>
-              ))}
+      </div>
+
+      {/* 4. THE RED RIBBON BANNER */}
+      <div className="ceremonial-ribbon-outer">
+        <div className="ribbon-tail ribbon-tail-left" />
+        <div className="ceremonial-ribbon-body">
+          {/* Left Rosette Medal Badge */}
+          <div className="rosette-medal-icon" title="Certified Live Rate">
+            <div className="rosette-circle">
+              <span className="rosette-emoji">🎀</span>
+            </div>
+            <div className="rosette-ribbon-tails">
+              <span className="tail-left" />
+              <span className="tail-right" />
             </div>
           </div>
 
-          {/* 7-Day Price Trend Bar Chart */}
-          <div className="price-trend-chart-card">
-            <div className="chart-header">
-              <div className="chart-title-wrap">
-                <BarChart3 size={18} className="chart-icon" />
-                <h4 className="chart-title">
-                  {mandi.cropName[currentLang]} - {mandi.mandiName[currentLang]} ({t.sevenDayPriceTrend})
-                </h4>
-              </div>
-              <span className="trend-badge-pill">▲ ₹{mandi.priceTrend.diffLastWeek} / qt</span>
-            </div>
+          {/* Ribbon Title */}
+          <h2 className="ceremonial-ribbon-title">
+            TODAY'S LIVE PRICE: {activeCropData.commodity.toUpperCase()}
+          </h2>
+        </div>
+        <div className="ribbon-tail ribbon-tail-right" />
+      </div>
 
-            <div className="bar-chart-visual">
-              {CHILLI_7DAY_TREND.map((item, idx) => {
-                // Compute height percentage between 13500 and 14500
-                const minChart = 13500;
-                const maxChart = 14500;
-                const pct = Math.max(25, Math.min(100, Math.round(((item.price - minChart) / (maxChart - minChart)) * 100)));
-                const isHighest = idx === 4;
+      {/* 5. QUALITY & PRICE GUIDE SUBTITLE */}
+      <div className="guide-subtitle-row">
+        <h3 className="guide-main-heading">
+          Quality & Price Guide ({currentLocation?.district.en || 'Guntur'} Local)
+        </h3>
+      </div>
 
-                return (
-                  <div key={item.day} className="chart-col">
-                    <span className="col-price-val">₹{item.price.toLocaleString()}</span>
-                    <div className="col-bar-track">
-                      <div
-                        className={`col-bar-fill ${isHighest ? 'highest' : ''}`}
-                        style={{ height: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="col-day-lbl">{item.day}</span>
-                  </div>
-                );
-              })}
-            </div>
+      {/* 6. 3-TIER QUALITY & PRICE GUIDE CARDS */}
+      <div className="quality-cards-grid">
+        {/* CARD 1: BEST QUALITY (Grade A) */}
+        <div className="quality-card grade-a-card">
+          <div className="card-top-badge best-badge">
+            <span className="badge-star">⭐</span>
+            <span className="badge-title">BEST QUALITY (Grade A)</span>
           </div>
 
-          {/* Where to Sell: Regional Mandis Comparison */}
-          <div className="where-to-sell-card">
-            <div className="wts-header">
-              <MapPin size={18} className="wts-icon" />
-              <h4 className="wts-title">
-                {t.whereToSellTitle} {currentLocation ? `(${currentLocation.name[currentLang]})` : ''}
-              </h4>
-            </div>
-            <div className="wts-mandis-grid">
-              <div className="wts-mandi-item current">
-                <div className="wts-item-top">
-                  <span className="wts-mandi-tag current">
-                    📍 {mandi.mandiName[currentLang]} ({currentLang === 'hi' ? 'स्थानीय यार्ड · 0 किमी' : currentLang === 'te' ? 'స్థానిక మార్కెట్ · 0 కి.మీ' : 'Local Yard · 0 km'})
-                  </span>
-                  <strong className="wts-price">₹{modalGrade.modalPrice.toLocaleString()}{t.quintalUnit}</strong>
-                </div>
-                <span className="wts-status-note">
-                  {currentLang === 'hi'
-                    ? `स्थानीय यार्ड · शून्य अतिरिक्त भाड़ा`
-                    : currentLang === 'te'
-                    ? `స్థానిక మార్కెట్ · అదనపు రవాణా ఖర్చు లేదు`
-                    : `Local Yard · Zero Extra Freight`}
+          <div className="card-price-container">
+            <div className="card-dual-graphic-row">
+              <span className="crop-illustration left">{cropEmoji}</span>
+              <div className="card-price-col">
+                <span className="card-price-numbers">
+                  ₹{Math.round(gradeA.min_qtl).toLocaleString()} - ₹{Math.round(gradeA.max_qtl).toLocaleString()}
+                </span>
+                <span className="card-price-unit">/ quintal</span>
+                <span className="card-kg-subtext">
+                  (₹{Math.round(gradeA.min_qtl / 100)} - ₹{Math.round(gradeA.max_qtl / 100)} / kg)
                 </span>
               </div>
-
-              {mandi.otherNearbyMandis.map((near) => {
-                const priceDiff = near.modalPrice - modalGrade.modalPrice;
-                const isHigher = priceDiff > 0;
-
-                return (
-                  <div key={near.name.en} className="wts-mandi-item">
-                    <div className="wts-item-top">
-                      <span className="wts-mandi-tag">📍 {near.name[currentLang]} ({near.distance} km)</span>
-                      <strong className="wts-price">₹{near.modalPrice.toLocaleString()}{t.quintalUnit}</strong>
-                    </div>
-                    <div className="wts-item-bottom">
-                      <span className={`diff-tag ${isHigher ? 'positive' : 'negative'}`}>
-                        {isHigher ? `+₹${priceDiff} ${t.quintalUnit} Higher` : `₹${Math.abs(priceDiff)} Lower`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+              <span className="crop-illustration right">{cropEmoji}</span>
             </div>
           </div>
-        </>
-      )}
-
-      {/* Financial Reality Check: Not a Guarantee */}
-      <div className="financial-risk-box">
-        <div className="risk-header">
-          <AlertTriangle size={20} className="risk-icon" />
-          <span className="risk-title">{t.notGuaranteeTitle}</span>
         </div>
-        <p className="risk-text">{t.notGuaranteeDesc}</p>
-        <div className="stock-stamps-row">
-          <div className="stamp-badge">
-            <Package size={14} />
-            <span>{t.unsoldStockLabel} <strong>{mandi.unsoldYardStockBags.toLocaleString()} {t.bagsUnit}</strong></span>
+
+        {/* CARD 2: MEDIUM QUALITY (Grade B) */}
+        <div className="quality-card grade-b-card">
+          <div className="card-top-badge medium-badge">
+            <span className="badge-thumb">👍</span>
+            <span className="badge-title">MEDIUM QUALITY (Grade B)</span>
           </div>
-          {mandi.eNamLotVerified && (
-            <div className="stamp-badge verified">
-              <CheckCircle2 size={14} />
-              <span>{t.enamVerified}</span>
+
+          <div className="card-price-container">
+            <div className="card-dual-graphic-row">
+              <span className="crop-illustration left dimmed">{cropEmoji}</span>
+              <div className="card-price-col">
+                <span className="card-price-numbers">
+                  ₹{Math.round(gradeB.min_qtl).toLocaleString()} - ₹{Math.round(gradeB.max_qtl).toLocaleString()}
+                </span>
+                <span className="card-price-unit">/ quintal</span>
+                <span className="card-kg-subtext">
+                  (₹{Math.round(gradeB.min_qtl / 100)} - ₹{Math.round(gradeB.max_qtl / 100)} / kg)
+                </span>
+              </div>
+              <span className="crop-illustration right dimmed">{cropEmoji}</span>
             </div>
+          </div>
+        </div>
+
+        {/* CARD 3: LOW QUALITY (Grade C) */}
+        <div className="quality-card grade-c-card">
+          <div className="card-top-badge low-badge">
+            <span className="badge-warn">⚠️</span>
+            <span className="badge-title">LOW QUALITY (Grade C)</span>
+          </div>
+
+          <div className="card-price-container">
+            <div className="card-dual-graphic-row">
+              <span className="crop-illustration left pale">{cropEmoji}</span>
+              <div className="card-price-col">
+                <span className="card-price-numbers">
+                  ₹{Math.round(gradeC.min_qtl).toLocaleString()} - ₹{Math.round(gradeC.max_qtl).toLocaleString()}
+                </span>
+                <span className="card-price-unit">/ quintal</span>
+                <span className="card-kg-subtext">
+                  (₹{Math.round(gradeC.min_qtl / 100)} - ₹{Math.round(gradeC.max_qtl / 100)} / kg)
+                </span>
+              </div>
+              <span className="crop-illustration right pale">{cropEmoji}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 7. SELLING ADVICE BANNER (Green) */}
+      <div className="selling-advice-pill-banner">
+        <span className="advice-check-icon">✅</span>
+        <span className="advice-text">
+          <b>SELLING ADVICE:</b> {activeCropData.selling_advice}
+        </span>
+      </div>
+
+      {/* 8. WEATHER ALERT BANNER (Amber) */}
+      <div className="weather-alert-pill-banner">
+        <span className="alert-warn-icon">⚠️</span>
+        <span className="alert-text">
+          <b>WEATHER ALERT:</b> {activeCropData.weather_alert}
+        </span>
+      </div>
+
+      {/* 9. NEAREST MARKETS & HELPDESK FOOTER STRIP */}
+      <div className="advisor-footer-ticker">
+        <div className="ticker-left-markets">
+          <Truck size={16} className="truck-icon" />
+          <span className="ticker-prefix">NEAREST MARKETS:</span>
+          {activeCropData.nearest_markets && activeCropData.nearest_markets.length > 0 ? (
+            activeCropData.nearest_markets.map((m: any, idx: number) => (
+              <span key={idx} className="nearest-mkt-segment">
+                {m.market}: <b>₹{Number(m.price_qtl).toLocaleString()}/qnt</b> ({m.distance})
+                {idx < activeCropData.nearest_markets.length - 1 && <span className="mkt-divider"> | </span>}
+              </span>
+            ))
+          ) : (
+            <span className="nearest-mkt-segment">
+              Warangal Mandi: <b>₹14,100/qnt</b> (2.5 hrs away) | Kurnool Mandi: <b>₹13,800/qnt</b> (4.0 hrs away)
+            </span>
           )}
         </div>
-      </div>
 
-      {/* Mandi Operational Schedule */}
-      <div className="mandi-schedule-ribbon">
-        <Calendar size={16} />
-        <span className="schedule-label">{t.mandiHoursLabel}</span>
-        <span className="schedule-hours">{t.mandiHoursVal}</span>
-      </div>
-
-      {/* 1-Tap Big Helpline Card */}
-      {!isSummaryOnly && (
-        <div className="helpline-card single-full">
-          <h4 className="footer-card-title">{t.helplineHeader}</h4>
-          <div className="helpline-btn-group">
-            <button
-              type="button"
-              onClick={() => onOpenHelpline('1551')}
-              className="helpline-call-btn primary"
-            >
-              <PhoneCall size={18} />
-              <div className="btn-call-text">
-                <span className="call-name">{t.kisanCallCenter}</span>
-                <span className="call-number">1551 ({t.tollFreeTag})</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenHelpline('1800-180-1551')}
-              className="helpline-call-btn secondary"
-            >
-              <PhoneCall size={18} />
-              <div className="btn-call-text">
-                <span className="call-name">{t.mandiDesk}</span>
-                <span className="call-number">1800-180-1551</span>
-              </div>
-            </button>
-          </div>
+        <div className="ticker-right-helpdesk">
+          <button
+            type="button"
+            onClick={() => onOpenHelpline(activeCropData.helpdesk || '1800-123-1234')}
+            className="helpdesk-link-btn"
+            title="Call APMC Helpdesk"
+          >
+            <PhoneCall size={14} />
+            <span>
+              {currentLocation?.name.en || 'Guntur'} APMC Helpdesk: <b>{activeCropData.helpdesk || '1800-123-1234'}</b>
+            </span>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };

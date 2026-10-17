@@ -8454,3 +8454,606 @@ button:active,
   color: #94A3B8;
   font-size: 12.5px;
 }
+
+/* ==========================================================================
+   MANDI LIVE RATES ADVISOR (Clean Farmer-First UI Matching Sample Spec)
+   ========================================================================== */
+
+.mandi-advisor-wrapper {
+  background: #FFFFFF;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #E2E8F0;
+  margin-bottom: 24px;
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+/* 1. Top Header Strip: Deep Forest Green (#0B3B17) */
+.advisor-header-strip {
+  background: #0B3B17;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.advisor-main-title {
+  color: #FFFFFF;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.advisor-gps-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #86EFAC;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.gps-location-text {
+  color: #BBF7D0;
+}
+
+.gps-icon-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.gps-live-dot {
+  width: 6px;
+  height: 6px;
+  background: #4ADE80;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.header-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-listen-action {
+  background: #EA580C;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3);
+}
+
+.btn-listen-action:hover {
+  background: #C2410C;
+  transform: translateY(-1px);
+}
+
+.btn-listen-action.playing {
+  background: #9A3412;
+  animation: pulse 1s infinite;
+}
+
+.btn-share-whatsapp {
+  background: #16A34A;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+}
+
+.btn-share-whatsapp:hover {
+  background: #15803D;
+  transform: translateY(-1px);
+}
+
+/* 2. Search Container & Queued Buttons */
+.advisor-search-container {
+  padding: 16px 20px 8px 20px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.advisor-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 6px 14px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.advisor-search-bar:focus-within {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.search-lead-icon {
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+.advisor-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #0F172A;
+  padding: 6px 0;
+}
+
+.advisor-search-input::placeholder {
+  color: #64748B;
+  font-size: 14.5px;
+}
+
+.search-clear-btn {
+  background: #E2E8F0;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.search-submit-btn {
+  background: #0F172A;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-submit-btn:hover {
+  background: #1E293B;
+}
+
+/* Queued Search Buttons (Horizontally Scrollable Chips) */
+.queued-search-buttons-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 0 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+.queued-search-buttons-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.queued-search-buttons-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.queue-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.queued-crop-chip {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.queued-crop-chip:hover {
+  border-color: #86EFAC;
+  background: #F0FDF4;
+  transform: translateY(-1px);
+}
+
+.queued-crop-chip.active {
+  background: #DCFCE7;
+  border-color: #16A34A;
+  color: #15803D;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+
+.chip-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* 4. The Ceremonial Red Ribbon Banner */
+.ceremonial-ribbon-outer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 18px 12px 14px 12px;
+}
+
+.ribbon-tail {
+  width: 28px;
+  height: 52px;
+  background: #991B1B;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.ribbon-tail-left {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  margin-right: -10px;
+  box-shadow: inset -3px 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.ribbon-tail-right {
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  margin-left: -10px;
+  box-shadow: inset 3px 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.ceremonial-ribbon-body {
+  background: linear-gradient(180deg, #DC2626 0%, #B91C1C 45%, #991B1B 100%);
+  color: #FFFFFF;
+  padding: 10px 24px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-top: 1px solid #EF4444;
+  border-bottom: 2px solid #7F1D1D;
+}
+
+.rosette-medal-icon {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rosette-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #EF4444 30%, #991B1B 100%);
+  border: 2px solid #FDE047;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.rosette-emoji {
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.ceremonial-ribbon-title {
+  color: #FFFFFF;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* 5. Subtitle Guide Row */
+.guide-subtitle-row {
+  padding: 4px 20px 10px 20px;
+}
+
+.guide-main-heading {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+/* 6. 3 Side-by-Side Quality Cards */
+.quality-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding: 0 20px 14px 20px;
+}
+
+.quality-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+.quality-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.card-top-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 12px;
+  letter-spacing: 0.2px;
+}
+
+.card-price-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.card-dual-graphic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.crop-illustration {
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.crop-illustration.dimmed {
+  opacity: 0.85;
+}
+
+.crop-illustration.pale {
+  opacity: 0.65;
+  filter: grayscale(30%);
+}
+
+.card-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.card-price-numbers {
+  font-size: 26px;
+  font-weight: 900;
+  color: #0F172A;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.card-price-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.card-kg-subtext {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16A34A;
+  margin-top: 4px;
+}
+
+/* 7. Actionable Selling Advice Bar (Green) */
+.selling-advice-pill-banner {
+  background: #107C41;
+  color: #FFFFFF;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin: 0 20px 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(16, 124, 65, 0.25);
+}
+
+.advice-check-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.advice-text {
+  line-height: 1.3;
+}
+
+/* 8. Weather Alert Bar (Amber) */
+.weather-alert-pill-banner {
+  background: #F59E0B;
+  color: #451A03;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin: 0 20px 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+}
+
+.alert-warn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.alert-text {
+  line-height: 1.3;
+}
+
+/* 9. Nearest Markets & Helpdesk Footer Strip (Dark) */
+.advisor-footer-ticker {
+  background: #0F172A;
+  color: #F8FAFC;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.ticker-left-markets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.truck-icon {
+  color: #38BDF8;
+  flex-shrink: 0;
+}
+
+.ticker-prefix {
+  font-weight: 800;
+  color: #E2E8F0;
+  letter-spacing: 0.3px;
+}
+
+.nearest-mkt-segment {
+  color: #CBD5E1;
+}
+
+.nearest-mkt-segment b {
+  color: #38BDF8;
+}
+
+.mkt-divider {
+  color: #475569;
+  margin: 0 4px;
+}
+
+.ticker-right-helpdesk {
+  display: flex;
+  align-items: center;
+}
+
+.helpdesk-link-btn {
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.helpdesk-link-btn:hover {
+  color: #FFFFFF;
+}
+
+.helpdesk-link-btn b {
+  color: #FBBF24;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .quality-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .ceremonial-ribbon-title {
+    font-size: 19px;
+  }
+  .card-price-numbers {
+    font-size: 22px;
+  }
+  .advisor-footer-ticker {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

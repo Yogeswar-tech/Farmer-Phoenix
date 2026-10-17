@@ -380,29 +380,7 @@ export const EducationalChartsView: FC<EducationalChartsViewProps> = ({ currentL
         <Text style={styles.mainTitle}>{t.educationalChartsTitle}</Text>
         <Text style={styles.subtitle}>{t.educationalChartsDesc}</Text>
 
-        {/* Dedicated PostgreSQL Status Ribbon */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#F0FDF4',
-          borderColor: '#BBF7D0',
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          paddingVertical: 5,
-          marginTop: 10,
-          gap: 6
-        }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#15803D' }}>
-            🗄️ {chartsDbPayload?.target_database || 'PostgreSQL: kisan_education_charts_db'}
-          </Text>
-          <Text style={{ fontSize: 11, color: '#166534' }}>
-            • {chartsDbPayload?.scraper_source || 'Education Charts 1 (6-Day Agmarknet Sync)'}
-          </Text>
-          <Text style={{ fontSize: 10, color: '#15803D', marginLeft: 'auto', fontWeight: '600' }}>
-            ⚡ FastCache &lt; 5ms
-          </Text>
-        </View>
+
       </View>
 
       {/* Commodity Selector */}

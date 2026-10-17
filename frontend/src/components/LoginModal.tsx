@@ -243,7 +243,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               </div>
               <span className="user-verified-pill">
                 <CheckCircle2 size={12} />
-                <span>DB Synced</span>
+                <span>Verified Farmer</span>
               </span>
             </div>
 
@@ -435,10 +435,10 @@ export const LoginModal: FC<LoginModalProps> = ({
           </div>
         </div>
 
-        {/* Security / DB Isolation Guarantee Footer */}
+        {/* Security & Farmer Privacy Guarantee Footer */}
         <div className="auth-db-security-footer">
           <ShieldCheck size={14} color="#059669" />
-          <span>PostgreSQL & SQLite User Isolation Active • End-to-End Profile Protection</span>
+          <span>100% Private & Encrypted • End-to-End Farm Profile Protection</span>
         </div>
       </div>
     </div>

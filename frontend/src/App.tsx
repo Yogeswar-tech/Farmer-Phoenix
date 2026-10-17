@@ -285,7 +285,7 @@ export function App() {
           te: liveMarket
         },
         variety: liveMandiRecord.variety || base.variety,
-        lastUpdated: `${liveDate} (Agmarknet Live • DB Synced)`,
+        lastUpdated: `${liveDate} (Agmarknet Live)`,
         isLive: true,
         grades: base.grades.map(g => {
           if (g.gradeCode === 'MODAL') {
@@ -507,7 +507,7 @@ export function App() {
                     </Text>
                     <Text style={styles.locationTag}>
                       📍 {currentLocation.name[currentLang] || currentLocation.name.en} ({currentLocation.district[currentLang] || currentLocation.district.en})
-                      {currentUserProfile?.email ? ` • ✉️ ${currentUserProfile.email} (DB Synced)` : ''}
+                      {currentUserProfile?.email ? ` • ✉️ ${currentUserProfile.email}` : ''}
                     </Text>
                   </View>
 
@@ -654,10 +654,10 @@ export function App() {
                       <Sparkles size={15} color="#16A34A" />
                       <Text style={[styles.loginStripText, { color: '#15803D', fontWeight: '700' }]}>
                         {currentLang === 'hi'
-                          ? `✅ प्रमाणित किसान: ${currentUserProfile?.email || userName} • डेटाबेस सिंक सक्रिय (प्रोफाइल बदलें)`
+                          ? `✅ प्रमाणित किसान: ${currentUserProfile?.email || userName} (प्रोफाइल बदलें)`
                           : currentLang === 'te'
-                          ? `✅ ధృవీకరించిన రైతు: ${currentUserProfile?.email || userName} • డేటాబేస్ ప్రొఫైల్ యాక్టివ్ (మార్చండి)`
-                          : `✅ Verified Farm Profile: ${currentUserProfile?.email || userName} • Database Sync Active (Switch/Edit)`}
+                          ? `✅ ధృవీకరించిన రైతు: ${currentUserProfile?.email || userName} (మార్చండి)`
+                          : `✅ Verified Farm Profile: ${currentUserProfile?.email || userName} (Switch/Edit)`}
                       </Text>
                     </>
                   ) : (

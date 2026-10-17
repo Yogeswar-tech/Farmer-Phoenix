@@ -1271,7 +1271,7 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
                   Ask CIBRC AI Doctor (Gemini RAG Engine)
                 </h3>
                 <span style={{ fontSize: '12px', color: '#6D28D9' }}>
-                  PostgreSQL CIBRC Database + Google Gemini 2.5 Flash Grounded Verification
+                  Official CIBRC Statutory Registry + Verified Agricultural AI Guide
                 </span>
               </div>
             </div>
@@ -1416,7 +1416,7 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
             }}>
               <Loader2 size={36} className="spin-icon" style={{ color: '#7C3AED', margin: '0 auto 16px' }} />
               <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#1E1B4B', margin: '0 0 6px' }}>
-                Querying PostgreSQL CIBRC Registry & Consulting Gemini AI...
+                Consulting Official CIBRC Statutory Registry & Agricultural AI...
               </h4>
               <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
                 Retrieving official statutory doses, Pre-Harvest Intervals, and phytotoxicity rules.

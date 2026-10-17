@@ -182,7 +182,7 @@ export const SchemesSection: FC<SchemesSectionProps> = ({
               onClick={handleManualRefresh}
               disabled={refreshing || loading}
               className={`live-db-badge ${isDbSynced ? 'synced' : 'disconnected'}`}
-              title="Click to sync fresh data from official government portals & PostgreSQL"
+              title="Click to sync fresh data from official government portals"
             >
               <RefreshCw size={12} className={(loading || refreshing) ? 'spin-icon' : ''} />
               <span>

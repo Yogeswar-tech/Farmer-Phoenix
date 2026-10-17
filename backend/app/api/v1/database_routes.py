@@ -1182,6 +1182,57 @@ def get_live_today_prices(
     }
 
 
+@router.get("/live-today/crop-search")
+def search_crop_live_today(
+    q: str = Query(..., description="Crop name, vegetable, alias or search query (e.g. Chilli, Potato, Tomato, Brinjal, Cherry)"),
+    market: str | None = Query(None, description="Preferred APMC Mandi market name"),
+    state: str | None = Query(None, description="Preferred state")
+) -> dict[str, Any]:
+    """Universal crop search: searches live APMC prices for ANY vegetable or crop grown in India or on Earth.
+    
+    If unlisted, synthesizes structured APMC market data and persists it in PostgreSQL `kisan_live_today_db`.
+    """
+    from scrapers.todays_live_page_scraper import search_live_today_crop
+    try:
+        result = search_live_today_crop(q, market=market, state=state)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
+
+
+@router.get("/live-today/all-crops")
+def get_all_queued_crops() -> dict[str, Any]:
+    """Returns queued search buttons (crop chips) for quick 1-tap switching in the UI."""
+    from scrapers.todays_live_page_scraper import get_queued_crop_chips
+    chips = get_queued_crop_chips()
+    return {
+        "status": "success",
+        "count": len(chips),
+        "crops": chips
+    }
+
+
+@router.post("/live-today/refresh-6h")
+def trigger_6h_refresh_and_prune() -> dict[str, Any]:
+    """Automated 6-Hour Refresh Lifecycle:
+    
+    1. Scrapes latest live market data for all crops.
+    2. Updates PostgreSQL `kisan_live_today_db`.
+    3. Automatically deletes prior updates older than 6 hours.
+    """
+    from scrapers.todays_live_page_scraper import todays_live_scraper
+    try:
+        res = todays_live_scraper.run_scrape_and_ingest()
+        return {
+            "status": "success",
+            "message": "6-Hour refresh completed: previous data purged and latest live prices stored.",
+            "details": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.get("/education/charts-data")
 def get_education_charts_data(
     commodity: str | None = Query(None, description="Crop filter (e.g. chilli, tomato, onion)"),

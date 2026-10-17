@@ -43,6 +43,73 @@ export class KisanSethuApi {
   }
 
   /**
+   * Universal Live Today Mandi Search: searches ANY crop on Earth in PostgreSQL kisan_live_today_db
+   */
+  static async searchCropTodayPrice(query: string, market?: string, state?: string): Promise<any> {
+    try {
+      const q = new URLSearchParams({ q: query });
+      if (market) q.append('market', market);
+      if (state) q.append('state', state);
+      const res = await this.request<any>(`/db/live-today/crop-search?${q.toString()}`);
+      if (res && res.status === 'success') {
+        return res;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[API Client] Live today crop search fallback:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Get all queued search buttons (crop chips) for quick 1-tap switching in UI
+   */
+  static async getAllQueuedCrops(): Promise<any[]> {
+    try {
+      const res = await this.request<any>('/db/live-today/all-crops');
+      if (res && res.crops && res.crops.length > 0) {
+        return res.crops;
+      }
+      return [];
+    } catch (err) {
+      console.warn('[API Client] Failed to fetch queued crops catalog:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Retrieve today's live scraped mandi prices from dedicated PostgreSQL kisan_live_today_db
+   */
+  static async getLiveTodayPrices(commodity?: string, state?: string, session?: string): Promise<any[]> {
+    try {
+      const q = new URLSearchParams();
+      if (commodity) q.append('commodity', commodity);
+      if (state) q.append('state', state);
+      if (session) q.append('session', session);
+      const res = await this.request<any>(`/db/live-today/prices?${q.toString()}`);
+      if (res && res.data && res.data.length > 0) {
+        return res.data;
+      }
+      return [];
+    } catch (err) {
+      console.warn('[API Client] Failed to fetch live today prices:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Trigger 6-Hour Automated Refresh Lifecycle: prunes data older than 6 hours and updates DB
+   */
+  static async trigger6HourRefresh(): Promise<any> {
+    try {
+      return await this.request<any>('/db/live-today/refresh-6h', { method: 'POST' });
+    } catch (err) {
+      console.warn('[API Client] Failed to trigger 6-hour refresh:', err);
+      return null;
+    }
+  }
+
+  /**
    * 1. Live APMC Mandi Rates & Arrivals (Cached in Redis)
    */
   static async getMandiRates(commodity?: string, state?: string): Promise<any[]> {
