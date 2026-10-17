@@ -1162,29 +1162,158 @@ export const CROP_DISEASES: Record<string, CropDisease> = {
 
 export const GOVT_SCHEMES: GovtScheme[] = [
   {
-    id: 'pm-kisan',
+    id: 'kcc-loan',
+    category: 'LOAN',
     title: {
-      hi: 'प्रधानमंत्री किसान सम्मान निधि (PM-Kisan)',
-      te: 'పీఎం కిసాన్ సమ్మాన్ నిధి (PM-Kisan)',
-      en: 'PM-Kisan Samman Nidhi'
+      hi: 'किसान क्रेडिट कार्ड (KCC - 4% ब्याज)',
+      te: 'కిసాన్ క్రెడిట్ కార్డ్ (KCC - 4% వడ్డీ)',
+      en: 'Kisan Credit Card (KCC) Crop Loan Scheme'
     },
     shortDesc: {
-      hi: 'प्रति वर्ष ₹6,000 की प्रत्यक्ष सहायता (₹2,000 की 3 किस्तों में बैंक खाते में)।',
-      te: 'సంవత్సరానికి ₹6,000 ప్రత్యక్ష ఆర్థిక సహాయం (రైతుల ఖాతాల్లోకి).',
-      en: 'Direct income support of ₹6,000 per year in 3 equal installments.'
+      hi: 'खाद, बीज व कीटनाशक हेतु ₹3 लाख तक का अल्पकालिक फसली ऋण मात्र 4% रियायती ब्याज पर।',
+      te: 'విత్తనాలు, ఎరువులు & క్రిమిసంహారకాల కొనుగోలుకు ₹3 లక్షల వరకు 4% రాయితీ వడ్డీకే రుణం.',
+      en: 'Concessional institutional short-term credit for seeds, fertilizers, pesticides, harvesting, and post-harvest storage expenses.'
     },
-    benefitAmount: '₹6,000 / वर्ष',
+    benefitAmount: {
+      hi: '₹3,00,000 तक सीमा (4% ब्याज)',
+      te: '₹3,00,000 వరకు పరిమితి (4% వడ్డీ)',
+      en: 'Up to ₹3,00,000 at 4% Interest'
+    },
+    interestRate: '4% p.a. (7% base - 3% prompt repayment subvention)',
+    maxLimit: '₹3,00,000 without collateral up to ₹1.6L',
     eligibility: {
-      hi: 'सभी भूमिधारक किसान परिवार जिनके नाम कृषि भूमि है और ई-केवाईसी पूर्ण है।',
-      te: 'వ్యవసాయ భూమి ఉన్న రైతులందరికీ, ఈ-కేవైసీ తప్పనిసరి.',
-      en: 'All landholding farmer families with active e-KYC and Aadhaar linked bank account.'
+      hi: 'व्यक्तिगत किसान, संयुक्त काश्तकार, पट्टेदार व बटाईदार किसान।',
+      te: 'వ్యక్తిగత రైతులు, కౌలు రైతులు మరియు స్వయం సహాయక సంఘాలు.',
+      en: 'All small, marginal, tenant farmers, sharecroppers, and oral lessees with active cultivation land.'
     },
-    helpline: '155261 / 1800-115-526',
-    applyUrl: 'https://pmkisan.gov.in',
-    tag: { hi: 'नकद सहायता', te: 'ఆర్థిక సహాయం', en: 'Direct Transfer' }
+    helpline: '1800-115-526 / 155261',
+    applyUrl: 'https://www.myscheme.gov.in',
+    sourcePortal: 'nabard.org / myscheme.gov.in',
+    tag: { hi: '4% फसली ऋण • NABARD', te: '4% పంట రుణం • నాబార్డ్', en: 'LOAN • nabard.org/myscheme.gov.in' }
+  },
+  {
+    id: 'aif-infra-loan',
+    category: 'LOAN',
+    title: {
+      hi: 'कृषि अवसंरचना कोष (AIF - 3% ब्याज छूट)',
+      te: 'వ్యవసాయ మౌలిక సదుపాయాల నిధి (AIF - 3% వడ్డీ రాయితీ)',
+      en: 'Agriculture Infrastructure Fund (AIF - Post-Harvest)'
+    },
+    shortDesc: {
+      hi: 'गोदाम, कोल्ड स्टोरेज, प्राथमिक प्रसंस्करण व ग्रेडिंग यूनिट स्थापना हेतु 3% ब्याज छूट के साथ मध्यम-दीर्घकालिक ऋण।',
+      te: 'కోల్డ్ స్టోరేజీలు, ప్రాసెసింగ్ యూనిట్లు, గోదాముల నిర్మాణం కోసం 3% వడ్డీ రాయితీతో దీర్ఘకాలిక రుణాలు.',
+      en: 'Medium-long term debt financing for post-harvest management infrastructure, cold chains, assaying, and sorting units.'
+    },
+    benefitAmount: {
+      hi: '₹2 करोड़ तक ऋण पर 3% ब्याज छूट',
+      te: '₹2 కోట్ల వరకు రుణాలపై 3% వడ్డీ రాయితీ',
+      en: '3% Interest Subvention up to ₹2 Crore (7 Years)'
+    },
+    interestRate: '3% Subvention on Bank Lending Rate (Capped at 9%)',
+    maxLimit: '₹2,00,00,000 per project',
+    eligibility: {
+      hi: 'प्राथमिक कृषि ऋण समितियां (PACS), FPO, कृषक, स्वयं सहायता समूह व कृषि-उद्यमी।',
+      te: 'రైతు ఉత్పత్తిదారుల సంస్థలు (FPOs), స్వయం సహాయక సంఘాలు & అగ్రి-స్టార్టప్‌లు.',
+      en: 'FPOs, PACS, Agri-entrepreneurs, Individual Farmers, and Startups.'
+    },
+    helpline: '011-23381012',
+    applyUrl: 'https://agriinfra.dac.gov.in',
+    sourcePortal: 'agriinfra.dac.gov.in',
+    tag: { hi: 'अवसंरचना ऋण • AIF', te: 'మౌలిక సదుపాయాల రుణం • AIF', en: 'LOAN • agriinfra.dac.gov.in' }
+  },
+  {
+    id: 'smam-mechanization',
+    category: 'SUBSIDY',
+    title: {
+      hi: 'कृषि यंत्रीकरण उप-मिशन (SMAM - 40% से 50% सब्सिडी)',
+      te: 'వ్యవసాయ యాంత్రీకరణ ఉప-మిషన్ (SMAM - 40% నుండి 50% రాయితీ)',
+      en: 'Sub-Mission on Agricultural Mechanization (SMAM)'
+    },
+    shortDesc: {
+      hi: 'ट्रैक्टर, रोटावेटर, पावर टिलर, लेजर लैंड लेवलर व कस्टम हायरिंग सेंटर पर 40% से 50% तक प्रत्यक्ष बैंक सब्सिडी।',
+      te: 'ట్రాక్టర్లు, రోటావటర్లు, డ్రోన్లు మరియు వ్యవసాయ పరికరాలపై 40% నుండి 50% సబ్సిడీ.',
+      en: 'Financial assistance for procurement of tractors, power tillers, rotavators, combined harvesters, and custom hiring centers.'
+    },
+    benefitAmount: {
+      hi: '40% से 50% सब्सिडी (₹1.25 लाख से ₹5 लाख तक)',
+      te: '40% - 50% రాయితీ (పరికరాల కొనుగోలుపై)',
+      en: '40% to 50% Subsidy (Up to ₹5,00,000 on CHC)'
+    },
+    interestRate: 'Direct Capital Subsidy via DBT',
+    maxLimit: '₹5,00,000 for Custom Hiring Centers',
+    eligibility: {
+      hi: 'लघु, सीमांत, महिला, एससी/एसटी किसान एवं किसान उत्पादक संगठन (FPO)।',
+      te: 'చిన్న, సన్నకారు రైతులు, మహిళా రైతులు & ఎస్సీ/ఎస్టీ వర్గాలు.',
+      en: 'Small, marginal, SC/ST, women farmers and registered FPOs.'
+    },
+    helpline: '1800-180-1551',
+    applyUrl: 'https://agrimachinery.nic.in',
+    sourcePortal: 'agrimachinery.nic.in',
+    tag: { hi: 'कृषि यंत्र सब्सिडी • SMAM', te: 'పరికరాల రాయితీ • SMAM', en: 'SUBSIDY • agrimachinery.nic.in' }
+  },
+  {
+    id: 'pmksy-micro-irrigation',
+    category: 'SUBSIDY',
+    title: {
+      hi: 'पीएम कृषि सिंचाई योजना (PMKSY - ड्रिप व स्प्रिंकलर 55% से 70% सब्सिडी)',
+      te: 'పీఎం కృషి సించాయి యోజన (బిందు & తుంపర సేద్యం 55% - 70% సబ్సిడీ)',
+      en: 'PM Krishi Sinchayee Yojana (Per Drop More Crop - Drip Irrigation)'
+    },
+    shortDesc: {
+      hi: 'ड्रिप सिंचाई, मिनी स्प्रिंकलर एवं पोर्टेबल स्प्रिंकलर सिस्टम स्थापना पर 55% से 70% तक की भारी सरकारी सब्सिडी।',
+      te: 'డ్రిప్ మరియు స్ప్రింక్లర్ సెట్ల ఏర్పాటుకు 55% నుండి 70% భారీ ప్రభుత్వ సబ్సిడీ.',
+      en: 'Promoting micro-irrigation technologies to conserve 40% water and boost fertilizer nutrient uptake with high subsidy support.'
+    },
+    benefitAmount: {
+      hi: '55% सामान्य किसान / 70% लघु-सीमांत किसान सब्सिडी',
+      te: '55% నుండి 70% రాయితీ (డ్రిప్/స్ప్రింక్లర్)',
+      en: '55% to 70% Subsidy on Total Micro-Irrigation Cost'
+    },
+    interestRate: 'Capital Subsidy Credited directly to vendor/bank',
+    maxLimit: 'Up to 5 Hectares per farmer family',
+    eligibility: {
+      hi: 'सभी किसान जिनके पास स्वयं का प्रमाणित सिंचाई जल स्रोत एवं भूमि दस्तावेज उपलब्ध हैं।',
+      te: 'పట్టాదారు పాస్‌బుక్ మరియు బోరు బావి సౌకర్యం ఉన్న రైతులందరూ.',
+      en: 'All farmers possessing cultivable land with an assured irrigation water source (borewell/canal).'
+    },
+    helpline: '011-23382012',
+    applyUrl: 'https://pmksy.gov.in',
+    sourcePortal: 'pmksy.gov.in',
+    tag: { hi: 'सिंचाई अनुदान • PMKSY', te: 'డ్రిప్ సబ్సిడీ • PMKSY', en: 'SUBSIDY • pmksy.gov.in' }
+  },
+  {
+    id: 'midh-horticulture-grant',
+    category: 'SUBSIDY',
+    title: {
+      hi: 'राष्ट्रीय बागवानी मिशन (MIDH - पैक-हाउस व पॉलीहाउस 50% अनुदान)',
+      te: 'జాతీయ ఉద్యానవన మిషన్ (MIDH - పాలీహౌస్ & ప్యాక్-హౌస్ 50% రాయితీ)',
+      en: 'Mission for Integrated Dev of Horticulture (MIDH - Polyhouse & Cold Chain)'
+    },
+    shortDesc: {
+      hi: 'सुरक्षित खेती (पॉलीहाउस/शेडनेट), ऑन-फार्म पैक हाउस, कोल्ड रूम एवं सौर सुखाने की इकाइयों हेतु 50% पूंजीगत अनुदान।',
+      te: 'పాలీహౌస్‌లు, షేడ్‌నెట్ నిర్మాణం, కోల్డ్ రూమ్‌లు & నాణ్యత పెంపు కేంద్రాలకు 50% క్యాపిటల్ సబ్సిడీ.',
+      en: 'Capital subsidy for naturally ventilated polyhouses, shade nets, cold storage chambers, and farm-gate sorting packhouses.'
+    },
+    benefitAmount: {
+      hi: '50% पूंजीगत लागत अनुदान (₹4 लाख से ₹15 लाख प्रति यूनिट)',
+      te: '50% మూలధన సబ్సిడీ (₹4 లక్షల నుండి ₹15 లక్షల వరకు)',
+      en: '50% Capital Subsidy (Up to ₹15 Lakhs per unit)'
+    },
+    interestRate: 'Direct Capital Grant',
+    maxLimit: '₹15,00,000 for integrated packhouse',
+    eligibility: {
+      hi: 'सब्जी, फल, मसाला एवं पुष्प उत्पादन करने वाले काश्तकार एवं किसान उत्पादक समूह।',
+      te: 'కూరగాయలు, పూలు, పండ్లు సాగు చేసే ఉద్యాన రైతులు.',
+      en: 'Horticulture farmers, FPOs, and women self-help agricultural clusters.'
+    },
+    helpline: '011-23381643',
+    applyUrl: 'https://midh.gov.in',
+    sourcePortal: 'midh.gov.in',
+    tag: { hi: 'बागवानी अनुदान • MIDH', te: 'హార్టికల్చర్ గ్రాంట్ • MIDH', en: 'SUBSIDY • midh.gov.in' }
   },
   {
     id: 'pmfby',
+    category: 'INSURANCE',
     title: {
       hi: 'प्रधानमंत्री फसल बीमा योजना (PMFBY)',
       te: 'ప్రధానమంత్రి ఫసల్ బీమా యోజన (PMFBY)',
@@ -1193,39 +1322,144 @@ export const GOVT_SCHEMES: GovtScheme[] = [
     shortDesc: {
       hi: 'प्राकृतिक आपदा, सूखा, भारी बारिश या कीट प्रकोप से फसल क्षति पर 100% तक बीमा दावा।',
       te: 'ప్రకృతి వైపరీత్యాలు, అధిక వర్షాలు లేదా తెగుళ్ల వల్ల పంట నష్టానికి పూర్తి బీమా రక్షణ.',
-      en: 'Comprehensive crop insurance against drought, flood, pests, and unseasonal rains.'
+      en: 'Comprehensive risk insurance covering pre-sowing to post-harvest losses due to flood, drought, cyclones, and unseasonal rains.'
     },
-    benefitAmount: 'क्षति अनुसार ₹50,000/एकड़ तक',
+    benefitAmount: {
+      hi: 'क्षति अनुसार ₹50,000/एकड़ तक पूर्ण बीमा सुरक्षा',
+      te: 'నష్టం ప్రకారం ₹50,000/ఎకరాకు పూర్తి బీమా రక్షణ',
+      en: 'Full Sum Insured for Yield & Weather Calamity Losses'
+    },
+    interestRate: '1.5% for Rabi, 2% for Kharif, 5% for Horticulture/Cash crops',
+    maxLimit: 'Full Scale of Finance / Assured Yield Value',
     eligibility: {
       hi: 'अधिसूचित क्षेत्र में फसल बोने वाले सभी ऋणी व गैर-ऋणी काश्तकार किसान।',
       te: 'నోటిఫైడ్ పంటలు సాగు చేసే రైతులందరూ అర్హులు.',
-      en: 'All farmers growing notified crops in notified areas within cut-off date.'
+      en: 'All farmers growing notified crops in notified areas including sharecroppers and tenant farmers.'
     },
-    helpline: '1800-180-1551',
+    helpline: '14447 / 1800-180-1551',
     applyUrl: 'https://pmfby.gov.in',
-    tag: { hi: 'फसल सुरक्षा', te: 'పంట రక్షణ', en: 'Insurance' }
+    sourcePortal: 'pmfby.gov.in',
+    tag: { hi: 'फसल सुरक्षा • PMFBY', te: 'పంట రక్షణ • PMFBY', en: 'INSURANCE • pmfby.gov.in' }
   },
   {
-    id: 'kcc-loan',
+    id: 'rwbcis-weather-insurance',
+    category: 'INSURANCE',
     title: {
-      hi: 'किसान क्रेडिट कार्ड (KCC - 4% ब्याज)',
-      te: 'కిసాన్ క్రెడిట్ కార్డ్ (KCC - 4% వడ్డీ)',
-      en: 'Kisan Credit Card (Subsidized 4% Loan)'
+      hi: 'मौसम आधारित फसल बीमा योजना (RWBCIS - त्वरित ऑटो दावा)',
+      te: 'వాతావరణ ఆధారిత పంట బీమా పథకం (RWBCIS - ఆటో క్లెయిమ్)',
+      en: 'Restructured Weather Based Crop Insurance Scheme (RWBCIS)'
     },
     shortDesc: {
-      hi: 'खाद, बीज व कीटनाशक हेतु ₹3 लाख तक का कृषि ऋण मात्र 4% रियायती ब्याज दर पर।',
-      te: 'విత్తనాలు & ఎరువుల కొనుగోలుకు ₹3 లక్షల వరకు 4% రాయితీ వడ్డీకే రుణం.',
-      en: 'Short term working capital loan up to ₹3 Lakhs at subsidized 4% net interest rate.'
+      hi: 'मौसम केंद्र के तापमान, वर्षा की कमी, अधिक आर्द्रता व पाले के आधार पर बिना फसल कटाई सर्वेक्षण के स्वचालित प्रत्यक्ष दावा।',
+      te: 'వర్షాభావం, అధిక వేడి, తుఫాను వంటి వాతావరణ హెచ్చుతగ్గుల ఆధారంగా ఆటోమేటిక్ నష్టపరిహారం.',
+      en: 'Parametric index insurance utilizing automated weather stations to disburse payouts for unseasonal rainfall, frost, and heatwaves.'
     },
-    benefitAmount: '₹3,00,000 तक सीमा',
+    benefitAmount: {
+      hi: 'मौसम विचलन के आधार पर सीधा बैंक खाते में दावा भुगतान',
+      te: 'వాతావరణ సూచీ ఆధారంగా డైరెక్ట్ బ్యాంక్ క్లెయిమ్',
+      en: 'Automated Parametric Payout directly to Bank Account'
+    },
+    interestRate: 'Premium: 1.5% - 2.0% (Capped for Farmers)',
+    maxLimit: 'Sum Insured determined by State SLCCCI Committee',
     eligibility: {
-      hi: 'व्यक्तिगत किसान, संयुक्त काश्तकार, पट्टेदार व बटाईदार किसान।',
-      te: 'వ్యక్తిగత రైతులు, కౌలు రైతులు మరియు స్వయం సహాయక సంఘాలు.',
-      en: 'Individual farmers, joint liability groups, tenant farmers, and sharecroppers.'
+      hi: 'अधिसूचित तहसील/मंडलों के मिर्च, कपास, केला, संतरा व टमाटर उत्पादक किसान।',
+      te: 'మిర్చి, పత్తి, టమోటా, అరటి వంటి నోటిఫైడ్ వాణిజ్య పంట రైతులు.',
+      en: 'Farmers cultivating notified horticultural & commercial cash crops.'
     },
-    helpline: '1800-180-1111',
-    applyUrl: 'https://www.myscheme.gov.in',
-    tag: { hi: 'कम ब्याज ऋण', te: 'తక్కువ వడ్డీ రుణం', en: 'Credit' }
+    helpline: '1800-200-5142',
+    applyUrl: 'https://pmfby.gov.in',
+    sourcePortal: 'pmfby.gov.in / rwbcis',
+    tag: { hi: 'मौसम बीमा • RWBCIS', te: 'వాతావరణ బీమా • RWBCIS', en: 'INSURANCE • rwbcis.gov.in' }
+  },
+  {
+    id: 'pm-kusum-component-b',
+    category: 'SOLAR',
+    title: {
+      hi: 'पीएम-कुसुम कंपोनेंट-बी (60% स्टैंडअलोन सोलर पंप सब्सिडी)',
+      te: 'పీఎం-కుసుమ్ కాంపోనెంట్-బి (60% సోలార్ అగ్రికల్చర్ పంప్ సబ్సిడీ)',
+      en: 'PM-KUSUM Component-B (60% Standalone Solar Agri Pump)'
+    },
+    shortDesc: {
+      hi: 'डीजल पंप बदलने हेतु 3HP से 10HP क्षमता के नए सौर कृषि पंप सेट पर 30% केंद्र + 30% राज्य = कुल 60% प्रत्यक्ष अनुदान।',
+      te: 'డీజిల్ పంపుల స్థానంలో 3HP నుండి 10HP సోలార్ మోటార్ల ఏర్పాటుకు 60% సబ్సిడీ (కేంద్రం 30% + రాష్ట్రం 30%).',
+      en: 'Financial support for installing off-grid standalone solar agriculture pumps (3HP to 10HP) replacing expensive diesel pump sets.'
+    },
+    benefitAmount: {
+      hi: '60% सरकारी सब्सिडी (किसान को केवल 10% से 40% अंशदान)',
+      te: '60% ప్రభుత్వ రాయితీ (రైతు వాటా కేవలం 10% - 40%)',
+      en: '60% Government Subsidy (30% Central + 30% State)'
+    },
+    interestRate: 'Direct Grant + 30% Bank Loan Available',
+    maxLimit: 'Up to 10 HP Solar PV Water Pumping System',
+    eligibility: {
+      hi: 'व्यक्तिगत किसान, जल उपभोक्ता संघ एवं ग्राम स्तरीय साझा बोरवेल समूह।',
+      te: 'వ్యక్తిగత రైతులు, నీటి వినియోగదారుల సంఘాలు & బోరుబావి కలిగిన రైతులు.',
+      en: 'Individual farmers, water user associations, and farmer clusters with valid borewell/openwell source.'
+    },
+    helpline: '1800-180-3333',
+    applyUrl: 'https://pmkusum.mnre.gov.in',
+    sourcePortal: 'pmkusum.mnre.gov.in',
+    tag: { hi: '60% सोलर पंप • KUSUM', te: '60% సోలార్ పంపు • KUSUM', en: 'SOLAR • pmkusum.mnre.gov.in' }
+  },
+  {
+    id: 'pm-kusum-component-c',
+    category: 'SOLAR',
+    title: {
+      hi: 'पीएम-कुसुम कंपोनेंट-सी (ग्रिड-कनेक्टेड सोलर पंप व फीडर सोलराइजेशन)',
+      te: 'పీఎం-కుసుమ్ కాంపోనెంట్-సి (గ్రిడ్ అనుసంధానిత సోలార్ & అదనపు విద్యుత్ అమ్మకం)',
+      en: 'PM-KUSUM Component-C (Grid-Connected Feeder Solarization)'
+    },
+    shortDesc: {
+      hi: 'मौजूदा ग्रिड बिजली पंप को सौर ऊर्जा में बदलें और दिन में मुफ्त सिंचाई पाएं तथा बची हुई बिजली डिस्कॉम को बेचकर आमदनी कमाएं।',
+      te: 'గ్రిడ్ విద్యుత్ పంపులను సోలార్‌గా మార్చడం & పగటిపూట ఉచిత కరెంట్ పొందడం, మిగులు విద్యుత్ అమ్మడం.',
+      en: 'Solarization of existing grid-connected agriculture pumps. Farmers get daytime reliable power and sell surplus solar energy back to DISCOM.'
+    },
+    benefitAmount: {
+      hi: 'दिन में 8 घंटे मुफ्त बिजली + अधिशेष बिजली बिक्री से मासिक आय',
+      te: 'పగటిపూట 8 గంటల నిరంతర ఉచిత విద్యుత్ + విద్యుత్ అమ్మకం ద్వారా ఆదాయం',
+      en: 'Daytime Free Power + Feed-in Tariff Revenue (₹3.50/unit)'
+    },
+    interestRate: 'Up to 50% Capex Subsidy from Central Govt & Discoms',
+    maxLimit: 'Up to 2x Connected Load Capacity',
+    eligibility: {
+      hi: 'वैध कृषि विद्युत कनेक्शन धारक सभी काश्तकार व प्राथमिक कृषि सहकारी समितियां।',
+      te: 'వ్యవసాయ విద్యుత్ కనెక్షన్ ఉన్న రైతులందరూ.',
+      en: 'Farmers with active agricultural electricity grid connections.'
+    },
+    helpline: '1800-180-3333',
+    applyUrl: 'https://pmkusum.mnre.gov.in',
+    sourcePortal: 'pmkusum.mnre.gov.in',
+    tag: { hi: 'सोलर फीडर • KUSUM', te: 'సోలార్ ఫీడర్ • KUSUM', en: 'SOLAR • pmkusum.mnre.gov.in' }
+  },
+  {
+    id: 'pm-kisan',
+    category: 'POLICY',
+    title: {
+      hi: 'प्रधानमंत्री किसान सम्मान निधि (PM-Kisan)',
+      te: 'పీఎం కిసాన్ సమ్మాన్ నిధి (PM-Kisan)',
+      en: 'PM-KISAN Samman Nidhi (Direct Income Support)'
+    },
+    shortDesc: {
+      hi: 'सभी भूमिधारक किसान परिवारों को प्रति वर्ष ₹6,000 की प्रत्यक्ष आय सहायता (₹2,000 की 3 किस्तों में बैंक खाते में डीबीटी)।',
+      te: 'రైతు కుటుంబాల ఆర్థిక అవసరాల కోసం ఏటా ₹6,000 నేరుగా బ్యాంక్ ఖాతాలో జమ (3 విడతల్లో).',
+      en: 'Central sector scheme with 100% funding from Government of India to provide income support to all landholding farmer families.'
+    },
+    benefitAmount: {
+      hi: '₹6,000 / वर्ष (प्रत्येक 4 माह में ₹2,000 डीबीटी)',
+      te: '₹6,000 / ఏడాదికి (ప్రతి 4 నెలలకు ₹2,000)',
+      en: '₹6,000 / Year (₹2,000 per 4 months)'
+    },
+    interestRate: '100% Direct DBT Grant (Non-repayable)',
+    maxLimit: '₹6,000 / Year per eligible household',
+    eligibility: {
+      hi: 'सभी भूमिधारक किसान परिवार जिनके नाम कृषि भूमि है और ई-केवाईसी पूर्ण है।',
+      te: 'వ్యవసాయ భూమి ఉన్న రైతులందరికీ, ఈ-కేవైసీ తప్పనిసరి.',
+      en: 'Landholding farmer families with cultivable land in their names (subject to institutional/taxpayer exclusion criteria).'
+    },
+    helpline: '155261 / 011-24300606',
+    applyUrl: 'https://pmkisan.gov.in',
+    sourcePortal: 'pmkisan.gov.in',
+    tag: { hi: 'प्रत्यक्ष आय • PM-KISAN', te: 'ప్రత్యక్ష సాయం • PM-KISAN', en: 'POLICY • pmkisan.gov.in' }
   }
 ];
 
@@ -1409,6 +1643,141 @@ export const COLD_STORAGES: ColdStorageFacility[] = [
     temperatureControlled: true,
     contactPhone: '0866-241800',
     hasFumigation: true
+  },
+  {
+    id: 'cs-lasalgaon-10',
+    name: {
+      hi: 'सह्याद्री प्याज एवं अंगूर कोल्ड प्रिजर्वेशन टर्मिनल',
+      te: 'సహ్యాద్రి ఉల్లి & ద్రాక్ష కోల్డ్ టెర్మినల్',
+      en: 'Sahyadri Onion & Grape Cold Terminal'
+    },
+    location: {
+      hi: 'निफाड-लासलगांव रोड, नासिक, महाराष्ट्र',
+      te: 'నిఫాడ్-లాసల్‌గావ్ రోడ్, నాసిక్, మహారాష్ట్ర',
+      en: 'Niphad-Lasalgaon Road, Nashik, Maharashtra'
+    },
+    district: 'Nashik',
+    state: 'Maharashtra',
+    latitude: 20.1471,
+    longitude: 74.2254,
+    distanceKm: 420,
+    totalCapacityBags: 440000,
+    vacantCapacityBags: 136000,
+    rentPerBagPerMonth: 24,
+    temperatureControlled: true,
+    contactPhone: '+91 2592 245112',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '0°C to 4°C',
+    crops: ['Onion', 'Grapes', 'Pomegranate']
+  },
+  {
+    id: 'cs-kolar-11',
+    name: {
+      hi: 'कोलार मेगा फूड पार्क कोल्ड टर्मिनल',
+      te: 'కోలార్ మెగా ఫుడ్ పార్క్ కోల్డ్ టెర్మినల్',
+      en: 'Kolar Mega Food Park Cold Terminal'
+    },
+    location: {
+      hi: 'केआईएडीबी इंडस्ट्रियल एरिया, तमाका, कोलार, कर्नाटक',
+      te: 'కెఐఎడిబి ఇండస్ట్రియల్ ఏరియా, తమక, కోలార్, కర్ణాటక',
+      en: 'KIADB Industrial Area, Tamaka, Kolar, Karnataka'
+    },
+    district: 'Kolar',
+    state: 'Karnataka',
+    latitude: 13.1367,
+    longitude: 78.1292,
+    distanceKm: 180,
+    totalCapacityBags: 340000,
+    vacantCapacityBags: 92000,
+    rentPerBagPerMonth: 31,
+    temperatureControlled: true,
+    contactPhone: '+91 8152 234120',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '4°C to 12°C',
+    crops: ['Tomato', 'Mango', 'Beans', 'Capsicum']
+  },
+  {
+    id: 'cs-agra-12',
+    name: {
+      hi: 'ताज एग्रो आलू एवं मल्टी-चेंबर कोल्ड चेन',
+      te: 'తాజ్ అగ్రో బంగాళాదుంప కోల్డ్ చైన్',
+      en: 'Taj Agro Potato & Multi-Chamber Cold Chain'
+    },
+    location: {
+      hi: 'फतेहाबाद रोड, खंदारी बाईपास, आगरा, उत्तर प्रदेश',
+      te: 'ఫతేహాబాద్ రోడ్డు, ఖందారి బైపాస్, ఆగ్రా, ఉత్తరప్రదేశ్',
+      en: 'Fatehabad Road, Khandari By-pass, Agra, Uttar Pradesh'
+    },
+    district: 'Agra',
+    state: 'Uttar Pradesh',
+    latitude: 27.1767,
+    longitude: 78.0081,
+    distanceKm: 1250,
+    totalCapacityBags: 560000,
+    vacantCapacityBags: 150000,
+    rentPerBagPerMonth: 22,
+    temperatureControlled: true,
+    contactPhone: '+91 562 2280045',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '2°C to 4°C',
+    crops: ['Potato', 'Garlic', 'Carrot']
+  },
+  {
+    id: 'cs-shimla-13',
+    name: {
+      hi: 'हिमाचल सेब बेल्ट नियंत्रित वातावरण (CA) कोल्ड स्टोर',
+      te: 'హిమాచల్ యాపిల్ కంట్రోల్డ్ అట్మాస్ఫియర్ (సి.ఎ) స్టోర్',
+      en: 'Himachal Apple Belt Controlled Atmosphere (CA) Store'
+    },
+    location: {
+      hi: 'कोटखाई-थियोग फ्रूट टर्मिनल, शिमला, हिमाचल प्रदेश',
+      te: 'కోట్‌ఖాయ్-థియోగ్ ఫ్రూట్ టెర్మినల్, సిమ్లా, హిమాచల్ ప్రదేశ్',
+      en: 'Kotkhai-Theog Fruit Terminal, Shimla, Himachal Pradesh'
+    },
+    district: 'Shimla',
+    state: 'Himachal Pradesh',
+    latitude: 31.1048,
+    longitude: 77.1734,
+    distanceKm: 1650,
+    totalCapacityBags: 320000,
+    vacantCapacityBags: 78000,
+    rentPerBagPerMonth: 40,
+    temperatureControlled: true,
+    contactPhone: '+91 177 2652130',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '-1°C to 2°C',
+    crops: ['Apple', 'Pear', 'Cherry']
+  },
+  {
+    id: 'cs-deesa-14',
+    name: {
+      hi: 'डीसा मेगा आलू शीत भंडारण केंद्र',
+      te: 'డీసా మెగా బంగాళాదుంప కోల్డ్ హబ్',
+      en: 'Deesa Mega Potato Cold Hub'
+    },
+    location: {
+      hi: 'हाईवे रोड, एपीएमसी कोल्ड कॉम्प्लेक्स, डीसा, बनासकांठा, गुजरात',
+      te: 'హైవే రోడ్డు, డీసా మార్కెట్ యార్డ్, గుజరాత్',
+      en: 'Highway Road, APMC Complex, Deesa, Gujarat'
+    },
+    district: 'Banaskantha',
+    state: 'Gujarat',
+    latitude: 24.2586,
+    longitude: 72.1793,
+    distanceKm: 1100,
+    totalCapacityBags: 640000,
+    vacantCapacityBags: 178000,
+    rentPerBagPerMonth: 22,
+    temperatureControlled: true,
+    contactPhone: '+91 2744 220550',
+    hasFumigation: true,
+    wdraAccredited: true,
+    tempRangeC: '2°C to 4°C',
+    crops: ['Potato', 'Groundnut', 'Pomegranate']
   }
 ];
 

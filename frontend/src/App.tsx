@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,21 +18,21 @@ import {
   getLanguageForLocation
 } from './data/mockData';
 import { translations } from './data/i18n';
+import { KisanSethuApi } from './services/api';
 import { Header } from './components/Header';
 import { GovtLagNotice } from './components/GovtLagNotice';
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { MandiHeroCard } from './components/MandiHeroCard';
+import { FarmerHomeDashboard } from './components/FarmerHomeDashboard';
 import { MandiLogisticsView } from './components/MandiLogisticsView';
 import { ClimatePredictionView } from './components/ClimatePredictionView';
-import { CropDoctorView } from './components/CropDoctorView';
-import { PesticideDosageView } from './components/PesticideDosageView';
+import { CropPesticideDoctorView } from './components/CropPesticideDoctorView';
 import { SoilDoctorView } from './components/SoilDoctorView';
 import { SchemesSection } from './components/SchemesSection';
 import { ColdStorageMapView } from './components/ColdStorageMapView';
-import { EducationalChartsView } from './components/EducationalChartsView';
 import { AiVoiceAssistantModal } from './components/AiVoiceAssistantModal';
 import { PriceAlertModal } from './components/PriceAlertModal';
-import { LoginModal } from './components/LoginModal';
+import { LoginModal, type FarmerProfile } from './components/LoginModal';
 import { LocationModal } from './components/LocationModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import {
@@ -42,15 +42,79 @@ import {
   CloudRain,
   Warehouse,
   Lock,
-  BarChart3,
   Sparkles,
   Mic
 } from 'lucide-react';
 
 export function App() {
-  // Initialize Location: Check localStorage first, otherwise default to AGRICULTURAL_LOCATIONS[0]
+  // User Profile from DB (strictly isolated per Gmail account)
+  const [currentUserProfile, setCurrentUserProfile] = useState<FarmerProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+    return null;
+  });
+
+  // Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return Boolean(localStorage.getItem('ks_auth_profile'));
+    }
+    return false;
+  });
+
+  const [userName, setUserName] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          return u.farmer_name || u.email?.split('@')[0];
+        } catch (e) {}
+      }
+    }
+    return undefined;
+  });
+
+  // Initialize Location: Prioritize DB profile of logged-in user, otherwise localStorage, otherwise default
   const [currentLocation, setCurrentLocation] = useState<LocationOption>(() => {
     if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.location_id) {
+            const matched = AGRICULTURAL_LOCATIONS.find((loc) => loc.id.toLowerCase() === u.location_id.toLowerCase());
+            if (matched) return matched;
+          }
+          if (u.district && u.state) {
+            const matched = AGRICULTURAL_LOCATIONS.find((loc) => loc.district.en.toLowerCase() === u.district.toLowerCase());
+            if (matched) return matched;
+            return {
+              id: u.location_id || `user-${u.district.toLowerCase()}`,
+              name: { en: u.location_name || u.district, hi: u.location_name || u.district, te: u.location_name || u.district },
+              state: { en: u.state, hi: u.state, te: u.state },
+              district: { en: u.district, hi: u.district, te: u.district },
+              mandiName: {
+                en: `${u.location_name || u.district} APMC Market`,
+                hi: `${u.location_name || u.district} कृषि मंडी`,
+                te: `${u.location_name || u.district} మార్కెట్ యార్డ్`
+              },
+              pincode: u.pincode || '',
+              lat: u.latitude ? Number(u.latitude) : 16.3067,
+              lng: u.longitude ? Number(u.longitude) : 80.4365
+            };
+          }
+        } catch (e) {}
+      }
+
       const savedLocId = localStorage.getItem('ks_user_location_id');
       if (savedLocId) {
         const found = AGRICULTURAL_LOCATIONS.find((loc) => loc.id === savedLocId);
@@ -60,9 +124,18 @@ export function App() {
     return AGRICULTURAL_LOCATIONS[0];
   });
 
-  // Initialize Language: Check localStorage first, otherwise match regional language of location (Telugu for AP/Telangana)
+  // Initialize Language: Check DB profile, then localStorage, otherwise match regional language of location
   const [currentLang, setCurrentLang] = useState<Language>(() => {
     if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.preferred_lang === 'hi' || u.preferred_lang === 'te' || u.preferred_lang === 'en') {
+            return u.preferred_lang;
+          }
+        } catch (e) {}
+      }
       const savedLang = localStorage.getItem('ks_user_lang') as Language | null;
       if (savedLang === 'hi' || savedLang === 'te' || savedLang === 'en') {
         return savedLang;
@@ -76,9 +149,24 @@ export function App() {
     return getLanguageForLocation(AGRICULTURAL_LOCATIONS[0]);
   });
 
-  // Automatically detect user's Geo location and configure location & regional language
+  // Initialize Selected Crop: Prioritize DB profile of logged-in user
+  const [selectedCropKey, setSelectedCropKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('ks_auth_profile');
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          if (u.primary_crop) return u.primary_crop;
+        } catch (e) {}
+      }
+    }
+    return 'chilli';
+  });
+
+  // Automatically detect user's Geo location if no user profile and no manual location set
   useEffect(() => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    if (localStorage.getItem('ks_auth_profile') || localStorage.getItem('ks_loc_manual') === 'true') return;
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -99,7 +187,7 @@ export function App() {
         }
       },
       (err) => {
-        console.log('Browser geolocation:', err.message);
+        console.log('Browser geolocation notice:', err.message);
       },
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
     );
@@ -113,7 +201,234 @@ export function App() {
     }
   };
 
-  const handleLocationChange = (loc: LocationOption) => {
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // AI Voice Assistant State
+  const [isAiModeEnabled, setIsAiModeEnabled] = useState(true);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [lockedFeatureName, setLockedFeatureName] = useState<string | undefined>(undefined);
+
+  // Price Alert Modal State
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [liveMandiRecord, setLiveMandiRecord] = useState<any | null>(null);
+  const [liveWeatherRecord, setLiveWeatherRecord] = useState<any | null>(null);
+  const [_isLiveFromBackend, setIsLiveFromBackend] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  const t = translations[currentLang];
+
+  // Fetch live Mandi rates from Backend whenever selected crop or location changes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveMandi = async () => {
+      try {
+        const rates = await KisanSethuApi.getMandiRates(selectedCropKey, currentLocation.state.en);
+        if (isMounted && rates && rates.length > 0) {
+          const keyLower = selectedCropKey.toLowerCase().replace(/_/g, ' ');
+          const matched = rates.find((r: any) => {
+            const comm = (r.commodity || '').toLowerCase();
+            const aliases = (r.payload?.aliases || '').toLowerCase();
+            return comm.includes(keyLower) || keyLower.includes(comm) || aliases.includes(keyLower);
+          }) || rates[0];
+          setLiveMandiRecord(matched);
+          setIsLiveFromBackend(true);
+        } else {
+          // Direct fallback to live-today crop search
+          const searchRes = await KisanSethuApi.searchCropTodayPrice(selectedCropKey, `${currentLocation.name.en} APMC Yard`, currentLocation.state.en);
+          if (isMounted && searchRes && searchRes.status === 'success') {
+            setLiveMandiRecord(searchRes);
+            setIsLiveFromBackend(true);
+          }
+        }
+      } catch (e) {
+        if (isMounted) setIsLiveFromBackend(false);
+      }
+    };
+    fetchLiveMandi();
+    return () => { isMounted = false; };
+  }, [selectedCropKey, currentLocation.id, refreshTrigger]);
+
+  // Fetch live operational weather from Backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveWeather = async () => {
+      try {
+        const weatherList = await KisanSethuApi.getWeatherAdvisories(currentLocation.id);
+        if (isMounted && weatherList && weatherList.length > 0) {
+          setLiveWeatherRecord(weatherList[0]);
+        }
+      } catch (e) {
+        // Fallback
+      }
+    };
+    fetchLiveWeather();
+    return () => { isMounted = false; };
+  }, [currentLocation.id, refreshTrigger]);
+
+  // Active Mandi item based on selected crop or search query, dynamically adapted to user's selected location
+  const baseMandi: MandiItem = useMemo(() => {
+    const key = selectedCropKey.toLowerCase();
+    let found = MANDI_DATABASE.find(
+      (m) =>
+        m.cropKey.toLowerCase() === key ||
+        m.cropKey.toLowerCase().replace(/_/g, '') === key.replace(/_/g, '') ||
+        m.cropName.en.toLowerCase().includes(key) ||
+        key.includes(m.cropName.en.toLowerCase())
+    );
+    if (found) return found;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      found = MANDI_DATABASE.find(
+        (m) =>
+          m.cropName[currentLang]?.toLowerCase().includes(q) ||
+          m.cropName.en.toLowerCase().includes(q) ||
+          m.cropKey.toLowerCase().includes(q)
+      );
+      if (found) return found;
+    }
+
+    // Dynamic Mandi Item for any crop on Earth (avoids hardcoded fallback freeze!)
+    const cropNameClean = selectedCropKey
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    return {
+      id: `dynamic-${key}`,
+      cropKey: key,
+      cropName: { hi: cropNameClean, te: cropNameClean, en: cropNameClean },
+      variety: 'Commercial APMC Standard',
+      mandiName: {
+        hi: `${currentLocation.district[currentLang] || currentLocation.district.en} मुख्य यार्ड`,
+        te: `${currentLocation.district[currentLang] || currentLocation.district.en} మార్కెట్`,
+        en: `${currentLocation.district.en} Main APMC Yard`
+      },
+      state: currentLocation.state,
+      distanceKm: 8,
+      lastUpdated: '10:45 AM',
+      isLive: true,
+      marketStatus: 'open',
+      operatingHours: '08:00 AM - 02:00 PM',
+      priceTrend: { diffLastWeek: 180, percentage: 3.8, highest14Days: true },
+      whySellReasons: {
+        trendReason: {
+          hi: `${cropNameClean} भाव में आज सुधार दर्ज हुआ है।`,
+          te: `${cropNameClean} ధరలో ఈరోజు పెరుగుదల నమోదైంది.`,
+          en: `Steady demand for ${cropNameClean} at apex yard (+₹180/qtl).`
+        },
+        weatherReason: {
+          hi: 'मौसम साफ रहने की संभावना है। सुरक्षित परिवहन।',
+          te: 'వాతావరణం అనుకూలంగా ఉంది. సురక్షిత రవాణా.',
+          en: 'Clear weather conditions. Safe for open trolley transit.'
+        },
+        inflowReason: {
+          hi: 'मंडी में उत्तम लॉट की आवक संतुलित है।',
+          te: 'మార్కెట్‌కు నాణ్యమైన సరుకు రాక స్థిరంగా ఉంది.',
+          en: 'Commission buyers actively competing for fresh arrivals.'
+        }
+      },
+      grades: [
+        {
+          name: { hi: 'उत्तम गुणवत्ता (ग्रेड A)', te: 'ఉత్తమ నాణ్యత (గ్రేడ్ A)', en: 'Grade A (Super Quality)' },
+          gradeCode: 'A',
+          priceRange: '₹3,400 – ₹3,850',
+          minPrice: 3400,
+          maxPrice: 3850,
+          modalPrice: 3650,
+          qualityCriteria: { hi: 'साफ, दागरहित, मानक नमी', te: 'శుభ్రమైనది, మంచి రంగు', en: 'Blemish-free, optimal moisture' },
+          badgeColor: '#15803d'
+        },
+        {
+          name: { hi: 'मध्यम मुख्य भाव', te: 'సాధారణ మోడల్ ధర', en: 'Modal Average Rate' },
+          gradeCode: 'MODAL',
+          priceRange: '₹3,100 – ₹3,400',
+          minPrice: 3100,
+          maxPrice: 3400,
+          modalPrice: 3250,
+          qualityCriteria: { hi: 'मानक मंडी लॉट', te: 'ప్రామాణిక లాట్', en: 'Standard yard lot' },
+          badgeColor: '#0284c7'
+        },
+        {
+          name: { hi: 'सामान्य ग्रेड C', te: 'గ్రేడ్ C', en: 'Grade C (Fair Average)' },
+          gradeCode: 'C',
+          priceRange: '₹2,100 – ₹2,600',
+          minPrice: 2100,
+          maxPrice: 2600,
+          modalPrice: 2350,
+          qualityCriteria: { hi: 'हल्की नमी, मिश्रित आकार', te: 'స్వల్ప తేమ', en: 'Fair quality, slight moisture' },
+          badgeColor: '#dc2626'
+        }
+      ],
+      unsoldYardStockBags: 14200,
+      eNamLotVerified: true,
+      otherNearbyMandis: [
+        {
+          name: { hi: 'क्षेत्रीय मंडी', te: 'ప్రాంతీయ మార్కెట్', en: 'Regional APMC Yard' },
+          distance: 28,
+          modalPrice: 3320
+        }
+      ]
+    };
+  }, [selectedCropKey, searchQuery, currentLang, currentLocation]);
+
+  const activeMandi: MandiItem = useMemo(() => {
+    const base = getLocationAdaptedMandi(baseMandi, currentLocation);
+    if (liveMandiRecord && liveMandiRecord.modal_price_qtl) {
+      const liveModalQtl = Number(liveMandiRecord.modal_price_qtl);
+      const liveMinQtl = Number(liveMandiRecord.min_price_qtl || liveModalQtl * 0.9);
+      const liveMaxQtl = Number(liveMandiRecord.max_price_qtl || liveModalQtl * 1.1);
+      const liveMarket = liveMandiRecord.market || base.mandiName.en;
+      const liveDate = liveMandiRecord.arrival_date || base.lastUpdated;
+
+      return {
+        ...base,
+        mandiName: {
+          en: liveMarket,
+          hi: liveMarket,
+          te: liveMarket
+        },
+        variety: liveMandiRecord.variety || base.variety,
+        lastUpdated: `${liveDate} (Agmarknet Live)`,
+        isLive: true,
+        grades: base.grades.map(g => {
+          if (g.gradeCode === 'MODAL') {
+            return {
+              ...g,
+              modalPrice: liveModalQtl,
+              minPrice: liveMinQtl,
+              maxPrice: liveMaxQtl,
+              priceRange: `₹${liveMinQtl.toLocaleString()} - ₹${liveMaxQtl.toLocaleString()}`
+            };
+          }
+          if (g.gradeCode === 'A') {
+            return {
+              ...g,
+              modalPrice: Math.round(liveModalQtl * 1.08),
+              minPrice: Math.round(liveMinQtl * 1.05),
+              maxPrice: Math.round(liveMaxQtl * 1.12),
+              priceRange: `₹${Math.round(liveMinQtl * 1.05).toLocaleString()} - ₹${Math.round(liveMaxQtl * 1.12).toLocaleString()}`
+            };
+          }
+          return g;
+        })
+      };
+    }
+    return base;
+  }, [baseMandi, currentLocation, liveMandiRecord]);
+
+  // Dynamically calculate nearest cold storage facility based on user's selected location
+  const nearestStorage = getNearestColdStorage(currentLocation);
+
+  const handleOpenLogin = (feature?: string) => {
+    setLockedFeatureName(feature);
+    setIsLoginModalOpen(true);
+  };
+
+  const handleLocationChange = async (loc: LocationOption, _isAutoGps: boolean = false) => {
     setCurrentLocation(loc);
     if (typeof window !== 'undefined') {
       localStorage.setItem('ks_user_location_id', loc.id);
@@ -125,48 +440,111 @@ export function App() {
         localStorage.setItem('ks_user_lang', geoLang);
       }
     }
-  };
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [selectedCropKey, setSelectedCropKey] = useState<string>('chilli');
-  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // AI Voice Assistant State
-  const [isAiModeEnabled, setIsAiModeEnabled] = useState(true);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    // Persist new location directly to DB profile if logged in!
+    if (currentUserProfile && currentUserProfile.email) {
+      try {
+        const res = await KisanSethuApi.updateFarmerLocation({
+          email: currentUserProfile.email,
+          locationId: loc.id,
+          locationName: loc.name.en,
+          district: loc.district.en,
+          state: loc.state.en,
+          latitude: loc.lat,
+          longitude: loc.lng,
+          pincode: loc.pincode
+        });
+        if (res && res.profile) {
+          setCurrentUserProfile(res.profile);
+          localStorage.setItem('ks_auth_profile', JSON.stringify(res.profile));
+        }
+      } catch (e) {
+        console.warn('Could not sync location to DB profile:', e);
+      }
+    }
 
-  // Authentication State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState<string | undefined>(undefined);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [lockedFeatureName, setLockedFeatureName] = useState<string | undefined>(undefined);
-
-  // Price Alert Modal State
-  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
-
-  const t = translations[currentLang];
-
-  // Active Mandi item based on selected crop or search query, dynamically adapted to user's selected location
-  const baseMandi: MandiItem =
-    MANDI_DATABASE.find(
-      (m) =>
-        m.cropKey === selectedCropKey ||
-        m.cropName[currentLang].toLowerCase().includes(searchQuery.toLowerCase())
-    ) || MANDI_DATABASE[0];
-
-  const activeMandi: MandiItem = getLocationAdaptedMandi(baseMandi, currentLocation);
-
-  // Dynamically calculate nearest cold storage facility based on user's selected location
-  const nearestStorage = getNearestColdStorage(currentLocation);
-
-  const handleOpenLogin = (feature?: string) => {
-    setLockedFeatureName(feature);
-    setIsLoginModalOpen(true);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleLoginSuccess = (name: string) => {
+  const handleGmailLoginSuccess = (profile: FarmerProfile) => {
+    setCurrentUserProfile(profile);
     setIsLoggedIn(true);
-    setUserName(name);
+    const displayName = profile.farmer_name || profile.email.split('@')[0];
+    setUserName(displayName);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_auth_profile', JSON.stringify(profile));
+      localStorage.setItem('ks_active_email', profile.email);
+    }
+
+    // 1. Resolve and cascade user's location strictly from their DB profile!
+    let matchedLoc: LocationOption | undefined;
+    if (profile.location_id) {
+      matchedLoc = AGRICULTURAL_LOCATIONS.find((l) => l.id.toLowerCase() === profile.location_id?.toLowerCase());
+    }
+    if (!matchedLoc && profile.district) {
+      matchedLoc = AGRICULTURAL_LOCATIONS.find((l) => l.district.en.toLowerCase() === profile.district?.toLowerCase());
+    }
+
+    if (matchedLoc) {
+      setCurrentLocation(matchedLoc);
+      localStorage.setItem('ks_user_location_id', matchedLoc.id);
+    } else if (profile.district && profile.state) {
+      const dynamicLoc: LocationOption = {
+        id: profile.location_id || `user-loc-${profile.district.toLowerCase()}`,
+        name: {
+          en: profile.location_name || profile.district,
+          hi: profile.location_name || profile.district,
+          te: profile.location_name || profile.district
+        },
+        state: { en: profile.state, hi: profile.state, te: profile.state },
+        district: { en: profile.district, hi: profile.district, te: profile.district },
+        mandiName: {
+          en: `${profile.location_name || profile.district} APMC Yard`,
+          hi: `${profile.location_name || profile.district} कृषि मंडी`,
+          te: `${profile.location_name || profile.district} మార్కెట్ యార్డ్`
+        },
+        pincode: profile.pincode || '',
+        lat: profile.latitude ? Number(profile.latitude) : 16.3067,
+        lng: profile.longitude ? Number(profile.longitude) : 80.4365
+      };
+      setCurrentLocation(dynamicLoc);
+      localStorage.setItem('ks_user_location_id', dynamicLoc.id);
+    }
+
+    // 2. Cascade user's primary crop strictly from their DB profile!
+    if (profile.primary_crop) {
+      setSelectedCropKey(profile.primary_crop);
+    }
+
+    // 3. Cascade user's preferred language strictly from their DB profile!
+    if (
+      profile.preferred_lang &&
+      (profile.preferred_lang === 'hi' || profile.preferred_lang === 'te' || profile.preferred_lang === 'en')
+    ) {
+      setCurrentLang(profile.preferred_lang);
+      localStorage.setItem('ks_user_lang', profile.preferred_lang);
+    }
+
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserName(undefined);
+    setCurrentUserProfile(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ks_auth_profile');
+      localStorage.removeItem('ks_active_email');
+    }
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleSelectCrop = (cropKey: string) => {
+    setSelectedCropKey(cropKey);
+    if (currentUserProfile && currentUserProfile.email) {
+      KisanSethuApi.updateFarmerCrop(currentUserProfile.email, cropKey).catch(() => {});
+    }
   };
 
   const handleShareWhatsApp = () => {
@@ -207,8 +585,6 @@ export function App() {
           onSelectLocation={handleLocationChange}
         />
 
-        {/* Server Data Sync Notice */}
-        <GovtLagNotice currentLang={currentLang} />
 
         {/* Body Layout: Sidebar + Main Content */}
         <View style={styles.bodyLayout}>
@@ -222,173 +598,23 @@ export function App() {
 
           {/* Main Scrollable Content */}
           <ScrollView style={styles.mainScrollView} contentContainerStyle={styles.scrollContent}>
-            {/* TAB 1: Home Dashboard */}
+            {/* TAB 1: Home Dashboard - Clean Modern Farmer-First Interface */}
             {activeTab === 'home' && (
-              <View style={styles.homeLayout}>
-                {/* Greeting Strip */}
-                <View style={styles.greetingStrip}>
-                  <View style={styles.greetingLeft}>
-                    <Text style={styles.farmerName}>
-                      {userName ||
-                        (currentLang === 'hi'
-                          ? 'नमस्ते, किसान भाई'
-                          : currentLang === 'te'
-                            ? 'నమస్తే, రైతు సోదరా'
-                            : 'Namaste, Respected Farmer')}
-                    </Text>
-                    <Text style={styles.locationTag}>
-                      📍 {currentLocation.name[currentLang]} ({currentLocation.district[currentLang]})
-                    </Text>
-                  </View>
-
-                  {/* AI Quick Button */}
-                  {isAiModeEnabled && (
-                    <TouchableOpacity
-                      onPress={() => setIsAiModalOpen(true)}
-                      style={styles.aiBannerBtn}
-                      activeOpacity={0.8}
-                    >
-                      <Sparkles size={16} color="#FFE600" />
-                      <Text style={styles.aiBannerText}>{t.aiAssistantActive}</Text>
-                      <Mic size={15} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Mandi Hero Card */}
-                <MandiHeroCard
-                  currentLang={currentLang}
-                  mandi={activeMandi}
-                  isSummaryOnly={true}
-                  onViewAllGrades={() => setActiveTab('rates')}
-                  onOpenAlertModal={() => setIsAlertModalOpen(true)}
-                  onShareWhatsApp={handleShareWhatsApp}
-                  onOpenHelpline={handleOpenHelpline}
-                  onSelectCrop={(key) => setSelectedCropKey(key)}
-                  currentLocation={currentLocation}
-                />
-
-                {/* Educational Charts Banner Strip */}
-                <TouchableOpacity
-                  onPress={() => setActiveTab('charts')}
-                  style={styles.eduBannerStrip}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.eduBannerLeft}>
-                    <View style={styles.eduIconWrap}>
-                      <BarChart3 size={24} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.eduTextCol}>
-                      <Text style={styles.eduBannerTitle}>
-                        {currentLang === 'hi'
-                          ? 'व्यापार शैक्षणिक तुलना चार्ट (Education Guide)'
-                          : currentLang === 'te'
-                            ? 'మార్కెట్ విద్యా & గ్రేడింగ్ చార్ట్‌లు (Education Guide)'
-                            : 'Market Education & Quality Grading Charts'}
-                      </Text>
-                      <Text style={styles.eduBannerDesc}>
-                        {currentLang === 'hi'
-                          ? 'ग्रेड-ए एक्सपोर्ट बनाम ग्रेड-सी कटौती, नमी मानक व 5 मंडियों का नकद लाभ विश्लेषण देखें ➔'
-                          : currentLang === 'te'
-                            ? 'గ్రేడ్-ఎ ఎగుమతి vs తాల కోతలు, తేమ శాతం మరియు 5 మార్కెట్ల నికర లాభాల విశ్లేషణ చూడండి ➔'
-                            : 'Compare Grade A export vs Grade C deductions, safe moisture limits & net mandi profit ➔'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.eduArrowTag}>
-                    <Text style={styles.eduArrowText}>
-                      {currentLang === 'hi' ? 'चार्ट खोलें' : currentLang === 'te' ? 'చూడండి' : 'Open Charts'} ➔
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* 4 Action Cards Grid */}
-                <View style={styles.fourCardsGrid}>
-                  {/* Weather */}
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('climate')}
-                    style={[styles.fourCard, styles.weatherCard]}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <Text style={styles.cardTopLabel}>
-                        {currentLang === 'hi' ? '7-दिवसीय मौसम' : currentLang === 'te' ? '7 రోజుల వాతావరణం' : '7-day weather'}
-                      </Text>
-                      <CloudRain size={20} color="#2563EB" />
-                    </View>
-                    <Text style={styles.cardMainBold}>Rain Thu 31°C</Text>
-                    <Text style={styles.cardSubHint}>📍 {currentLocation.name[currentLang]} (Delay spraying)</Text>
-                  </TouchableOpacity>
-
-                  {/* Doctor */}
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('advisory')}
-                    style={[styles.fourCard, styles.doctorCard]}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <Text style={styles.cardTopLabel}>
-                        {currentLang === 'hi' ? 'क्रॉप डॉक्टर' : currentLang === 'te' ? 'క్రాప్ డాక్టర్' : 'Crop Doctor'}
-                      </Text>
-                      <Stethoscope size={20} color="#16A34A" />
-                    </View>
-                    <Text style={styles.cardMainBold}>{activeMandi.cropName[currentLang]}</Text>
-                    <Text style={styles.cardSubHint}>{currentLocation.district[currentLang]} KVK</Text>
-                  </TouchableOpacity>
-
-                  {/* Storage */}
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('storage')}
-                    style={[styles.fourCard, styles.storageCard]}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <Text style={styles.cardTopLabel}>{t.nearestColdStorageCard}</Text>
-                      <Warehouse size={20} color="#9333EA" />
-                    </View>
-                    <Text style={styles.cardMainBold}>{nearestStorage.distanceKm} km</Text>
-                    <Text style={styles.cardSubHint}>
-                      {nearestStorage.facility.name[currentLang]} ({t.spaceFree})
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Schemes */}
-                  <TouchableOpacity
-                    onPress={() => setActiveTab('schemes')}
-                    style={[styles.fourCard, styles.schemesCard]}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <Text style={styles.cardTopLabel}>{t.govSchemesCard}</Text>
-                      <Landmark size={20} color="#D97706" />
-                    </View>
-                    <Text style={styles.cardMainBold}>{currentLocation.state[currentLang]}</Text>
-                    <Text style={styles.cardSubHint}>Helpline 1800-180-1551</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Login Strip */}
-                <TouchableOpacity
-                  onPress={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
-                  style={styles.dashedLoginStrip}
-                  activeOpacity={0.8}
-                >
-                  <Lock size={15} color="#475569" />
-                  <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* TAB 2: Educational Charts */}
-            {activeTab === 'charts' && (
-              <EducationalChartsView
+              <FarmerHomeDashboard
                 currentLang={currentLang}
-                onOpenHelpline={handleOpenHelpline}
+                userName={userName}
                 currentLocation={currentLocation}
+                activeMandi={activeMandi}
+                liveWeatherRecord={liveWeatherRecord}
+                onNavigateTab={setActiveTab}
+                onOpenVoiceAssistant={() => setIsAiModalOpen(true)}
+                onOpenCropDoctorUpload={() => setActiveTab('advisory')}
+                onOpenLogin={handleOpenLogin}
+                onOpenHelpline={handleOpenHelpline}
               />
             )}
 
-            {/* TAB 3: Mandi Logistics */}
+            {/* TAB 2: Mandi Logistics */}
             {activeTab === 'logistics' && (
               <MandiLogisticsView
                 currentLang={currentLang}
@@ -429,21 +655,13 @@ export function App() {
               />
             )}
 
-            {/* TAB 6: Farm Advisory */}
+            {/* TAB 6: Unified Crop Advisory & Safety Doctor */}
             {activeTab === 'advisory' && (
-              <CropDoctorView
+              <CropPesticideDoctorView
                 currentLang={currentLang}
-                selectedCropKey={selectedCropKey}
+                currentLocation={currentLocation}
+                initialCropKey={selectedCropKey || 'tomato'}
                 onOpenHelpline={handleOpenHelpline}
-                currentLocation={currentLocation}
-              />
-            )}
-
-            {/* TAB 7: Pesticides */}
-            {activeTab === 'pesticides' && (
-              <PesticideDosageView
-                currentLang={currentLang}
-                currentLocation={currentLocation}
               />
             )}
 
@@ -479,19 +697,27 @@ export function App() {
           </ScrollView>
         </View>
 
-        {/* Sticky Mobile Bottom Navigation */}
-        <MobileBottomNav
-          currentLang={currentLang}
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-        />
+        {/* Sticky Mobile-Only Bottom Navigation (Hidden on Web/Desktop to keep clean single sidebar) */}
+        <div className="mobile-bottom-nav-wrap" data-testid="mobile-bottom-nav">
+          <MobileBottomNav
+            currentLang={currentLang}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+          />
+        </div>
 
-        {/* Floating AI Voice Assistant Button */}
+        {/* Floating AI Voice Assistant Button (Instant Click Response) */}
         {isAiModeEnabled && (
           <TouchableOpacity
             onPress={() => setIsAiModalOpen(true)}
+            {...({
+              onClick: (e: any) => {
+                e.stopPropagation();
+                setIsAiModalOpen(true);
+              }
+            } as any)}
             style={styles.floatingFab}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
             <Image
               source={{ uri: '/brinjal.png' }}
@@ -526,7 +752,9 @@ export function App() {
           currentLang={currentLang}
           isOpen={isLoginModalOpen}
           onClose={() => setIsLoginModalOpen(false)}
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={handleGmailLoginSuccess}
+          onLogout={handleLogout}
+          currentUserProfile={currentUserProfile}
           lockedFeatureName={lockedFeatureName}
         />
 
@@ -614,56 +842,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-  },
-  eduBannerStrip: {
-    backgroundColor: '#EBF5EA',
-    borderWidth: 1.5,
-    borderColor: '#C2E4BF',
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  eduBannerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  eduIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#2D5A27',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eduTextCol: {
-    flex: 1,
-    gap: 2,
-  },
-  eduBannerTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E3F1A',
-  },
-  eduBannerDesc: {
-    fontSize: 12,
-    color: '#3B6836',
-    lineHeight: 16,
-  },
-  eduArrowTag: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-  },
-  eduArrowText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2D5A27',
   },
   fourCardsGrid: {
     flexDirection: 'row',

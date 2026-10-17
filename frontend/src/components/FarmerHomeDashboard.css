@@ -1,0 +1,467 @@
+/* Farmer Home Dashboard - Clean Modern Farmer-First Interface */
+
+.farmer-home-dashboard {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+}
+
+/* 1. Top Header Row */
+.fhd-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 4px;
+}
+
+.fhd-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fhd-greeting-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.fhd-location-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.fhd-location-dot {
+  color: #22c55e;
+  font-size: 18px;
+}
+
+.fhd-gps-tag {
+  color: #059669;
+  font-size: 13px;
+  font-weight: 600;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid #a7f3d0;
+}
+
+.fhd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.fhd-expert-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  text-decoration: none;
+  background: #ffffff;
+  padding: 9px 16px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.fhd-expert-call:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.fhd-expert-icon {
+  color: #1e3a8a;
+}
+
+.fhd-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.28);
+  transition: all 0.2s ease;
+}
+
+.fhd-audio-btn:hover {
+  background: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.35);
+}
+
+.fhd-audio-btn:active {
+  transform: translateY(0);
+}
+
+.fhd-audio-btn.playing {
+  background: #b45309;
+  animation: audioPulse 1.2s infinite alternate;
+}
+
+@keyframes audioPulse {
+  from { opacity: 0.9; }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+/* 2. Primary 2 Big Hero Cards Grid */
+.fhd-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .fhd-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Green Crop Doctor Card */
+.fhd-card-doctor {
+  background: #16a34a;
+  border-radius: 18px;
+  padding: 24px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-card-doctor:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.35);
+  background: #15803d;
+}
+
+.fhd-card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fhd-card-header-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.fhd-card-doctor-desc {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #f0fdf4;
+  margin: 0;
+}
+
+.fhd-doctor-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-doctor-action-btn:hover {
+  background: #ffffff;
+  color: #15803d;
+}
+
+/* Blue Voice Assistant Card */
+.fhd-card-voice {
+  background: #eff6ff;
+  border: 2px solid #93c5fd;
+  border-radius: 18px;
+  padding: 24px;
+  color: #1e3a8a;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-card-voice:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.16);
+  background: #e0f2fe;
+}
+
+.fhd-voice-title {
+  color: #1e3a8a;
+}
+
+.fhd-card-voice-desc {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #1e293b;
+  margin: 0;
+}
+
+.fhd-voice-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #1e3a8a;
+  color: #ffffff;
+  border: none;
+  padding: 13px 20px;
+  border-radius: 9999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
+}
+
+.fhd-voice-action-btn:hover {
+  background: #172554;
+  transform: translateY(-1px);
+}
+
+/* 3. Live Insights Row (2 White Cards) */
+.fhd-insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .fhd-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fhd-insight-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-insight-card:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+}
+
+/* Price Card Elements */
+.fhd-price-pill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  align-self: flex-start;
+  letter-spacing: 0.02em;
+}
+
+.fhd-price-big-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.fhd-price-unit {
+  font-size: 18px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.fhd-status-pill-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  align-self: flex-start;
+}
+
+/* Weather Card Elements */
+.fhd-weather-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.fhd-weather-temp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fhd-sun-icon {
+  color: #eab308;
+}
+
+.fhd-weather-temp-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.fhd-status-pill-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  align-self: flex-start;
+  line-height: 1.3;
+}
+
+/* 4. Bottom Notification & Strips */
+.fhd-strips-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fhd-crop-warning-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-crop-warning-strip:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.fhd-warning-icon {
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.fhd-warning-strong {
+  font-weight: 700;
+}
+
+.fhd-nearest-markets-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fhd-nearest-markets-strip:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.fhd-nearest-markets-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fhd-nearest-tag {
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+
+.fhd-signin-lock-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fhd-signin-lock-link:hover {
+  color: #0f172a;
+}

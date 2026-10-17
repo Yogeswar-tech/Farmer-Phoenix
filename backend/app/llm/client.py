@@ -89,6 +89,37 @@ class LLMGateway:
             logger.error("LLM generation call failed: %s; falling back to offline generator.", exc)
             return self._generate_offline_fallback(prompt)
 
+    async def generate_vision_response(
+        self,
+        image_bytes: bytes,
+        mime_type: str,
+        prompt: str,
+        system_instruction: str | None = None,
+    ) -> str:
+        """Generate response analyzing an uploaded leaf/crop image using Gemini Vision."""
+        client = self._get_client()
+        if client is None:
+            return ""
+
+        try:
+            config: dict[str, Any] = {"temperature": 0.2}
+            if system_instruction:
+                config["system_instruction"] = system_instruction
+
+            contents = [
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt,
+            ]
+            response = client.models.generate_content(
+                model=self.model_fast,
+                contents=contents,
+                config=types.GenerateContentConfig(**config),
+            )
+            return str(response.text or "").strip()
+        except Exception as exc:
+            logger.error("Gemini Vision call failed: %s", exc)
+            return ""
+
     @staticmethod
     def _generate_offline_fallback(prompt: str) -> str:
         """Generate a structured, fact-grounded response when running without active API keys."""

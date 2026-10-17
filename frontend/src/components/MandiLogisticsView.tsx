@@ -2,6 +2,7 @@ import { useState, useEffect, type FC, type FormEvent } from 'react';
 import type { Language, MandiItem, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, calculateLocationDistanceKm } from '../data/mockData';
+import { KisanSethuApi } from '../services/api';
 import { Truck, Calculator, CheckCircle2, AlertTriangle, DollarSign, Search, Sparkles, ArrowRight } from 'lucide-react';
 
 interface MandiLogisticsViewProps {
@@ -140,6 +141,66 @@ const PRODUCT_DESTINATION_INTELLIGENCE: Record<string, {
       te: 'ఆధునిక రైస్ మిల్లుల ద్వారా BPT సోనా మసూరికి మద్దతు ధర కంటే ఎక్కువ చెల్లింపు.',
       en: 'Modern automated parboiled mills offering premium above MSP for BPT fine grain.'
     }
+  },
+  potato: {
+    name: { hi: 'आलू', te: 'బంగాళాదుంప', en: 'Potato' },
+    icon: '🥔',
+    destinationLocationId: 'jalandhar',
+    localMandi: { hi: 'होशियारपुर स्थानीय यार्ड', te: 'హోషియార్‌పూర్ లోకల్ యార్డ్', en: 'Hoshiarpur Local Yard' },
+    localPrice: 1850,
+    recommendedMandi: { hi: 'दोआबा जालंधर / आगरा टर्मिनल', te: 'దోఅబా జలంధర్ / ఆగ్రా టెర్మినల్', en: 'Doaba Jalandhar / Agra Terminal' },
+    destinationPrice: 2350,
+    distanceKm: 48,
+    reason: {
+      hi: 'चिप्स व वेफर प्रोसेसिंग मिलें छांटे गए आलू पर नकद अधिमूल्य देती हैं।',
+      te: 'ప్రాసెసింగ్ మిల్లులు నాణ్యమైన బంగాళాదుంపలకు అధిక నగదు చెల్లింపు చేస్తాయి.',
+      en: 'Processing mills and cold chain dispatchers pay cash premium for graded tubers.'
+    }
+  },
+  wheat: {
+    name: { hi: 'गेहूं', te: 'గోధుమ', en: 'Wheat' },
+    icon: '🌾',
+    destinationLocationId: 'sehore',
+    localMandi: { hi: 'आष्टा स्थानीय मंडी', te: 'ఆష్టా స్థానిక మార్కెట్', en: 'Ashta Local Mandi' },
+    localPrice: 2850,
+    recommendedMandi: { hi: 'सीहोर शरबती गोल्ड टर्मिनल', te: 'సిహోర్ గోధుమ టెర్మినల్', en: 'Sehore APMC Terminal (Sharbati Gold)' },
+    destinationPrice: 3350,
+    distanceKm: 38,
+    reason: {
+      hi: 'आटा मिलें व प्रीमियम खरीदार शरबती किस्म पर सरकारी भाव से काफी ऊंचा मूल्य देते हैं।',
+      te: 'పిండి మిల్లులు శర్బతి రకం నాణ్యమైన గోధుమలకు మార్కెట్ కంటే ఎక్కువ చెల్లిస్తాయి.',
+      en: 'Flour mills and export procurement agencies compete aggressively for Sharbati premium lots.'
+    }
+  },
+  orange: {
+    name: { hi: 'संतरा', te: 'నారింజ', en: 'Orange' },
+    icon: '🍊',
+    destinationLocationId: 'nagpur',
+    localMandi: { hi: 'काटोल स्थानीय मंडी', te: 'కాటోల్ స్థానిక మార్కెట్', en: 'Katol Local Mandi' },
+    localPrice: 3600,
+    recommendedMandi: { hi: 'नागपुर कलमना संतरा टर्मिनल', te: 'నాగ్‌పూర్ కలమ్నా నారింజ టెర్మినల్', en: 'Nagpur Kalamna Citrus Terminal' },
+    destinationPrice: 4350,
+    distanceKm: 54,
+    reason: {
+      hi: 'दिल्ली, मुंबई व बेंगलुरु हेतु रीफर ट्रकों में सीधी थोक लोडिंग व नगद भुगतान।',
+      te: 'ఢిల్లీ, ముంబై, బెంగళూరు మార్కెట్లకు నేరుగా రీఫర్ ట్రక్కులలో రవాణా సౌకర్యం.',
+      en: 'Direct wholesale reefer dispatch to Delhi, Mumbai, and Bangalore markets.'
+    }
+  },
+  grapes: {
+    name: { hi: 'अंगूर', te: 'ద్రాక్ష', en: 'Grapes' },
+    icon: '🍇',
+    destinationLocationId: 'nashik',
+    localMandi: { hi: 'दिंडोरी स्थानीय यार्ड', te: 'దిండోరి స్థానిక యార్డ్', en: 'Dindori Local Yard' },
+    localPrice: 5800,
+    recommendedMandi: { hi: 'नासिक पिंपलगांव निर्यात टर्मिनल', te: 'నాసిక్ పింపల్‌గావ్ ఎగుమతి టెర్మినల్', en: 'Nashik Pimpalgaon Export Terminal' },
+    destinationPrice: 6900,
+    distanceKm: 40,
+    reason: {
+      hi: 'थॉमसन सीडलेस अंगूर पर अपीडा निर्यात पैक हाउस सर्वोच्च प्रीमियम देते हैं।',
+      te: 'ఎగుమతి ప్యాకింగ్ కేంద్రాలు నాణ్యమైన థాంప్సన్ సీడ్‌లెస్ ద్రాక్షకు అధిక ప్రీమియం ఇస్తాయి.',
+      en: 'APEDA export packing houses offer top cash bonus for Thomson seedless blemish-free bunches.'
+    }
   }
 };
 
@@ -164,6 +225,7 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
   const [distanceKm, setDistanceKm] = useState(() => computeDistance(selectedCropKey));
   const [vehicle, setVehicle] = useState<'tractor' | 'pickup'>('tractor');
   const [loadQuintals, setLoadQuintals] = useState(50);
+  const [backendRoi, setBackendRoi] = useState<any | null>(null);
 
   useEffect(() => {
     setDistanceKm(computeDistance(selectedCropKey));
@@ -171,38 +233,79 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
 
   const effectiveLocalMandi = currentLocation ? currentLocation.mandiName[currentLang] : currentIntel.localMandi[currentLang];
 
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchLiveRoi() {
+      try {
+        const res = await KisanSethuApi.calculateLogisticsRoi({
+          cropKey: selectedCropKey,
+          loadQuintals,
+          vehicleType: vehicle,
+          distanceKm,
+          originMandi: effectiveLocalMandi,
+          destinationMandi: currentIntel.recommendedMandi[currentLang],
+          lang: currentLang
+        });
+        if (isMounted && res && res.status === 'success') {
+          setBackendRoi(res);
+        }
+      } catch (err) {
+        console.warn('Live ROI fetch notice:', err);
+      }
+    }
+    fetchLiveRoi();
+    return () => { isMounted = false; };
+  }, [selectedCropKey, loadQuintals, vehicle, distanceKm, currentLang, currentLocation?.id]);
+
   const handleProductSelect = (cropKey: string) => {
     setSelectedCropKey(cropKey);
     setDistanceKm(computeDistance(cropKey));
   };
 
-  const handleProductSearch = (e: FormEvent) => {
+  const handleProductSearch = async (e: FormEvent) => {
     e.preventDefault();
-    if (!productSearchInput.trim()) return;
-    const q = productSearchInput.toLowerCase();
+    const clean = productSearchInput.trim().toLowerCase();
+    if (!clean) return;
+
     const found = Object.keys(PRODUCT_DESTINATION_INTELLIGENCE).find((key) => {
       const item = PRODUCT_DESTINATION_INTELLIGENCE[key];
       return (
-        key.includes(q) ||
-        item.name[currentLang].toLowerCase().includes(q) ||
-        item.name.en.toLowerCase().includes(q) ||
-        item.recommendedMandi[currentLang].toLowerCase().includes(q)
+        key.includes(clean) ||
+        item.name[currentLang]?.toLowerCase().includes(clean) ||
+        item.name.en?.toLowerCase().includes(clean) ||
+        item.recommendedMandi[currentLang]?.toLowerCase().includes(clean)
       );
     });
+
     if (found) {
       handleProductSelect(found);
+      setProductSearchInput('');
+      return;
+    }
+
+    // Dynamic backend search for any agricultural crop
+    try {
+      const res = await KisanSethuApi.searchCropTodayPrice(clean);
+      if (res && res.status === 'success') {
+        const cropId = res.commodity.toLowerCase().replace(/\s+/g, '_');
+        setSelectedCropKey(cropId);
+        setDistanceKm(45);
+        setProductSearchInput('');
+      }
+    } catch (err) {
+      console.warn('Dynamic produce search in logistics:', err);
     }
   };
 
-  // Calculations
+  // Calculations: Prioritize live backend values if available
   const ratePerKm = vehicle === 'tractor' ? 24 : 16;
-  const baseFreight = distanceKm * 2 * ratePerKm; // round trip diesel & driver
-  const localPrice = currentIntel.localPrice;
-  const distantMandiPrice = currentIntel.destinationPrice;
-  const priceDiffPerQt = Math.max(0, distantMandiPrice - localPrice);
-  const grossGain = loadQuintals * priceDiffPerQt;
-  const netProfit = grossGain - baseFreight;
-  const isProfitable = netProfit > 500;
+  const baseFreight = backendRoi?.expenses?.total_transport_cost ?? (distanceKm * 2 * ratePerKm);
+  const localPrice = backendRoi?.rates?.local_mandi_modal_qtl ?? currentIntel.localPrice;
+  const distantMandiPrice = backendRoi?.rates?.destination_mandi_modal_qtl ?? currentIntel.destinationPrice;
+  const priceDiffPerQt = backendRoi?.rates?.price_diff_per_qtl ?? Math.max(0, distantMandiPrice - localPrice);
+  const grossGain = backendRoi?.financials?.gross_spread ?? (loadQuintals * priceDiffPerQt);
+  const netProfit = backendRoi?.financials?.net_profit ?? (grossGain - baseFreight);
+  const isProfitable = backendRoi?.financials?.is_profitable ?? (netProfit > 500);
 
   return (
     <div className="logistics-view-container">

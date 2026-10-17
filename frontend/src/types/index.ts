@@ -6,11 +6,9 @@ export type NavigationTab =
   | 'rates'
   | 'climate'
   | 'advisory'
-  | 'pesticides'
   | 'soildoctor'
   | 'schemes'
-  | 'storage'
-  | 'charts';
+  | 'storage';
 
 export type LocationOption = {
   id: string;
@@ -19,6 +17,8 @@ export type LocationOption = {
   district: Record<Language, string>;
   mandiName: Record<Language, string>;
   pincode: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type CropGrade = {
@@ -96,13 +96,17 @@ export type CropDisease = {
 
 export type GovtScheme = {
   id: string;
+  category?: string;
   title: Record<Language, string>;
   shortDesc: Record<Language, string>;
-  benefitAmount: string;
+  benefitAmount: string | Record<Language, string>;
+  interestRate?: string;
+  maxLimit?: string;
   eligibility: Record<Language, string>;
   helpline: string;
   applyUrl: string;
   tag: Record<Language, string>;
+  sourcePortal?: string;
 };
 
 export type ColdStorageFacility = {
@@ -116,6 +120,19 @@ export type ColdStorageFacility = {
   temperatureControlled: boolean;
   contactPhone: string;
   hasFumigation: boolean;
+  district?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  capacityMt?: number;
+  availableMt?: number;
+  monthlyRentPerQtl?: number;
+  occupancyPct?: number;
+  wdraAccredited?: boolean;
+  tempRangeC?: string;
+  chambers?: number;
+  crops?: string[];
+  facilityMeta?: Record<string, any>;
 };
 
 export type SoilReportData = {

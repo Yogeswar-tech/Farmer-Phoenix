@@ -1,12 +1,10 @@
-import { useState, useEffect, useMemo, type FC, type FormEvent } from 'react';
-import type { Language, ColdStorageFacility, LocationOption } from '../types';
-import {
-  COLD_STORAGES,
-  AGRICULTURAL_LOCATIONS,
-  LOCATION_COORDINATES,
-  calculateGeoDistanceKm
-} from '../data/mockData';
+import { useState, useEffect, useRef, useMemo, type FC, type FormEvent } from 'react';
+import type { Language, LocationOption } from '../types';
+import { COLD_STORAGES } from '../data/mockData';
 import { translations } from '../data/i18n';
+import { KisanSethuApi } from '../services/api';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   Warehouse,
   Search,
@@ -14,17 +12,18 @@ import {
   CheckCircle2,
   ShieldCheck,
   ThermometerSnowflake,
-  MapPin,
   TrendingUp,
-  Compass,
   Navigation,
   Layers,
-  ZoomIn,
-  ZoomOut,
-  Target,
-  Sparkles,
-  Map as MapIcon,
-  Filter
+  Satellite,
+  Compass,
+  Truck,
+  RotateCcw,
+  ExternalLink,
+  MapPin,
+  LocateFixed,
+  Award,
+  Box
 } from 'lucide-react';
 
 interface ColdStorageMapViewProps {
@@ -36,686 +35,612 @@ interface ColdStorageMapViewProps {
 }
 
 type MapPointType = 'all' | 'storage' | 'mandi';
+type MapLayerType = 'streets' | 'satellite';
 
-interface MapPinItem {
+export interface GeoFacilityItem {
   id: string;
-  locationId: string;
   type: 'storage' | 'mandi';
   name: Record<Language, string>;
   location: Record<Language, string>;
+  district: string;
+  state: string;
   lat: number;
   lng: number;
   distanceKm: number;
   highlightText: string;
   contactPhone: string;
-  storageRef?: ColdStorageFacility;
+  // Storage specific
+  vacantBags?: number;
+  totalBags?: number;
+  rentPerBagPerMonth?: number;
+  monthlyRentPerQtl?: number;
+  capacityMt?: number;
+  availableMt?: number;
+  tempControlled?: boolean;
+  hasFumigation?: boolean;
+  wdraAccredited?: boolean;
+  tempRangeC?: string;
+  chambers?: number;
+  crops?: string[];
+  occupancyPct?: number;
+  // Mandi specific
   mandiPrice?: number;
   cropName?: Record<Language, string>;
-  arrivals?: string;
-  trend?: 'up' | 'stable' | 'down';
+  eNamVerified?: boolean;
 }
 
-// Bounding box calibration for India equirectangular projection onto 1000 x 850 SVG viewport
-const MIN_LNG = 67.5;
-const MAX_LNG = 97.5;
-const MIN_LAT = 7.0;
-const MAX_LAT = 37.0;
-const MARGIN_LEFT = 75;
-const MAP_WIDTH = 850;
-const MARGIN_TOP = 35;
-const MAP_HEIGHT = 780;
+// Regional fallback coordinates
+const REGION_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  tirupati: { lat: 13.6288, lng: 79.4192 },
+  guntur: { lat: 16.3067, lng: 80.4365 },
+  madanapalle: { lat: 13.556, lng: 78.501 },
+  kurnool: { lat: 15.8281, lng: 78.0373 },
+  anantapur: { lat: 14.6819, lng: 77.6006 },
+  kadapa: { lat: 14.4673, lng: 78.8242 },
+  vijayawada: { lat: 16.5062, lng: 80.648 },
+  warangal: { lat: 17.9689, lng: 79.5941 },
+  khammam: { lat: 17.2473, lng: 80.1514 },
+  adoni: { lat: 15.6322, lng: 77.2728 },
+  kolar: { lat: 13.1367, lng: 78.1292 },
+  nashik: { lat: 20.1471, lng: 74.2254 },
+  pune: { lat: 18.4975, lng: 73.8647 },
+  indore: { lat: 22.7196, lng: 75.8577 },
+  gondal: { lat: 21.9619, lng: 70.7923 },
+  agra: { lat: 27.1767, lng: 78.0081 },
+  shimla: { lat: 31.1048, lng: 77.1734 },
+  abohar: { lat: 30.1450, lng: 74.1993 },
+  deesa: { lat: 24.2586, lng: 72.1793 },
+  dindigul: { lat: 10.3673, lng: 77.9803 }
+};
 
-function projectGeo(lat: number, lng: number): { x: number; y: number; pctX: number; pctY: number } {
-  const x = MARGIN_LEFT + ((lng - MIN_LNG) / (MAX_LNG - MIN_LNG)) * MAP_WIDTH;
-  const y = MARGIN_TOP + ((MAX_LAT - lat) / (MAX_LAT - MIN_LAT)) * MAP_HEIGHT;
-  return {
-    x: Math.round(x),
-    y: Math.round(y),
-    pctX: Number(((x / 1000) * 100).toFixed(2)),
-    pctY: Number(((y / 850) * 100).toFixed(2))
-  };
+// Precise Haversine distance calculator in km
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
 }
+
+// Preset Mandis across India
+const PAN_INDIA_MANDIS = [
+  {
+    id: 'mandi-guntur',
+    market: 'Guntur APMC Mirchi Yard',
+    district: 'Guntur',
+    state: 'Andhra Pradesh',
+    lat: 16.3067,
+    lng: 80.4365,
+    commodity: 'Chilli',
+    price: 15200,
+    phone: '+91 863 2234011'
+  },
+  {
+    id: 'mandi-madanapalle',
+    market: 'Madanapalle Tomato Yard (APMC)',
+    district: 'Chittoor',
+    state: 'Andhra Pradesh',
+    lat: 13.556,
+    lng: 78.501,
+    commodity: 'Tomato',
+    price: 2600,
+    phone: '+91 8571 220022'
+  },
+  {
+    id: 'mandi-kurnool',
+    market: 'Kurnool APMC Onion Yard',
+    district: 'Kurnool',
+    state: 'Andhra Pradesh',
+    lat: 15.8281,
+    lng: 78.0373,
+    commodity: 'Onion',
+    price: 2450,
+    phone: '+91 8518 220055'
+  },
+  {
+    id: 'mandi-warangal',
+    market: 'Warangal Enamamula APMC',
+    district: 'Warangal',
+    state: 'Telangana',
+    lat: 17.9689,
+    lng: 79.5941,
+    commodity: 'Chilli',
+    price: 14100,
+    phone: '+91 870 2441122'
+  },
+  {
+    id: 'mandi-lasalgaon',
+    market: 'Lasalgaon Onion APMC Terminal',
+    district: 'Nashik',
+    state: 'Maharashtra',
+    lat: 20.1471,
+    lng: 74.2254,
+    commodity: 'Onion',
+    price: 3250,
+    phone: '+91 2592 245112'
+  },
+  {
+    id: 'mandi-kolar',
+    market: 'Kolar APMC Tomato Market',
+    district: 'Kolar',
+    state: 'Karnataka',
+    lat: 13.1367,
+    lng: 78.1292,
+    commodity: 'Tomato',
+    price: 2450,
+    phone: '+91 8152 222333'
+  },
+  {
+    id: 'mandi-agra',
+    market: 'Agra Potato APMC Yard',
+    district: 'Agra',
+    state: 'Uttar Pradesh',
+    lat: 27.1767,
+    lng: 78.0081,
+    commodity: 'Potato',
+    price: 1850,
+    phone: '+91 562 2280045'
+  },
+  {
+    id: 'mandi-shimla',
+    market: 'Shimla Dhalli Fruit Mandi',
+    district: 'Shimla',
+    state: 'Himachal Pradesh',
+    lat: 31.1048,
+    lng: 77.1734,
+    commodity: 'Apple',
+    price: 8400,
+    phone: '+91 177 2652130'
+  }
+];
 
 export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
   currentLang,
   currentLocation,
   onOpenHelpline,
-  onOpenBookingGate,
-  onSelectLocation
+  onOpenBookingGate
 }) => {
   const t = translations[currentLang];
   const [mapQuery, setMapQuery] = useState('');
-  const [selectedRadius, setSelectedRadius] = useState<number>(100);
+  const [selectedRadius, setSelectedRadius] = useState<number>(250); // Default to 250km for regional visibility
   const [filterType, setFilterType] = useState<MapPointType>('all');
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [isFocusNearMe, setIsFocusNearMe] = useState<boolean>(false);
-  const [activePinId, setActivePinId] = useState<string>('mandi-kurnool');
+  const [selectedCommodity, setSelectedCommodity] = useState<string>('all');
+  const [mapLayer, setMapLayer] = useState<MapLayerType>('streets');
+  const [activeFacilityId, setActiveFacilityId] = useState<string>('');
+  const [liveDbFacilities, setLiveDbFacilities] = useState<any[]>([]);
+  const [liveMandiRates, setLiveMandiRates] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [userGpsCoords, setUserGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsActive, setGpsActive] = useState<boolean>(false);
 
-  // Active user reference coordinates
-  const userLocId = currentLocation?.id || 'kurnool';
-  const userCoords = LOCATION_COORDINATES[userLocId] || { lat: 15.8281, lng: 78.0373 };
-  const userProjected = useMemo(() => projectGeo(userCoords.lat, userCoords.lng), [userCoords.lat, userCoords.lng]);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const routeLineRef = useRef<L.Polyline | null>(null);
 
-  // Master Comprehensive Dataset of Indian Mandis and Cold Storages with Verified Coordinates
-  const masterPins: Omit<MapPinItem, 'distanceKm'>[] = [
-    // --- RAYALASEEMA & ANDHRA PRADESH MANDIS ---
-    {
-      id: 'mandi-kurnool',
-      locationId: 'kurnool',
-      type: 'mandi',
-      name: {
-        hi: 'कर्नूल प्याज व कपास यार्ड (APMC)',
-        te: 'కర్నూలు ఉల్లి & పత్తి మార్కెట్ యార్డ్ (APMC)',
-        en: 'Kurnool APMC Market Yard'
-      },
-      location: { hi: 'कर्नूल, आंध्र प्रदेश', te: 'కర్నూలు, ఆంధ్రప్రదేశ్', en: 'Kurnool, Andhra Pradesh' },
-      lat: 15.8281,
-      lng: 78.0373,
-      highlightText: '₹2,450/qt Modal',
-      contactPhone: '08518-220055',
-      mandiPrice: 2450,
-      cropName: { hi: 'प्याज व कपास', te: 'ఉల్లి & పత్తి', en: 'Onion & Cotton' },
-      arrivals: '22,400 Bags',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-adoni',
-      locationId: 'adoni',
-      type: 'mandi',
-      name: {
-        hi: 'अदोनी कपास व तिलहन यार्ड',
-        te: 'ఆదోని పత్తి & నూనెగింజల మార్కెట్',
-        en: 'Adoni Cotton & Oilseeds Market'
-      },
-      location: { hi: 'कर्नूल जिला, आंध्र प्रदेश', te: 'కర్నూలు జిల్లా, ఆంధ్రప్రదేశ్', en: 'Kurnool District, AP' },
-      lat: 15.6322,
-      lng: 77.2728,
-      highlightText: '₹7,650/qt Modal',
-      contactPhone: '08512-250088',
-      mandiPrice: 7650,
-      cropName: { hi: 'कपास (Cotton)', te: 'పత్తి (Cotton)', en: 'Cotton' },
-      arrivals: '14,200 Quintals',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-guntur',
-      locationId: 'guntur',
-      type: 'mandi',
-      name: {
-        hi: 'गुंटूर एशिया मिर्ची यार्ड (APMC)',
-        te: 'గుంటూరు ఆసియా మిర్చి యార్డ్ (APMC)',
-        en: 'Guntur Asia Mirchi Yard (APMC)'
-      },
-      location: { hi: 'गुंटूर, आंध्र प्रदेश', te: 'గుంటూరు, ఆంధ్రప్రదేశ్', en: 'Guntur, Andhra Pradesh' },
-      lat: 16.3067,
-      lng: 80.4365,
-      highlightText: '₹14,200/qt Modal',
-      contactPhone: '0863-2234011',
-      mandiPrice: 14200,
-      cropName: { hi: 'मिर्च (Teja Chilli)', te: 'మిర్చి (తేజ రకం)', en: 'Red Chilli' },
-      arrivals: '48,000 Bags',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-anantapur',
-      locationId: 'anantapur',
-      type: 'mandi',
-      name: {
-        hi: 'अनंतपुर मूंगफली व संतरा मंडी',
-        te: 'అనంతపురం వేరుశనగ & బత్తాయి యార్డ్',
-        en: 'Anantapur Groundnut & Citrus Yard'
-      },
-      location: { hi: 'अनंतपुर, आंध्र प्रदेश', te: 'అనంతపురం, ఆంధ్రప్రదేశ్', en: 'Anantapur, Andhra Pradesh' },
-      lat: 14.6819,
-      lng: 77.6006,
-      highlightText: '₹7,850/qt Modal',
-      contactPhone: '08554-240011',
-      mandiPrice: 7850,
-      cropName: { hi: 'मूंगफली', te: 'వేరుశనగ', en: 'Groundnut' },
-      arrivals: '18,500 Bags',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-madanapalle',
-      locationId: 'chittoor',
-      type: 'mandi',
-      name: {
-        hi: 'मदनपल्ले एशिया टमाटर मंडी',
-        te: 'మదనపల్లె టమోటా మార్కెట్',
-        en: 'Madanapalle Tomato Yard'
-      },
-      location: { hi: 'चित्तूर जिला, आंध्र प्रदेश', te: 'చిత్తూరు జిల్లా, ఆంధ్రప్రదేశ్', en: 'Chittoor District, AP' },
-      lat: 13.2172,
-      lng: 79.1003,
-      highlightText: '₹3,250/qt Modal',
-      contactPhone: '08571-220022',
-      mandiPrice: 3250,
-      cropName: { hi: 'टमाटर', te: 'టమోటా', en: 'Tomato' },
-      arrivals: '35,000 Crates',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-kadapa',
-      locationId: 'kadapa',
-      type: 'mandi',
-      name: {
-        hi: 'कडपा (कृष्णा नगर) यार्ड',
-        te: 'కడప (కృష్ణా నగర్) మార్కెట్',
-        en: 'Kadapa (Krishna Nagar) Market'
-      },
-      location: { hi: 'कडपा, आंध्र प्रदेश', te: 'కడప, ఆంధ్రప్రదేశ్', en: 'Kadapa, Andhra Pradesh' },
-      lat: 14.4673,
-      lng: 78.8242,
-      highlightText: '₹16,500/qt Modal',
-      contactPhone: '08562-241100',
-      mandiPrice: 16500,
-      cropName: { hi: 'हल्दी व केला', te: 'పసుపు & అరటి', en: 'Turmeric & Banana' },
-      arrivals: '8,200 Quintals',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-tirupati',
-      locationId: 'tirupati',
-      type: 'mandi',
-      name: {
-        hi: 'तिरुपति कृषि उपज मंडी',
-        te: 'తిరుపతి వ్యవసాయ మార్కెట్',
-        en: 'Tirupati Agri Market'
-      },
-      location: { hi: 'तिरुपति, आंध्र प्रदेश', te: 'తిరుపతి, ఆంధ్రప్రదేశ్', en: 'Tirupati, Andhra Pradesh' },
-      lat: 13.6288,
-      lng: 79.4192,
-      highlightText: '₹4,800/qt Modal',
-      contactPhone: '0877-224410',
-      mandiPrice: 4800,
-      cropName: { hi: 'धान व गुड़', te: 'వరి & బెల్లం', en: 'Paddy & Jaggery' },
-      arrivals: '12,000 Bags',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-vijayawada',
-      locationId: 'vijayawada',
-      type: 'mandi',
-      name: {
-        hi: 'गोल्लापुडी थोक कृषि मंडी',
-        te: 'గొల్లపూడి టోకు మార్కెట్',
-        en: 'Gollapudi Wholesale APMC Market'
-      },
-      location: { hi: 'विजयवाड़ा, आंध्र प्रदेश', te: 'విజయవాడ, ఆంధ్రప్రదేశ్', en: 'Vijayawada, Andhra Pradesh' },
-      lat: 16.5062,
-      lng: 80.6480,
-      highlightText: '₹3,100/qt Modal',
-      contactPhone: '0866-241800',
-      mandiPrice: 3100,
-      cropName: { hi: 'सब्जी व धान', te: 'కూరగాయలు & వరి', en: 'Vegetables & Paddy' },
-      arrivals: '26,000 Bags',
-      trend: 'up'
-    },
-    // --- TELANGANA MANDIS ---
-    {
-      id: 'mandi-warangal',
-      locationId: 'warangal',
-      type: 'mandi',
-      name: {
-        hi: 'वारंगल एनाममुला कृषि मंडी',
-        te: 'వరంగల్ ఏనుమాముల మార్కెట్ యార్డ్',
-        en: 'Warangal Enamamula Market'
-      },
-      location: { hi: 'वारंगल, तेलंगाना', te: 'వరంగల్, తెలంగాణ', en: 'Warangal, Telangana' },
-      lat: 17.9689,
-      lng: 79.5941,
-      highlightText: '₹13,900/qt Modal',
-      contactPhone: '0870-245900',
-      mandiPrice: 13900,
-      cropName: { hi: 'मिर्च व कपास', te: 'మిర్చి & పత్తి', en: 'Chilli & Cotton' },
-      arrivals: '32,000 Bags',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-khammam',
-      locationId: 'khammam',
-      type: 'mandi',
-      name: {
-        hi: 'खम्मम कॉटन व मिर्च यार्ड',
-        te: 'ఖమ్మం వ్యవసాయ మార్కెట్ యార్డ్',
-        en: 'Khammam APMC Yard'
-      },
-      location: { hi: 'खम्मम, तेलंगाना', te: 'ఖమ్మం, తెలంగాణ', en: 'Khammam, Telangana' },
-      lat: 17.2473,
-      lng: 80.1514,
-      highlightText: '₹14,100/qt Modal',
-      contactPhone: '08742-231100',
-      mandiPrice: 14100,
-      cropName: { hi: 'तेजा मिर्च व मक्का', te: 'తేజ మిర్చి & మొక్కజొన్న', en: 'Chilli & Maize' },
-      arrivals: '21,000 Bags',
-      trend: 'up'
-    },
-    // --- CENTRAL & WESTERN INDIAN MANDIS ---
-    {
-      id: 'mandi-indore',
-      locationId: 'indore',
-      type: 'mandi',
-      name: {
-        hi: 'इंदौर देवी अहिल्याबाई कृषि मंडी',
-        te: 'ఇండోర్ అగ్రికల్చర్ మార్కెట్ యార్డ్',
-        en: 'Indore Devi Ahilyabai APMC'
-      },
-      location: { hi: 'इंदौर, मध्य प्रदेश', te: 'ఇండోర్, మధ్యప్రదేశ్', en: 'Indore, Madhya Pradesh' },
-      lat: 22.7196,
-      lng: 75.8577,
-      highlightText: '₹4,950/qt Modal',
-      contactPhone: '0731-255100',
-      mandiPrice: 4950,
-      cropName: { hi: 'सोयाबीन व गेहूं', te: 'సోయాబీన్ & గోధుమలు', en: 'Soybean & Wheat' },
-      arrivals: '40,000 Bags',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-nashik',
-      locationId: 'nashik',
-      type: 'mandi',
-      name: {
-        hi: 'लासलगांव / पिंपलगांव प्याज मंडी',
-        te: 'లాసల్గావ్ ఉల్లిపాయ మార్కెట్',
-        en: 'Lasalgaon Asia Onion Yard'
-      },
-      location: { hi: 'नासिक, महाराष्ट्र', te: 'నాసిక్, మహారాష్ట్ర', en: 'Nashik, Maharashtra' },
-      lat: 19.9975,
-      lng: 73.7898,
-      highlightText: '₹2,150/qt Modal',
-      contactPhone: '0253-231400',
-      mandiPrice: 2150,
-      cropName: { hi: 'प्याज (Onion)', te: 'ఉల్లిపాయ', en: 'Onion' },
-      arrivals: '65,000 Bags',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-nagpur',
-      locationId: 'nagpur',
-      type: 'mandi',
-      name: {
-        hi: 'नागपुर कलमना संतरा व अनाज मंडी',
-        te: 'నాగ్‌పూర్ కలమ్నా మార్కెట్ యార్డ్',
-        en: 'Nagpur Kalamna APMC Market'
-      },
-      location: { hi: 'नागपुर, महाराष्ट्र', te: 'నాగ్‌పూర్, మహారాష్ట్ర', en: 'Nagpur, Maharashtra' },
-      lat: 21.1458,
-      lng: 79.0882,
-      highlightText: '₹5,800/qt Modal',
-      contactPhone: '0712-243100',
-      mandiPrice: 5800,
-      cropName: { hi: 'संतरा व कपास', te: 'నారింజ & పత్తి', en: 'Orange & Cotton' },
-      arrivals: '19,500 Bags',
-      trend: 'up'
-    },
-    // --- NATIONAL KEY MANDIS ---
-    {
-      id: 'mandi-delhi',
-      locationId: 'delhi',
-      type: 'mandi',
-      name: {
-        hi: 'आजादपुर फल व सब्जी मंडी (एशिया की सबसे बड़ी)',
-        te: 'ఆజాద్‌పూర్ పండ్లు & కూరగాయల మార్కెట్',
-        en: 'Azadpur Asia Terminal Market'
-      },
-      location: { hi: 'दिल्ली (एनसीआर)', te: 'ఢిల్లీ (ఎన్‌సీఆర్)', en: 'Delhi NCR' },
-      lat: 28.7167,
-      lng: 77.1734,
-      highlightText: '₹3,900/qt Modal',
-      contactPhone: '011-2769100',
-      mandiPrice: 3900,
-      cropName: { hi: 'समस्त फल व सब्जियां', te: 'అన్ని కూరగాయలు & పండ్లు', en: 'All Agri Produce' },
-      arrivals: '120,000 Quintals',
-      trend: 'up'
-    },
-    {
-      id: 'mandi-khanna',
-      locationId: 'khanna',
-      type: 'mandi',
-      name: {
-        hi: 'खन्ना एशिया अनाज मंडी',
-        te: 'ఖన్నా ఆసియా ధాన్యం మార్కెట్',
-        en: 'Khanna Asia Grain Market'
-      },
-      location: { hi: 'लुधियाना, पंजाब', te: 'లూధియానా, పంజాబ్', en: 'Ludhiana, Punjab' },
-      lat: 30.7046,
-      lng: 76.2163,
-      highlightText: '₹2,325/qt MSP Modal',
-      contactPhone: '01628-223100',
-      mandiPrice: 2325,
-      cropName: { hi: 'गेहूं व बासमती धान', te: 'గోధుమలు & బాస్మతి వరి', en: 'Wheat & Basmati' },
-      arrivals: '90,000 Bags',
-      trend: 'stable'
-    },
-    {
-      id: 'mandi-kolar',
-      locationId: 'kolar',
-      type: 'mandi',
-      name: {
-        hi: 'कोलार एपीएमसी टमाटर मंडी',
-        te: 'కోలార్ టమోటా మార్కెట్ యార్డ్',
-        en: 'Kolar APMC Tomato Market'
-      },
-      location: { hi: 'कोलार, कर्नाटक', te: 'కోలార్, కర్ణాటక', en: 'Kolar, Karnataka' },
-      lat: 13.1367,
-      lng: 78.1292,
-      highlightText: '₹3,400/qt Modal',
-      contactPhone: '08152-224100',
-      mandiPrice: 3400,
-      cropName: { hi: 'टमाटर व आम', te: 'టమోటా & మామిడి', en: 'Tomato & Mango' },
-      arrivals: '28,000 Boxes',
-      trend: 'up'
-    },
-
-    // --- COLD STORAGE FACILITIES ACROSS REGIONS ---
-    {
-      id: 'cs-kurnool-7',
-      locationId: 'kurnool',
-      type: 'storage',
-      name: COLD_STORAGES[6].name,
-      location: COLD_STORAGES[6].location,
-      lat: 15.8281,
-      lng: 78.0373,
-      highlightText: `${COLD_STORAGES[6].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[6].contactPhone,
-      storageRef: COLD_STORAGES[6]
-    },
-    {
-      id: 'cs-guntur-1',
-      locationId: 'guntur',
-      type: 'storage',
-      name: COLD_STORAGES[0].name,
-      location: COLD_STORAGES[0].location,
-      lat: 16.3067,
-      lng: 80.4365,
-      highlightText: `${COLD_STORAGES[0].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[0].contactPhone,
-      storageRef: COLD_STORAGES[0]
-    },
-    {
-      id: 'cs-amaravati-2',
-      locationId: 'guntur',
-      type: 'storage',
-      name: COLD_STORAGES[1].name,
-      location: COLD_STORAGES[1].location,
-      lat: 16.4350,
-      lng: 80.5520,
-      highlightText: `${COLD_STORAGES[1].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[1].contactPhone,
-      storageRef: COLD_STORAGES[1]
-    },
-    {
-      id: 'cs-mirchi-yard-3',
-      locationId: 'guntur',
-      type: 'storage',
-      name: COLD_STORAGES[2].name,
-      location: COLD_STORAGES[2].location,
-      lat: 16.2950,
-      lng: 80.4480,
-      highlightText: `${COLD_STORAGES[2].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[2].contactPhone,
-      storageRef: COLD_STORAGES[2]
-    },
-    {
-      id: 'cs-anantapur-4',
-      locationId: 'anantapur',
-      type: 'storage',
-      name: COLD_STORAGES[3].name,
-      location: COLD_STORAGES[3].location,
-      lat: 14.6819,
-      lng: 77.6006,
-      highlightText: `${COLD_STORAGES[3].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[3].contactPhone,
-      storageRef: COLD_STORAGES[3]
-    },
-    {
-      id: 'cs-madanapalle-5',
-      locationId: 'chittoor',
-      type: 'storage',
-      name: COLD_STORAGES[4].name,
-      location: COLD_STORAGES[4].location,
-      lat: 13.2172,
-      lng: 79.1003,
-      highlightText: `${COLD_STORAGES[4].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[4].contactPhone,
-      storageRef: COLD_STORAGES[4]
-    },
-    {
-      id: 'cs-kadapa-6',
-      locationId: 'kadapa',
-      type: 'storage',
-      name: COLD_STORAGES[5].name,
-      location: COLD_STORAGES[5].location,
-      lat: 14.4673,
-      lng: 78.8242,
-      highlightText: `${COLD_STORAGES[5].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[5].contactPhone,
-      storageRef: COLD_STORAGES[5]
-    },
-    {
-      id: 'cs-warangal-8',
-      locationId: 'warangal',
-      type: 'storage',
-      name: COLD_STORAGES[7].name,
-      location: COLD_STORAGES[7].location,
-      lat: 17.9689,
-      lng: 79.5941,
-      highlightText: `${COLD_STORAGES[7].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[7].contactPhone,
-      storageRef: COLD_STORAGES[7]
-    },
-    {
-      id: 'cs-vijayawada-9',
-      locationId: 'vijayawada',
-      type: 'storage',
-      name: COLD_STORAGES[8].name,
-      location: COLD_STORAGES[8].location,
-      lat: 16.5062,
-      lng: 80.6480,
-      highlightText: `${COLD_STORAGES[8].vacantCapacityBags.toLocaleString()} ${t.bagsUnit} vacant`,
-      contactPhone: COLD_STORAGES[8].contactPhone,
-      storageRef: COLD_STORAGES[8]
-    },
-    {
-      id: 'cs-indore-10',
-      locationId: 'indore',
-      type: 'storage',
-      name: {
-        hi: 'इंदौर मालवा एग्रो कोल्ड चेन व लॉजिस्टिक्स पार्क',
-        te: 'ఇండోర్ మాల్వా ఆగ్రో కోల్డ్ చైన్ పార్క్',
-        en: 'Indore Malwa Agro Cold Logistics Hub'
-      },
-      location: { hi: 'देवास रोड, इंदौर', te: 'దేవాస్ రోడ్డు, ఇండోర్', en: 'Dewas Road, Indore, MP' },
-      lat: 22.7196,
-      lng: 75.8577,
-      highlightText: '24,000 bags vacant',
-      contactPhone: '0731-2891100',
-      storageRef: {
-        id: 'cs-indore-10',
-        name: {
-          hi: 'इंदौर मालवा एग्रो कोल्ड चेन',
-          te: 'ఇండోర్ మాల్వా ఆగ్రో కోల్డ్ చైన్',
-          en: 'Indore Malwa Agro Cold Chain'
-        },
-        location: { hi: 'देवास रोड, इंदौर', te: 'దేవాస్ రోడ్డు, ఇండోర్', en: 'Dewas Road, Indore' },
-        distanceKm: 8,
-        totalCapacityBags: 85000,
-        vacantCapacityBags: 24000,
-        rentPerBagPerMonth: 26,
-        temperatureControlled: true,
-        contactPhone: '0731-2891100',
-        hasFumigation: true
-      }
-    },
-    {
-      id: 'cs-nashik-11',
-      locationId: 'nashik',
-      type: 'storage',
-      name: {
-        hi: 'नासिक लासलगांव नियंत्रित वातावरण कोल्ड स्टोर',
-        te: 'నాసిక్ లాసల్గావ్ కోల్డ్ స్టోరేజ్ హబ్',
-        en: 'Nashik Lasalgaon Controlled Atmosphere Store'
-      },
-      location: { hi: 'निफाड तालुका, नासिक', te: 'నిఫాడ్ తాలూకా, నాసిక్', en: 'Niphad Taluk, Nashik, MH' },
-      lat: 19.9975,
-      lng: 73.7898,
-      highlightText: '35,000 bags vacant',
-      contactPhone: '0253-248900',
-      storageRef: {
-        id: 'cs-nashik-11',
-        name: {
-          hi: 'नासिक लासलगांव कोल्ड स्टोर',
-          te: 'నాసిక్ లాసల్గావ్ కోల్డ్ స్టోర్',
-          en: 'Nashik Lasalgaon Cold Store'
-        },
-        location: { hi: 'निफाड तालुका, नासिक', te: 'నిఫాడ్ తాలూకా, నాసిక్', en: 'Niphad Taluk, Nashik' },
-        distanceKm: 12,
-        totalCapacityBags: 120000,
-        vacantCapacityBags: 35000,
-        rentPerBagPerMonth: 24,
-        temperatureControlled: true,
-        contactPhone: '0253-248900',
-        hasFumigation: true
-      }
-    }
-  ];
-
-  // Dynamic calculation of real driving distance from current user coordinates
-  const mapPins: MapPinItem[] = useMemo(() => {
-    return masterPins.map((pin) => {
-      const isExactTown = pin.locationId === userLocId;
-      const dist = isExactTown
-        ? (pin.type === 'storage' ? (pin.storageRef?.distanceKm || 6) : 0)
-        : calculateGeoDistanceKm(userCoords.lat, userCoords.lng, pin.lat, pin.lng);
-      return {
-        ...pin,
-        distanceKm: dist
-      };
-    });
-  }, [userCoords.lat, userCoords.lng, userLocId]);
-
-  // Separate list of mandis near the user, sorted strictly by proximity
-  const nearbyMandis = useMemo(() => {
-    return mapPins
-      .filter((p) => p.type === 'mandi')
-      .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [mapPins]);
-
-  // Automatically select nearest pin when location changes
+  // Auto-detect browser GPS on mount and provide high accuracy
   useEffect(() => {
-    const sorted = [...mapPins].sort((a, b) => a.distanceKm - b.distanceKm);
-    if (sorted.length > 0) {
-      setActivePinId(sorted[0].id);
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserGpsCoords(coords);
+          setGpsActive(true);
+        },
+        (err) => {
+          console.log('GPS Geolocation note:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
+      );
     }
-  }, [userLocId]);
+  }, []);
 
-  const handleSearchSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  // Farmer's origin coordinates: prefers live GPS, then currentLocation, then fallback
+  const farmerCoords = useMemo(() => {
+    if (userGpsCoords) return userGpsCoords;
+    if (currentLocation?.id && REGION_COORDINATES[currentLocation.id.toLowerCase()]) {
+      return REGION_COORDINATES[currentLocation.id.toLowerCase()];
+    }
+    return REGION_COORDINATES.guntur;
+  }, [userGpsCoords, currentLocation?.id]);
+
+  // Fetch Pan-India Cold Storages from PostgreSQL backend with GPS proximity
+  const fetchFacilities = async () => {
+    setIsLoading(true);
+    try {
+      const [storages, mandis] = await Promise.all([
+        KisanSethuApi.getColdStorages({
+          lat: farmerCoords.lat,
+          lng: farmerCoords.lng,
+          radius_km: selectedRadius === 0 ? undefined : selectedRadius,
+          commodity: selectedCommodity !== 'all' ? selectedCommodity : undefined,
+          search: mapQuery.trim() || undefined
+        }),
+        KisanSethuApi.getMandiRates()
+      ]);
+
+      if (storages && storages.length > 0) {
+        setLiveDbFacilities(storages);
+      }
+      if (mandis && mandis.length > 0) {
+        setLiveMandiRates(mandis);
+      }
+    } catch (err) {
+      console.warn('Backend fetch for cold storage data fallback:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Filter pins based on Category, Radius (or All India), and Search text
-  const filteredPins = useMemo(() => {
-    return mapPins.filter((pin) => {
-      const matchesType = filterType === 'all' || pin.type === filterType;
-      const matchesRadius = selectedRadius >= 500 || pin.distanceKm <= selectedRadius;
+  useEffect(() => {
+    fetchFacilities();
+  }, [farmerCoords.lat, farmerCoords.lng, selectedRadius, selectedCommodity]);
+
+  // Master facilities collection (Cold Storages + Mandis)
+  const allFacilities: GeoFacilityItem[] = useMemo(() => {
+    const list: GeoFacilityItem[] = [];
+
+    // 1. Cold Storages from Live DB or mock fallback
+    const coldSources = liveDbFacilities.length > 0 ? liveDbFacilities : COLD_STORAGES;
+    coldSources.forEach((cs: any, idx: number) => {
+      const locKey = (cs.district || cs.location?.en || 'guntur').toLowerCase();
+      const coords =
+        (cs.latitude && cs.longitude && { lat: Number(cs.latitude), lng: Number(cs.longitude) }) ||
+        REGION_COORDINATES[locKey] ||
+        (idx === 0 ? REGION_COORDINATES.guntur : idx === 1 ? REGION_COORDINATES.madanapalle : REGION_COORDINATES.kurnool);
+
+      const dist =
+        cs.distanceKm !== undefined && cs.distanceKm !== null
+          ? Number(cs.distanceKm)
+          : calculateDistanceKm(farmerCoords.lat, farmerCoords.lng, coords.lat, coords.lng);
+
+      const vacant = cs.vacantCapacityBags || (cs.availableMt ? cs.availableMt * 20 : 12000);
+      const total = cs.totalCapacityBags || (cs.capacityMt ? cs.capacityMt * 20 : 40000);
+      const rent = cs.rentPerBagPerMonth || (cs.monthlyRentPerQtl ? Math.round(Number(cs.monthlyRentPerQtl) / 2) : 24);
+      const occPct = cs.occupancyPct !== undefined ? cs.occupancyPct : Math.round(((total - vacant) / total) * 100);
+
+      list.push({
+        id: cs.id || `cs-${idx + 1}`,
+        type: 'storage',
+        name: typeof cs.name === 'object' ? cs.name : { en: cs.name, hi: cs.name, te: cs.name },
+        location:
+          typeof cs.location === 'object'
+            ? cs.location
+            : { en: `${cs.district || ''}, ${cs.state || ''}`, hi: `${cs.district || ''}, ${cs.state || ''}`, te: `${cs.district || ''}, ${cs.state || ''}` },
+        district: cs.district || 'Guntur',
+        state: cs.state || 'Andhra Pradesh',
+        lat: coords.lat,
+        lng: coords.lng,
+        distanceKm: dist,
+        highlightText: `${vacant.toLocaleString()} bags vacant`,
+        contactPhone: cs.contactPhone || cs.contact_phone || '+91 863 2234011',
+        vacantBags: vacant,
+        totalBags: total,
+        rentPerBagPerMonth: rent,
+        monthlyRentPerQtl: cs.monthlyRentPerQtl || rent * 2,
+        capacityMt: cs.capacityMt || Math.round(total / 20),
+        availableMt: cs.availableMt || Math.round(vacant / 20),
+        tempControlled: cs.temperatureControlled !== false,
+        hasFumigation: cs.hasFumigation !== false,
+        wdraAccredited: cs.wdraAccredited ?? true,
+        tempRangeC: cs.tempRangeC || '2°C to 8°C',
+        chambers: cs.chambers || 8,
+        crops: cs.crops || ['Chilli', 'Turmeric', 'Vegetables'],
+        occupancyPct: occPct
+      });
+    });
+
+    // 2. APMC Mandis (Presets + Live Cross-Reference)
+    PAN_INDIA_MANDIS.forEach((m) => {
+      const liveMatch = liveMandiRates.find(
+        (lr: any) =>
+          lr.market &&
+          lr.market.toLowerCase().includes(m.district.toLowerCase()) &&
+          lr.commodity &&
+          lr.commodity.toLowerCase().includes(m.commodity.toLowerCase())
+      );
+      const modalPrice = liveMatch ? Math.round(Number(liveMatch.modal_price_qtl)) : m.price;
+      const dist = calculateDistanceKm(farmerCoords.lat, farmerCoords.lng, m.lat, m.lng);
+
+      list.push({
+        id: m.id,
+        type: 'mandi',
+        name: { en: m.market, hi: m.market, te: m.market },
+        location: { en: `${m.district}, ${m.state}`, hi: `${m.district}, ${m.state}`, te: `${m.district}, ${m.state}` },
+        district: m.district,
+        state: m.state,
+        lat: m.lat,
+        lng: m.lng,
+        distanceKm: dist,
+        highlightText: `₹${modalPrice.toLocaleString()}/qtl Modal`,
+        contactPhone: m.phone,
+        mandiPrice: modalPrice,
+        cropName: { en: m.commodity, hi: m.commodity, te: m.commodity },
+        eNamVerified: true
+      });
+    });
+
+    return list.sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [liveDbFacilities, liveMandiRates, farmerCoords]);
+
+  // Filter facilities by Search query, Category type, and Radius
+  const filteredFacilities = useMemo(() => {
+    return allFacilities.filter((item) => {
+      const matchesType = filterType === 'all' || item.type === filterType;
+      const matchesRadius = selectedRadius === 0 || item.distanceKm <= selectedRadius;
       const q = mapQuery.toLowerCase().trim();
       const matchesQuery =
         q === '' ||
-        pin.name[currentLang].toLowerCase().includes(q) ||
-        pin.name.en.toLowerCase().includes(q) ||
-        pin.location[currentLang].toLowerCase().includes(q) ||
-        pin.location.en.toLowerCase().includes(q) ||
-        (pin.cropName && pin.cropName[currentLang].toLowerCase().includes(q));
-
+        item.name[currentLang]?.toLowerCase().includes(q) ||
+        item.name.en?.toLowerCase().includes(q) ||
+        item.location[currentLang]?.toLowerCase().includes(q) ||
+        item.district.toLowerCase().includes(q) ||
+        item.state.toLowerCase().includes(q) ||
+        (item.crops && item.crops.some((c) => c.toLowerCase().includes(q)));
       return matchesType && matchesRadius && matchesQuery;
     });
-  }, [mapPins, filterType, selectedRadius, mapQuery, currentLang]);
+  }, [allFacilities, filterType, selectedRadius, mapQuery, currentLang]);
 
-  const activePin = mapPins.find((p) => p.id === activePinId) || filteredPins[0] || mapPins[0];
-
-  // Compute logistics route lines to the 3 nearest facilities from user location
-  const routeTargetPins = useMemo(() => {
-    return [...filteredPins]
-      .filter((p) => p.distanceKm > 0 && p.distanceKm <= 350)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, 3);
-  }, [filteredPins]);
-
-  // Interactive Pan / Center coordinates
-  const transformStyle = useMemo(() => {
-    if (isFocusNearMe) {
-      // Zoom into user location
-      const originX = userProjected.pctX;
-      const originY = userProjected.pctY;
-      return {
-        transform: `scale(1.55)`,
-        transformOrigin: `${originX}% ${originY}%`,
-        transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-      };
+  // Auto-select nearest facility if activeFacilityId is not set or not in list
+  useEffect(() => {
+    if (filteredFacilities.length > 0) {
+      const exists = filteredFacilities.some((f) => f.id === activeFacilityId);
+      if (!exists) {
+        setActiveFacilityId(filteredFacilities[0].id);
+      }
     }
-    return {
-      transform: `scale(${zoomLevel})`,
-      transformOrigin: 'center center',
-      transition: 'transform 0.3s ease'
+  }, [filteredFacilities, activeFacilityId]);
+
+  // Active facility object
+  const activeFacility = useMemo(() => {
+    return (
+      filteredFacilities.find((f) => f.id === activeFacilityId) ||
+      allFacilities.find((f) => f.id === activeFacilityId) ||
+      filteredFacilities[0] ||
+      allFacilities[0]
+    );
+  }, [allFacilities, filteredFacilities, activeFacilityId]);
+
+  // Estimated road freight: Base ₹250 + ₹22/km
+  const estimatedFreight = useMemo(() => {
+    if (!activeFacility) return 350;
+    return Math.max(300, Math.round(250 + activeFacility.distanceKm * 24));
+  }, [activeFacility]);
+
+  // Initialize Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [farmerCoords.lat, farmerCoords.lng],
+        zoom: 9,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      const streetLayer = L.tileLayer(
+        'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        { maxZoom: 20 }
+      ).addTo(map);
+
+      tileLayerRef.current = streetLayer;
+      markersLayerRef.current = L.layerGroup().addTo(map);
+      mapInstanceRef.current = map;
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
-  }, [isFocusNearMe, zoomLevel, userProjected.pctX, userProjected.pctY]);
+  }, []);
+
+  // Map Tile Layer Switching
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    if (tileLayerRef.current) {
+      mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    }
+
+    if (mapLayer === 'satellite') {
+      tileLayerRef.current = L.tileLayer(
+        'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        { maxZoom: 20 }
+      ).addTo(mapInstanceRef.current);
+    } else {
+      tileLayerRef.current = L.tileLayer(
+        'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        { maxZoom: 20 }
+      ).addTo(mapInstanceRef.current);
+    }
+  }, [mapLayer]);
+
+  // Render Markers and Active Route Line
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markersLayerRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const layer = markersLayerRef.current;
+    layer.clearLayers();
+
+    // 1. User's Farm Pin (Glowing Emerald Radar Beacon)
+    const farmerIcon = L.divIcon({
+      className: 'farmer-marker-container',
+      html: `
+        <div class="farmer-pulse-beacon" style="position: relative;">
+          <div style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: rgba(16, 185, 129, 0.3); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div style="position: relative; width: 28px; height: 28px; border-radius: 50%; background: #10B981; border: 2.5px solid #FFFFFF; box-shadow: 0 0 12px rgba(16, 185, 129, 0.8); display: flex; align-items: center; justify-content: center; font-size: 14px;">🚜</div>
+        </div>
+        <div style="background: #065F46; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2); margin-top: 4px;">
+          📍 ${gpsActive ? (currentLang === 'hi' ? 'आपका जीपीएस खेत' : currentLang === 'te' ? 'మీ జీపీఎస్ క్షేత్రం' : 'Your Live GPS Farm') : (currentLocation?.name[currentLang] || 'Your Farm Base')}
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    });
+
+    L.marker([farmerCoords.lat, farmerCoords.lng], { icon: farmerIcon, zIndexOffset: 1000 })
+      .bindPopup(
+        `<div style="font-family: inherit; font-size: 13px; padding: 4px;">
+          <strong style="color: #065F46;">🌾 ${gpsActive ? 'GPS Farm Origin (Auto-Detected)' : (currentLocation?.name[currentLang] || 'Your Farm Origin')}</strong><br/>
+          <span style="color: #64748B; font-size: 11.5px;">Coordinates: ${farmerCoords.lat.toFixed(4)}, ${farmerCoords.lng.toFixed(4)}</span>
+        </div>`
+      )
+      .addTo(layer);
+
+    // 2. Add Pins for Facilities
+    filteredFacilities.forEach((item) => {
+      const isActive = item.id === activeFacilityId;
+      const isStorage = item.type === 'storage';
+
+      const pinHtml = `
+        <div class="facility-marker-pin ${isStorage ? 'storage' : 'mandi'} ${isActive ? 'is-active' : ''}">
+          <div class="pin-badge-icon">${isStorage ? '❄️' : '🌾'}</div>
+          <div class="pin-callout">
+            <span class="callout-name">${item.district}</span>
+            <span class="callout-value">${isStorage ? `📦 ${item.highlightText}` : item.highlightText}</span>
+          </div>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        className: 'custom-facility-divicon',
+        html: pinHtml,
+        iconSize: [120, 50],
+        iconAnchor: [20, 36]
+      });
+
+      const marker = L.marker([item.lat, item.lng], {
+        icon: customIcon,
+        zIndexOffset: isActive ? 900 : 100
+      });
+
+      marker.on('click', () => {
+        setActiveFacilityId(item.id);
+      });
+
+      marker.bindPopup(
+        `<div style="font-family: inherit; font-size: 13px; min-width: 200px;">
+          <div style="font-weight: 800; color: ${isStorage ? '#0284C7' : '#16A34A'}; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            ${isStorage ? '❄️ Cold Storage Facility' : '🌾 APMC Market Yard'}
+          </div>
+          <strong>${item.name[currentLang] || item.name.en}</strong><br/>
+          <span style="color: #64748B; font-size: 11.5px;">📍 ${item.location[currentLang] || item.location.en}</span><br/>
+          <div style="margin-top: 6px; padding: 6px 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 12px;">
+            ${isStorage ? `<strong>Rent:</strong> ₹${item.rentPerBagPerMonth}/bag/mo • <strong>Vacant:</strong> ${item.vacantBags?.toLocaleString()} bags` : `<strong>Modal Rate:</strong> ₹${item.mandiPrice?.toLocaleString()}/qtl`}
+          </div>
+          <div style="margin-top: 6px; font-size: 11.5px; color: #475569; display: flex; justify-content: space-between;">
+            <span>🚗 Distance: <strong>${item.distanceKm} km</strong></span>
+            ${item.wdraAccredited ? '<span style="color: #B45309; font-weight: 700;">🏅 WDRA Approved</span>' : ''}
+          </div>
+        </div>`
+      );
+
+      marker.addTo(layer);
+    });
+
+    // 3. Draw Dashed Transit Route Line from Farm to Active Facility
+    if (routeLineRef.current) {
+      map.removeLayer(routeLineRef.current);
+      routeLineRef.current = null;
+    }
+
+    if (activeFacility) {
+      const latlngs: [number, number][] = [
+        [farmerCoords.lat, farmerCoords.lng],
+        [activeFacility.lat, activeFacility.lng]
+      ];
+
+      const routeLine = L.polyline(latlngs, {
+        color: activeFacility.type === 'storage' ? '#0284C7' : '#16A34A',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8, 8',
+        lineCap: 'round'
+      }).addTo(map);
+
+      routeLineRef.current = routeLine;
+
+      const bounds = L.latLngBounds(latlngs);
+      map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 12, duration: 0.8 });
+    }
+  }, [filteredFacilities, activeFacilityId, farmerCoords, activeFacility, currentLang, currentLocation, gpsActive]);
+
+  const handleRecenter = () => {
+    if (!mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo([farmerCoords.lat, farmerCoords.lng], 10, { duration: 0.8 });
+  };
+
+  const handleTriggerGps = () => {
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserGpsCoords(coords);
+          setGpsActive(true);
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([coords.lat, coords.lng], 11, { duration: 0.8 });
+          }
+        },
+        (err) => {
+          alert(currentLang === 'hi' ? 'कृपया ब्राउज़र में जीपीएस अनुमति दें।' : currentLang === 'te' ? 'దయచేసి బ్రౌజర్‌లో జీపీఎస్ అనుమతించండి.' : 'Please allow GPS location permission in browser.');
+          console.warn('GPS Error:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  };
+
+  const handleSearchSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!mapQuery.trim()) return;
+
+    // Search for matching location geocodes or matching facilities
+    try {
+      const searchResults = await KisanSethuApi.searchClimateLocations(mapQuery.trim());
+      if (searchResults && searchResults.length > 0) {
+        const top = searchResults[0];
+        if (mapInstanceRef.current && top.latitude && top.longitude) {
+          mapInstanceRef.current.flyTo([top.latitude, top.longitude], 10, { duration: 0.8 });
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    fetchFacilities();
+  };
 
   return (
     <div className="storage-map-view-container">
-      {/* Top Header Strip with User Location Badge */}
+      {/* Clean Farmer Header (No Developer Ribbon or Debug Pill) */}
       <div className="view-header-strip">
-        <div className="header-top-line">
-          <div className="title-row">
-            <Warehouse size={26} className="view-icon" />
-            <h2 className="view-title">
-              {currentLang === 'hi'
-                ? 'अखिल भारतीय मंडी व कोल्ड स्टोरेज मानचित्र'
-                : currentLang === 'te'
-                ? 'భారతదేశ మార్కెట్ యార్డులు & కోల్డ్ స్టోరేజ్ మ్యాప్'
-                : 'India Map: APMC Mandis & Cold Storages'}
-            </h2>
-          </div>
-
-          {/* Quick Location Switcher Badge */}
-          {currentLocation && (
-            <div className="active-user-loc-badge">
-              <span className="loc-pulse-dot" />
-              <MapPin size={15} color="#F59E0B" />
-              <span className="loc-text">
-                {currentLang === 'hi' ? 'आपका केंद्र:' : currentLang === 'te' ? 'మీ కేంద్రం:' : 'Your Location:'}{' '}
-                <strong>{currentLocation.name[currentLang]}</strong> ({currentLocation.district[currentLang]})
-              </span>
-              {onSelectLocation && (
-                <select
-                  aria-label="Change Agricultural District"
-                  value={currentLocation.id}
-                  onChange={(e) => {
-                    const found = AGRICULTURAL_LOCATIONS.find((l) => l.id === e.target.value);
-                    if (found) onSelectLocation(found);
-                  }}
-                  className="quick-loc-select"
-                >
-                  {AGRICULTURAL_LOCATIONS.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name[currentLang]} ({loc.state[currentLang]})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+        <div className="title-row">
+          <Warehouse size={26} className="view-icon" style={{ color: '#0284C7' }} />
+          <h2 className="view-title" style={{ margin: 0 }}>{t.storageTitle}</h2>
+          <span style={{ fontSize: '12px', background: '#E0F2FE', color: '#0369A1', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>
+            {currentLang === 'hi' ? 'अखिल भारतीय नेटवर्क' : currentLang === 'te' ? 'భారతదేశ వ్యాప్తంగా' : 'Pan-India Network'}
+          </span>
         </div>
-
-        <p className="view-desc">
+        <p className="view-desc" style={{ margin: 0 }}>
           {currentLang === 'hi'
-            ? `📍 ${currentLocation?.name[currentLang] || 'आपके क्षेत्र'} के निकटतम सरकारी एपीएमसी मंडी यार्ड, नीलामी भाव और कोल्ड स्टोरेज वेयरहाउस का भू-स्थानिक नक्शा`
+            ? `📍 आपके खेत के निकटतम शीत भंडारण (कोल्ड स्टोरेज), सीए वेयरहाउस एवं सरकारी एपीएमसी यार्ड्स का वास्तविक समय डेटा व खाली बोरियों की स्थिति`
             : currentLang === 'te'
-            ? `📍 ${currentLocation?.name[currentLang] || 'మీ ప్రాంతం'} సమీపంలోని ప్రభుత్వ మార్కెట్ యార్డులు, ధరలు మరియు కోల్డ్ స్టోరేజ్ గిడ్డంగుల అధికారిక మ్యాప్`
-            : `📍 Verified geospatial map of APMC Mandi auction yards & Cold Storages nearest to ${currentLocation?.name[currentLang] || 'your farm'}`}
+            ? `📍 మీ పొలానికి సమీపంలోని కోల్డ్ స్టోరేజీలు, సి.ఎ గోదాములు మరియు మార్కెట్ యార్డుల ఖాళీ బస్తాల సంఖ్య & అద్దె వివరాలు`
+            : `📍 Real-time Pan-India Cold Storage, Controlled Atmosphere (CA) Godowns & APMC Yards with live vacant capacity, rent, and WDRA loan accreditation`}
         </p>
       </div>
 
-      {/* Control Bar: Search, Category Filter, Radius, and Pan Toggle */}
+      {/* Control Bar: Pan-India Search, GPS Trigger, and Radius Picker */}
       <div className="map-search-control-bar">
         <form onSubmit={handleSearchSubmit} className="map-search-form">
           <Search size={18} className="map-search-icon" />
@@ -723,622 +648,432 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
             type="text"
             placeholder={
               currentLang === 'hi'
-                ? 'मंडी, कोल्ड स्टोरेज या फसल खोजें (जैसे कर्नूल, गुंटूर, मिर्च)...'
+                ? 'गाँव, ज़िला, राज्य या कोल्ड स्टोरेज खोजें (उदा: गुंटूर, नासिक, आगरा, शिमला)...'
                 : currentLang === 'te'
-                ? 'మార్కెట్, కోల్డ్ స్టోరేజ్ లేదా పంట పేరుతో వెతకండి...'
-                : 'Search Mandi, Cold Storage, or Crop (e.g. Kurnool, Chilli)...'
+                ? 'గ్రామం, జిల్లా, కోల్డ్ స్టోరేజ్ వెతకండి (ఉదా: గుంటూరు, నాసిక్, కోలార్, ఆగ్రా)...'
+                : 'Search town, district, state, or cold storage (e.g. Guntur, Nashik, Kolar, Agra, Shimla)...'
             }
             value={mapQuery}
             onChange={(e) => setMapQuery(e.target.value)}
             className="map-search-input"
           />
+          {mapQuery && (
+            <button type="button" onClick={() => setMapQuery('')} className="map-clear-btn">
+              ✕
+            </button>
+          )}
           <button type="submit" className="map-search-btn">
             {t.searchBtn}
           </button>
         </form>
 
-        {/* Category Tabs */}
+        {/* GPS Live Auto-Detect Button */}
+        <button
+          type="button"
+          onClick={handleTriggerGps}
+          className={`radius-pill ${gpsActive ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: gpsActive ? '#059669' : '#FFFFFF', color: gpsActive ? '#FFFFFF' : '#065F46', borderColor: '#059669' }}
+          title="Auto-detect current GPS location"
+        >
+          <LocateFixed size={15} />
+          <span>{gpsActive ? (currentLang === 'hi' ? 'जीपीएस सक्रिय' : currentLang === 'te' ? 'జీపీఎస్ ఆన్‌లో ఉంది' : 'GPS Active') : (currentLang === 'hi' ? 'मेरा जीपीएस स्थान' : currentLang === 'te' ? 'నా జీపీఎస్' : 'Use My GPS')}</span>
+        </button>
+
+        {/* Category Segment Tabs */}
         <div className="map-category-tabs">
           <button
             type="button"
             onClick={() => setFilterType('all')}
             className={`map-cat-btn ${filterType === 'all' ? 'active' : ''}`}
           >
-            <Layers size={14} />
-            <span>{currentLang === 'hi' ? 'सभी केंद्र' : currentLang === 'te' ? 'అన్నీ' : 'All Points'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('mandi')}
-            className={`map-cat-btn ${filterType === 'mandi' ? 'active' : ''}`}
-          >
-            <TrendingUp size={14} />
-            <span>{currentLang === 'hi' ? 'एपीएमसी मंडियां' : currentLang === 'te' ? 'మార్కెట్ యార్డులు' : 'APMC Mandis'}</span>
+            <Layers size={15} />
+            <span>{currentLang === 'hi' ? 'सभी केंद्र' : currentLang === 'te' ? 'అన్నీ' : 'All Facilities'}</span>
+            <span className="cat-count">({allFacilities.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setFilterType('storage')}
-            className={`map-cat-btn ${filterType === 'storage' ? 'active' : ''}`}
+            className={`map-cat-btn storage-cat ${filterType === 'storage' ? 'active' : ''}`}
           >
-            <Warehouse size={14} />
+            <Warehouse size={15} />
             <span>{currentLang === 'hi' ? 'कोल्ड स्टोरेज' : currentLang === 'te' ? 'కోల్డ్ స్టోరేజ్' : 'Cold Storages'}</span>
+            <span className="cat-count">
+              ({allFacilities.filter((f) => f.type === 'storage').length})
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterType('mandi')}
+            className={`map-cat-btn mandi-cat ${filterType === 'mandi' ? 'active' : ''}`}
+          >
+            <TrendingUp size={15} />
+            <span>{currentLang === 'hi' ? 'मंडी यार्ड' : currentLang === 'te' ? 'మార్కెట్ యార్డులు' : 'APMC Mandis'}</span>
+            <span className="cat-count">
+              ({allFacilities.filter((f) => f.type === 'mandi').length})
+            </span>
           </button>
         </div>
 
-        {/* Radius Filter */}
+        {/* Radius Filter Pills */}
         <div className="radius-picker">
           <span className="radius-label">
-            <Filter size={13} style={{ display: 'inline', marginRight: 4 }} />
-            {currentLang === 'hi' ? 'दूरी दायरा:' : currentLang === 'te' ? 'పరిధి:' : 'Radius:'}
+            <Compass size={14} />
+            {currentLang === 'hi' ? 'दायरा:' : currentLang === 'te' ? 'పరిధి:' : 'Radius:'}
           </span>
-          {[20, 50, 100, 200, 500].map((r) => (
+          {[
+            { label: '50 km', val: 50 },
+            { label: '100 km', val: 100 },
+            { label: '250 km', val: 250 },
+            { label: '500 km', val: 500 },
+            { label: currentLang === 'hi' ? 'पूरा भारत' : currentLang === 'te' ? 'భారతదేశం' : 'All India', val: 0 }
+          ].map((r) => (
             <button
-              key={r}
+              key={r.val}
               type="button"
-              onClick={() => setSelectedRadius(r)}
-              className={`radius-pill ${selectedRadius === r ? 'active' : ''}`}
+              onClick={() => setSelectedRadius(r.val)}
+              className={`radius-pill ${selectedRadius === r.val ? 'active' : ''}`}
             >
-              {r === 500 ? (currentLang === 'hi' ? 'पूरा भारत' : currentLang === 'te' ? 'మొత్తం భారత్' : 'All India') : `${r} km`}
+              {r.label}
             </button>
           ))}
         </div>
-
-        {/* View Focus Mode Button */}
-        <button
-          type="button"
-          onClick={() => setIsFocusNearMe(!isFocusNearMe)}
-          className={`map-focus-btn ${isFocusNearMe ? 'active' : ''}`}
-          title="Toggle focus on your location"
-        >
-          <Target size={15} />
-          <span>
-            {isFocusNearMe
-              ? (currentLang === 'hi' ? 'पूरा भारत देखें' : currentLang === 'te' ? 'భారతదేశ వీక్షణ' : 'View Full India')
-              : (currentLang === 'hi' ? 'मेरे पास केंद्रित करें' : currentLang === 'te' ? 'నా సమీపంలో జూమ్' : 'Focus Near Me')}
-          </span>
-        </button>
       </div>
 
-      {/* Main Map Viewport & Canvas */}
-      <div className="storage-map-canvas-frame">
-        <div className="map-canvas-viewport" style={transformStyle}>
-          {/* Authentic Vector Silhouette of India with State Corridors */}
-          <svg
-            className="map-svg-background"
-            viewBox="0 0 1000 850"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <defs>
-              <linearGradient id="indiaMapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#1E381D" />
-                <stop offset="45%" stopColor="#142C14" />
-                <stop offset="100%" stopColor="#0B1A0A" />
-              </linearGradient>
-
-              <linearGradient id="peninsulaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="rgba(46, 125, 50, 0.28)" />
-                <stop offset="100%" stopColor="rgba(21, 101, 192, 0.22)" />
-              </linearGradient>
-
-              <pattern id="latLongGrid" width="60" height="60" patternUnits="userSpaceOnUse">
-                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255, 255, 255, 0.04)" strokeWidth="1" />
-              </pattern>
-
-              {/* Glowing Pulse Filter for Radar Routes */}
-              <filter id="routeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
-
-            {/* Dark GIS Base Field */}
-            <rect width="1000" height="850" fill="url(#indiaMapGrad)" rx="20" />
-            <rect width="1000" height="850" fill="url(#latLongGrid)" />
-
-            {/* Oceanic Geographic Labels */}
-            <text x="120" y="650" fill="rgba(96, 165, 250, 0.35)" fontSize="15" fontWeight="700" letterSpacing="4">
-              ARABIAN SEA (अरब सागर)
-            </text>
-            <text x="640" y="620" fill="rgba(96, 165, 250, 0.35)" fontSize="15" fontWeight="700" letterSpacing="4">
-              BAY OF BENGAL (बंगाल की खाड़ी)
-            </text>
-            <text x="350" y="830" fill="rgba(96, 165, 250, 0.35)" fontSize="13" fontWeight="700" letterSpacing="3">
-              INDIAN OCEAN
-            </text>
-
-            {/* AUTHENTIC INDIA GEOGRAPHIC BOUNDARY (Traced mathematically along GPS landmarks) */}
-            <path
-              className="india-national-border"
-              d={`
-                M 286,148
-                L 276,75
-                L 352,65
-                L 402,103
-                L 396,172
-                L 458,212
-                L 570,265
-                L 671,273
-                L 766,278
-                L 864,248
-                L 906,263
-                L 850,319
-                L 828,349
-                L 794,420
-                L 746,375
-                L 710,331
-                L 668,426
-                L 578,479
-                L 522,529
-                L 464,567
-                L 438,646
-                L 424,717
-                L 361,773
-                L 324,727
-                L 284,651
-                L 256,590
-                L 228,496
-                L 223,440
-                L 161,448
-                L 122,415
-                L 156,400
-                L 111,374
-                L 184,359
-                L 172,319
-                L 192,268
-                L 256,217
-                L 284,177
-                Z
-              `}
-              fill="url(#peninsulaGrad)"
-              stroke="#4ADE80"
-              strokeWidth="2.4"
-              strokeLinejoin="round"
-            />
-
-            {/* REGIONAL AGRICULTURAL ZONES & INTERNAL DEMARCATIONS */}
-            {/* 1. Southern Agro Belt (Rayalaseema, Coastal AP, Telangana, Karnataka) */}
-            <path
-              d="M 256,590 Q 340,540 440,540 Q 480,560 464,567 L 438,646 L 424,717 L 361,773 L 324,727 L 284,651 Z"
-              fill="rgba(34, 197, 94, 0.12)"
-              stroke="rgba(74, 222, 128, 0.45)"
-              strokeWidth="1.5"
-              strokeDasharray="5 4"
-            />
-
-            {/* 2. Central Cotton & Soybean Belt (Vidarbha & Malwa / MP & Maharashtra) */}
-            <path
-              d="M 228,496 Q 260,420 314,402 Q 410,400 480,450 Q 460,530 380,540 Q 280,550 256,590 Z"
-              fill="rgba(245, 158, 11, 0.08)"
-              stroke="rgba(245, 158, 11, 0.35)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-            />
-
-            {/* 3. Northern Grain Belt (Punjab, Haryana, Delhi, Western UP) */}
-            <path
-              d="M 284,177 L 256,217 L 352,253 L 458,212 L 396,172 Z"
-              fill="rgba(234, 179, 8, 0.08)"
-              stroke="rgba(234, 179, 8, 0.35)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-            />
-
-            {/* NATIONAL AGRICULTURAL FREIGHT CORRIDORS */}
-            {/* NH-44: Srinagar -> Punjab -> Delhi -> Nagpur -> Hyderabad -> Kurnool -> Anantapur -> Bengaluru -> Kanyakumari */}
-            <path
-              d="M 284,114 L 284,177 L 352,253 L 405,442 L 388,537 L 375,576 L 363,605 L 363,649 L 361,773"
-              fill="none"
-              stroke="#F59E0B"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              opacity="0.85"
-            />
-            {/* NH-16 (Coastal Golden Freight Corridor): Kolkata -> Visakhapatnam -> Vijayawada -> Guntur -> Chennai */}
-            <path
-              d="M 664,406 L 578,479 L 522,529 L 448,559 L 442,564 L 438,646"
-              fill="none"
-              stroke="#38BDF8"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              opacity="0.85"
-            />
-            {/* NH-40 (Rayalaseema Spine): Kurnool -> Kadapa -> Tirupati -> Chittoor */}
-            <path
-              d="M 375,576 Q 390,595 397,611 L 405,642"
-              fill="none"
-              stroke="#10B981"
-              strokeWidth="3"
-              strokeDasharray="6 3"
-              opacity="0.9"
-            />
-
-            {/* Highway Corridor Labels */}
-            <text x="310" y="525" fill="#FBBF24" fontSize="11" fontWeight="800">
-              NH-44 Freight (North-South)
-            </text>
-            <text x="460" y="605" fill="#38BDF8" fontSize="11" fontWeight="800">
-              NH-16 Coastal
-            </text>
-            <text x="395" y="628" fill="#34D399" fontSize="10" fontWeight="700">
-              NH-40 Rayalaseema
-            </text>
-
-            {/* Regional Geographical Labels */}
-            <text x="330" y="195" fill="rgba(255,255,255,0.4)" fontSize="11" fontWeight="600">Punjab & Haryana</text>
-            <text x="340" y="380" fill="rgba(255,255,255,0.4)" fontSize="11" fontWeight="600">Madhya Pradesh (Malwa)</text>
-            <text x="235" y="460" fill="rgba(255,255,255,0.4)" fontSize="11" fontWeight="600">Maharashtra</text>
-            <text x="415" y="525" fill="rgba(255,255,255,0.4)" fontSize="11" fontWeight="600">Telangana</text>
-            <text x="390" y="585" fill="#86EFAC" fontSize="12" fontWeight="800">Andhra Pradesh / Rayalaseema</text>
-
-            {/* DYNAMIC LOGISTICS CONNECTIVITY ROUTES FROM USER TO NEAREST CENTERS */}
-            {routeTargetPins.map((targetPin) => {
-              const targetProj = projectGeo(targetPin.lat, targetPin.lng);
-              const isStorage = targetPin.type === 'storage';
-              const lineColor = isStorage ? '#38BDF8' : '#4ADE80';
-
-              return (
-                <g key={`route-${targetPin.id}`}>
-                  {/* Glowing Connection Line */}
-                  <line
-                    x1={userProjected.x}
-                    y1={userProjected.y}
-                    x2={targetProj.x}
-                    y2={targetProj.y}
-                    stroke={lineColor}
-                    strokeWidth="2.5"
-                    strokeDasharray="6 4"
-                    strokeLinecap="round"
-                    filter="url(#routeGlow)"
-                    opacity="0.9"
-                  />
-                  {/* Distance Indicator midpoint */}
-                  <circle
-                    cx={(userProjected.x + targetProj.x) / 2}
-                    cy={(userProjected.y + targetProj.y) / 2}
-                    r="4"
-                    fill={lineColor}
-                  />
-                </g>
-              );
-            })}
-
-            {/* USER RADAR COVERAGE RADIUS CIRCLE (Mapped in Geographic Scale) */}
-            {selectedRadius < 500 && (
-              <g>
-                <circle
-                  cx={userProjected.x}
-                  cy={userProjected.y}
-                  r={Math.min(220, Math.max(22, (selectedRadius / 100) * 58))}
-                  fill="rgba(245, 158, 11, 0.08)"
-                  stroke="#F59E0B"
-                  strokeWidth="1.8"
-                  strokeDasharray="4 3"
-                />
-                <circle
-                  cx={userProjected.x}
-                  cy={userProjected.y}
-                  r={Math.min(220, Math.max(22, (selectedRadius / 100) * 58)) * 0.6}
-                  fill="none"
-                  stroke="rgba(245, 158, 11, 0.35)"
-                  strokeWidth="1"
-                />
-              </g>
-            )}
-          </svg>
-
-          {/* INTERACTIVE PINS LAYER OVERLAY */}
-          <div className="map-pins-container">
-            {filteredPins.map((pin) => {
-              const proj = projectGeo(pin.lat, pin.lng);
-              const isSelected = pin.id === activePin.id;
-              const isStorage = pin.type === 'storage';
-              const isZeroKm = pin.distanceKm === 0;
-
-              return (
-                <div
-                  key={pin.id}
-                  onClick={() => setActivePinId(pin.id)}
-                  className={`map-interactive-pin ${pin.type} ${isSelected ? 'selected' : ''}`}
-                  style={{
-                    left: `${proj.pctX}%`,
-                    top: `${proj.pctY}%`
-                  }}
-                  title={`${pin.name[currentLang]} (${pin.distanceKm} km)`}
-                >
-                  <div className="pin-marker-body">
-                    {isStorage ? <Warehouse size={13} /> : <TrendingUp size={13} />}
-                  </div>
-
-                  <div className="pin-popup-pill">
-                    <span className="pill-name">
-                      {pin.name[currentLang].split(' ')[0]}
-                      {isZeroKm && ' ★'}
-                    </span>
-                    <span className="pill-detail">
-                      {isZeroKm ? '0 km' : `${pin.distanceKm} km`} • {pin.highlightText}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* USER FARM / CURRENT LOCATION PIN (Rendered at exact GPS coordinates) */}
-            <div
-              className="map-user-farm-pin"
-              style={{
-                left: `${userProjected.pctX}%`,
-                top: `${userProjected.pctY}%`
-              }}
-            >
-              <div className="farm-pulse-ring" />
-              <div className="farm-pin-icon">
-                <MapPin size={17} />
-              </div>
-              <span className="farm-pin-badge">
-                📍 {currentLang === 'hi' ? 'आपकी लोकेशन' : currentLang === 'te' ? 'మీ స్థానం' : 'Your Location'}:{' '}
-                {currentLocation?.name[currentLang] || 'Kurnool'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Floating Zoom & Compass Controls */}
-        <div className="map-floating-controls">
+      {/* Commodity Filter Chips */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+          {currentLang === 'hi' ? 'फसल अनुसार:' : currentLang === 'te' ? 'పంట ప్రకారం:' : 'Crop Specialized:'}
+        </span>
+        {[
+          { id: 'all', label: currentLang === 'hi' ? 'सभी फसलें' : currentLang === 'te' ? 'అన్ని పంటలు' : 'All Crops' },
+          { id: 'Chilli', label: currentLang === 'hi' ? '🌶️ मिर्च व मसाले' : currentLang === 'te' ? '🌶️ మిర్చి & స్పైసెస్' : '🌶️ Chilli & Spices' },
+          { id: 'Tomato', label: currentLang === 'hi' ? '🍅 टमाटर व सब्जियां' : currentLang === 'te' ? '🍅 టమోటా & కూరగాయలు' : '🍅 Tomato & Veg' },
+          { id: 'Potato', label: currentLang === 'hi' ? '🥔 आलू व लहसुन' : currentLang === 'te' ? '🥔 బంగాళాదుంప' : '🥔 Potato & Garlic' },
+          { id: 'Onion', label: currentLang === 'hi' ? '🧅 प्याज' : currentLang === 'te' ? '🧅 ఉల్లి' : '🧅 Onion' },
+          { id: 'Apple', label: currentLang === 'hi' ? '🍎 सेब व फल (CA)' : currentLang === 'te' ? '🍎 యాపిల్ & పండ్లు' : '🍎 Apple & Fruits' }
+        ].map((c) => (
           <button
+            key={c.id}
             type="button"
-            onClick={() => setZoomLevel((z) => Math.min(1.7, z + 0.15))}
-            className="map-ctrl-btn"
-            title="Zoom In"
-          >
-            <ZoomIn size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.15))}
-            className="map-ctrl-btn"
-            title="Zoom Out"
-          >
-            <ZoomOut size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoomLevel(1);
-              setIsFocusNearMe(false);
+            onClick={() => setSelectedCommodity(c.id)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '20px',
+              border: selectedCommodity === c.id ? '1.5px solid #0284C7' : '1px solid #CBD5E1',
+              background: selectedCommodity === c.id ? '#0284C7' : '#FFFFFF',
+              color: selectedCommodity === c.id ? '#FFFFFF' : '#334155',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease'
             }}
-            className="map-ctrl-btn reset"
-            title="Reset Map Fit (All India)"
           >
-            <Compass size={16} />
+            {c.label}
           </button>
-        </div>
-
-        {/* Map Legend */}
-        <div className="map-legend-strip">
-          <div className="legend-item">
-            <span className="legend-color mandi" />
-            <span>{currentLang === 'hi' ? 'सरकारी एपीएमसी मंडी (APMC Yard)' : currentLang === 'te' ? 'మార్కెట్ యార్డ్' : 'APMC Mandi'}</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color storage" />
-            <span>{currentLang === 'hi' ? 'कोल्ड स्टोरेज (शीतगृह)' : currentLang === 'te' ? 'కోల్డ్ స్టోరేజ్' : 'Cold Storage'}</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color corridor" />
-            <span>{currentLang === 'hi' ? 'राष्ट्रीय कृषि कॉरिडोर (NH-44 / NH-16)' : currentLang === 'te' ? 'రవాణా రహదారులు' : 'National Corridors'}</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-color user" />
-            <span>{currentLang === 'hi' ? 'आपकी लोकेशन' : currentLang === 'te' ? 'మీ స్థానం' : 'Your Farm'}</span>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* SECTION 2: MANDI LOCATIONS NEAR USER LOCATION (RANKED LIST) */}
-      <div className="nearby-mandis-section">
-        <div className="nearby-section-header">
-          <div className="n-title-left">
-            <TrendingUp size={22} className="n-icon" />
-            <div>
-              <h3 className="nearby-title">
-                {currentLang === 'hi'
-                  ? `🌾 ${currentLocation?.name[currentLang] || 'आपके'} निकटतम प्रमुख मंडी यार्ड (Mandi Locations Near You)`
-                  : currentLang === 'te'
-                  ? `🌾 ${currentLocation?.name[currentLang] || 'మీ'} సమీపంలోని మార్కెట్ యార్డులు (Nearby Mandis)`
-                  : `🌾 Mandi Locations Near ${currentLocation?.name[currentLang] || 'You'} (Sorted by Distance)`}
-              </h3>
-              <p className="nearby-sub">
-                {currentLang === 'hi'
-                  ? 'रियल-टाइम दूरी, मॉडल भाव व आज की आवक (किसी भी मंडी पर क्लिक करके नक्शे पर देखें)'
-                  : currentLang === 'te'
-                  ? 'నిజ-సమయ దూరం, మోడల్ ధర మరియు సరుకు రాక (మ్యాప్‌పై చూడటానికి క్లిక్ చేయండి)'
-                  : 'Real-time driving distance, modal prices & arrivals. Click to inspect on map.'}
-              </p>
-            </div>
-          </div>
-          <span className="nearby-count-pill">
-            {nearbyMandis.length}{' '}
-            {currentLang === 'hi' ? 'मंडियां उपलब्ध' : currentLang === 'te' ? 'మార్కెట్లు' : 'Mandis Listed'}
-          </span>
-        </div>
+      {/* Main Two-Column Cockpit Layout: Left Directory + Right Full-Height Interactive Map */}
+      <div className="farmer-map-cockpit-grid">
+        {/* Left Column: Spotlight Card + Scrollable Directory */}
+        <div className="farmer-facilities-panel">
+          {/* Active Facility Spotlight Card */}
+          {activeFacility && (
+            <div className={`spotlight-focus-card ${activeFacility.type}`}>
+              <div className="s-type-badge-row">
+                <span className={`s-type-pill ${activeFacility.type}`}>
+                  {activeFacility.type === 'storage' ? <Warehouse size={14} /> : <TrendingUp size={14} />}
+                  {activeFacility.type === 'storage'
+                    ? (currentLang === 'hi' ? 'कोल्ड स्टोरेज एवं गोदाम' : currentLang === 'te' ? 'కోల్డ్ స్టోరేజ్ & గోదాము' : 'Cold Storage Facility')
+                    : (currentLang === 'hi' ? 'एपीएमसी अनाज मंडी' : currentLang === 'te' ? 'మార్కెట్ యార్డ్' : 'APMC Market Yard')}
+                </span>
+                <span className="s-dist-pill">
+                  <Navigation size={13} />
+                  {activeFacility.distanceKm} km {currentLang === 'hi' ? 'दूरी' : currentLang === 'te' ? 'దూరం' : 'away'}
+                </span>
+              </div>
 
-        {/* Horizontal Scroll / Grid of Mandi Cards */}
-        <div className="nearby-mandis-grid">
-          {nearbyMandis.slice(0, 6).map((mandi, idx) => {
-            const isSelected = mandi.id === activePin.id;
-            const isClosest = idx === 0;
+              <h3 className="s-facility-name">{activeFacility.name[currentLang] || activeFacility.name.en}</h3>
+              <p className="s-facility-loc">📍 {activeFacility.location[currentLang] || activeFacility.location.en}</p>
 
-            return (
-              <div
-                key={mandi.id}
-                onClick={() => setActivePinId(mandi.id)}
-                className={`nearby-mandi-card ${isSelected ? 'active' : ''} ${isClosest ? 'closest-highlight' : ''}`}
-              >
-                <div className="card-dist-badge-row">
-                  <span className={`distance-pill ${isClosest ? 'closest' : ''}`}>
-                    <Navigation size={12} />
-                    {mandi.distanceKm === 0 ? '0 km (Local Yard)' : `${mandi.distanceKm} km`}
+              {/* Farmer Freight Estimator */}
+              <div className="freight-estimate-banner">
+                <Truck size={16} className="truck-icon" />
+                <div className="freight-text">
+                  <span className="freight-title">
+                    {currentLang === 'hi' ? 'अनुमानित भाड़ा (ट्रैक्टर/ऑटो)' : currentLang === 'te' ? 'అంచనా రవాణా ఖర్చు' : 'Estimated Transit Freight'}:
                   </span>
-                  {isClosest && (
-                    <span className="closest-tag">
-                      <Sparkles size={11} />
-                      {currentLang === 'hi' ? 'सबसे पास' : currentLang === 'te' ? 'అత్యంత సమీపం' : 'Closest'}
+                  <strong className="freight-cost">₹{estimatedFreight.toLocaleString()}</strong>
+                  <span className="freight-rate">(@ ₹24/km)</span>
+                </div>
+              </div>
+
+              {/* Cold Storage Detailed Metrics */}
+              {activeFacility.type === 'storage' && activeFacility.vacantBags !== undefined && activeFacility.totalBags !== undefined && (
+                <div className="spotlight-storage-metrics">
+                  {/* Occupancy Status & Gauge */}
+                  <div className="storage-meter-row">
+                    <div className="meter-label-left">
+                      <span className="m-title">{t.vacantBagsLabel}</span>
+                      <strong className="m-val">
+                        {activeFacility.vacantBags.toLocaleString()} / {activeFacility.totalBags.toLocaleString()} {t.bagsUnit}
+                        <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600, marginLeft: '4px' }}>
+                          ({activeFacility.availableMt} MT free)
+                        </span>
+                      </strong>
+                    </div>
+                    <span
+                      className="meter-percent"
+                      style={{
+                        color:
+                          (activeFacility.occupancyPct || 0) < 70
+                            ? '#059669'
+                            : (activeFacility.occupancyPct || 0) < 88
+                            ? '#D97706'
+                            : '#DC2626'
+                      }}
+                    >
+                      {activeFacility.occupancyPct}% {currentLang === 'hi' ? 'भरा हुआ' : currentLang === 'te' ? 'నిండింది' : 'Occupied'}
                     </span>
+                  </div>
+
+                  <div className="s-progress-track">
+                    <div
+                      className="s-progress-fill"
+                      style={{
+                        width: `${Math.min(100, activeFacility.occupancyPct || 50)}%`,
+                        background:
+                          (activeFacility.occupancyPct || 0) < 70
+                            ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                            : (activeFacility.occupancyPct || 0) < 88
+                            ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
+                            : 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                      }}
+                    />
+                  </div>
+
+                  {/* Pricing and Temperature Specs */}
+                  <div className="storage-tags-row" style={{ marginBottom: '8px' }}>
+                    <span className="s-rent-tag">
+                      💰 ₹{activeFacility.rentPerBagPerMonth} {currentLang === 'hi' ? '/ बोरी / माह' : currentLang === 'te' ? '/ బస్తాకు / నెలకు' : '/ bag / month'}
+                    </span>
+                    <span className="s-rent-tag" style={{ background: '#EFF6FF', borderColor: '#BFDBFE', color: '#1E40AF' }}>
+                      ⚖️ ₹{activeFacility.monthlyRentPerQtl} {currentLang === 'hi' ? '/ क्विंटल / माह' : currentLang === 'te' ? '/ క్వింటాల్‌కు' : '/ qtl / month'}
+                    </span>
+                    {activeFacility.tempRangeC && (
+                      <span className="s-feat-chip">
+                        <ThermometerSnowflake size={12} /> {activeFacility.tempRangeC}
+                      </span>
+                    )}
+                    {activeFacility.chambers && (
+                      <span className="s-feat-chip">
+                        <Box size={12} /> {activeFacility.chambers} {currentLang === 'hi' ? 'चैंबर' : currentLang === 'te' ? 'ఛాంబర్లు' : 'Chambers'}
+                      </span>
+                    )}
+                    {activeFacility.hasFumigation && (
+                      <span className="s-feat-chip">
+                        <ShieldCheck size={12} /> Fumigation Certified
+                      </span>
+                    )}
+                  </div>
+
+                  {/* WDRA Accreditation Badge */}
+                  {activeFacility.wdraAccredited && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '6px 10px', borderRadius: '8px', fontSize: '11.5px', color: '#92400E', fontWeight: 600, marginBottom: '10px' }}>
+                      <Award size={16} color="#D97706" style={{ flexShrink: 0 }} />
+                      <span>
+                        {currentLang === 'hi'
+                          ? '🏅 WDRA पंजीकृत गोदाम • ई-एनडब्ल्यूआर (e-NWR) रसीद पर 7% रियायती बैंक गिरवी ऋण हेतु पात्र'
+                          : currentLang === 'te'
+                          ? '🏅 WDRA ఆమోదిత గోదాము • ఈ-ఎన్‌డబ్ల్యూఆర్ రశీదుతో బ్యాంకుల్లో 7% తాకట్టు రుణం అర్హత'
+                          : '🏅 WDRA Accredited • Eligible for 7% Post-Harvest Pledge Loans via e-NWR at Nationalized Banks'}
+                      </span>
+                    </div>
                   )}
-                  {mandi.trend === 'up' && <span className="price-trend-up">▲ Rising</span>}
+
+                  {/* Specialized Commodities Chips */}
+                  {activeFacility.crops && activeFacility.crops.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 700 }}>
+                        {currentLang === 'hi' ? 'विशेषज्ञता:' : currentLang === 'te' ? 'పంటలు:' : 'Crops:'}
+                      </span>
+                      {activeFacility.crops.map((cr) => (
+                        <span key={cr} style={{ background: '#F1F5F9', color: '#334155', padding: '2px 7px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+                          {cr}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              )}
 
-                <h4 className="mandi-card-name">{mandi.name[currentLang]}</h4>
-                <p className="mandi-card-loc">📍 {mandi.location[currentLang]}</p>
-
-                <div className="mandi-card-stats-box">
-                  <div className="stat-unit">
-                    <span className="stat-label">
-                      {mandi.cropName?.[currentLang] || (currentLang === 'hi' ? 'फसल' : 'Crop')}
+              {/* Mandi Metrics */}
+              {activeFacility.type === 'mandi' && activeFacility.mandiPrice && (
+                <div className="spotlight-mandi-metrics">
+                  <div className="mandi-price-badge-box">
+                    <span className="mp-label">
+                      {t.commonModalBadge} ({activeFacility.cropName?.[currentLang] || activeFacility.cropName?.en}):
                     </span>
-                    <strong className="stat-val price">
-                      ₹{mandi.mandiPrice?.toLocaleString()} /qt
-                    </strong>
+                    <span className="mp-rate">₹{activeFacility.mandiPrice.toLocaleString()} {t.quintalUnit}</span>
                   </div>
-                  <div className="stat-unit">
-                    <span className="stat-label">{currentLang === 'hi' ? 'दैनिक आवक' : 'Arrivals'}</span>
-                    <strong className="stat-val arrivals">{mandi.arrivals || '15,000 Bags'}</strong>
+                  <span className="e-nam-tag">
+                    <CheckCircle2 size={13} /> {t.enamVerified}
+                  </span>
+                </div>
+              )}
+
+              {/* Farmer Decision Helper: Store vs Sell Today */}
+              {activeFacility.type === 'storage' && (
+                <div className="farmer-arbitrage-box">
+                  <div className="arb-badge">💡 {currentLang === 'hi' ? 'किसान लाभ विश्लेषण (भंडारण बनाम आज की बिक्री)' : currentLang === 'te' ? 'రైతు లాభ విశ్లేషణ (నిల్వ vs అమ్మకం)' : 'Farmer Decision Analysis: Store vs Sell Today'}</div>
+                  <div className="arb-grid">
+                    <div className="arb-col">
+                      <span className="arb-lbl">{currentLang === 'hi' ? 'आज मंडी भाव:' : currentLang === 'te' ? 'నేటి మార్కెట్ ధర:' : 'Today APMC Rate:'}</span>
+                      <strong className="arb-val danger">₹2,600 / qtl</strong>
+                    </div>
+                    <div className="arb-col">
+                      <span className="arb-lbl">{currentLang === 'hi' ? '60 दिन बाद भाव:' : currentLang === 'te' ? '60 రోజుల తర్వాత:' : 'Expected in 60d:'}</span>
+                      <strong className="arb-val success">₹3,850 / qtl</strong>
+                    </div>
+                    <div className="arb-col">
+                      <span className="arb-lbl">{currentLang === 'hi' ? 'शुद्ध अतिरिक्त लाभ:' : currentLang === 'te' ? 'నికర లాభం:' : 'Net Storage Gain:'}</span>
+                      <strong className="arb-val highlight">+₹1,194 / qtl (+45%)</strong>
+                    </div>
                   </div>
+                  <p className="arb-hint">ℹ️ {currentLang === 'hi' ? '60 दिनों का कोल्ड स्टोरेज किराया (₹56/qtl) व हैंडलिंग घटाकर शुद्ध अतिरिक्त आय।' : currentLang === 'te' ? '60 రోజుల అద్దె మరియు ఖర్చులు మినహాయించిన తర్వాత నికర లాభం.' : 'Net gain calculated after deducting 60-day storage fee & handling costs.'}</p>
                 </div>
-
-                <div className="mandi-card-footer">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActivePinId(mandi.id);
-                    }}
-                    className="card-inspect-btn"
-                  >
-                    <MapIcon size={13} />
-                    <span>{currentLang === 'hi' ? 'नक्शे पर देखें' : currentLang === 'te' ? 'మ్యాప్‌లో చూపు' : 'View on Map'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenHelpline(mandi.contactPhone);
-                    }}
-                    className="card-call-btn"
-                    title={`Call APMC: ${mandi.contactPhone}`}
-                  >
-                    <PhoneCall size={13} />
-                    <span>Call</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* SECTION 3: SELECTED FACILITY / MANDI SPOTLIGHT INSPECTION CARD */}
-      <div className="selected-facility-spotlight-card">
-        <div className="spotlight-header">
-          <div className="s-type-badge-row">
-            <span className={`s-type-pill ${activePin.type}`}>
-              {activePin.type === 'storage' ? <Warehouse size={14} /> : <TrendingUp size={14} />}
-              {activePin.type === 'storage'
-                ? (currentLang === 'hi' ? 'कोल्ड स्टोरेज (शीतगृह)' : currentLang === 'te' ? 'కోల్డ్ స్టోరేజ్' : 'Cold Storage Facility')
-                : (currentLang === 'hi' ? 'सरकारी एपीएमसी मंडी यार्ड' : currentLang === 'te' ? 'ప్రభుత్వ మార్కెట్ యార్డ్' : 'APMC Market Yard')}
-            </span>
-            <span className="s-dist-pill">
-              <Navigation size={13} />
-              {activePin.distanceKm === 0
-                ? (currentLang === 'hi' ? 'आपके शहर में स्थित' : currentLang === 'te' ? 'మీ నగరంలోనే ఉంది' : 'In Your Town (0 km)')
-                : `${activePin.distanceKm} km ${currentLang === 'hi' ? 'दूरी' : currentLang === 'te' ? 'దూరం' : 'away from you'}`}
-            </span>
-          </div>
-
-          <h3 className="s-facility-name">{activePin.name[currentLang]}</h3>
-          <p className="s-facility-loc">📍 {activePin.location[currentLang]}</p>
-        </div>
-
-        {/* Dynamic Storage Meter */}
-        {activePin.storageRef && (
-          <div className="spotlight-storage-metrics">
-            <div className="storage-meter-row">
-              <div className="meter-label-left">
-                <span className="m-title">{t.vacantBagsLabel}</span>
-                <strong className="m-val">
-                  {activePin.storageRef.vacantCapacityBags.toLocaleString()} /{' '}
-                  {activePin.storageRef.totalCapacityBags.toLocaleString()} {t.bagsUnit}
-                </strong>
-              </div>
-              <span className="meter-percent">
-                {Math.round((activePin.storageRef.vacantCapacityBags / activePin.storageRef.totalCapacityBags) * 100)}%{' '}
-                {t.spaceFree}
-              </span>
-            </div>
-            <div className="s-progress-track">
-              <div
-                className="s-progress-fill"
-                style={{
-                  width: `${Math.round(
-                    (activePin.storageRef.vacantCapacityBags / activePin.storageRef.totalCapacityBags) * 100
-                  )}%`
-                }}
-              />
-            </div>
-            <div className="storage-tags-row">
-              <span className="s-rent-tag">
-                💰 ₹{activePin.storageRef.rentPerBagPerMonth}{' '}
-                {currentLang === 'hi' ? '/ बोरी/माह' : currentLang === 'te' ? '/ బస్తాకు/నెలకు' : '/ bag/mo'}
-              </span>
-              {activePin.storageRef.temperatureControlled && (
-                <span className="s-feat-chip">
-                  <ThermometerSnowflake size={12} /> Temp Controlled (2°C - 4°C)
-                </span>
               )}
-              {activePin.storageRef.hasFumigation && (
-                <span className="s-feat-chip">
-                  <ShieldCheck size={12} /> Certified Fumigation
-                </span>
-              )}
+
+              {/* Action Buttons: Call, Directions, Booking */}
+              <div className="spotlight-actions-row">
+                <a
+                  href={`tel:${activeFacility.contactPhone.replace(/[^\d+]/g, '')}`}
+                  onClick={() => onOpenHelpline(activeFacility.contactPhone)}
+                  className="s-call-btn"
+                >
+                  <PhoneCall size={16} color="#059669" />
+                  <span>{activeFacility.contactPhone}</span>
+                </a>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${farmerCoords.lat},${farmerCoords.lng}&destination=${activeFacility.lat},${activeFacility.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="s-directions-btn"
+                >
+                  <ExternalLink size={15} />
+                  <span>{currentLang === 'hi' ? 'रास्ता देखें (Maps)' : currentLang === 'te' ? 'రూట్ మ్యాప్' : 'Directions'}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenBookingGate(activeFacility.name[currentLang] || activeFacility.name.en)}
+                  className="s-book-btn"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{activeFacility.type === 'storage' ? t.bookStorageBtn : t.shareWhatsapp}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Scrollable Facilities Quick List */}
+          <div className="facilities-scroll-list">
+            <div className="list-heading-bar">
+              <span className="list-count-badge">
+                {filteredFacilities.length} {currentLang === 'hi' ? 'उपलब्ध केंद्र' : currentLang === 'te' ? 'కేంద్రాలు' : 'Verified Facilities Found'}
+              </span>
+              <span className="list-sort-hint">
+                {currentLang === 'hi' ? 'जीपीएस दूरी अनुसार क्रमबद्ध' : currentLang === 'te' ? 'దూరం ప్రకారం' : 'Sorted by GPS Proximity'}
+              </span>
+            </div>
+
+            <div className="cards-scroll-container">
+              {filteredFacilities.map((f) => {
+                const isSelected = f.id === activeFacilityId;
+                const isStorage = f.type === 'storage';
+
+                return (
+                  <div
+                    key={f.id}
+                    onClick={() => setActiveFacilityId(f.id)}
+                    className={`mini-facility-card ${isStorage ? 'storage' : 'mandi'} ${isSelected ? 'selected' : ''}`}
+                  >
+                    <div className="card-top-line">
+                      <span className={`mini-type-icon ${isStorage ? 'storage' : 'mandi'}`}>
+                        {isStorage ? '❄️' : '🌾'}
+                      </span>
+                      <strong className="mini-card-title">{f.name[currentLang] || f.name.en}</strong>
+                      <span className="mini-dist-tag">{f.distanceKm} km</span>
+                    </div>
+                    <div className="card-bot-line">
+                      <span className="mini-loc-text">📍 {f.district}, {f.state}</span>
+                      <span className="mini-highlight-text">
+                        {isStorage && f.rentPerBagPerMonth ? `₹${f.rentPerBagPerMonth}/bag • ${f.highlightText}` : f.highlightText}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Dynamic Mandi Rate Details */}
-        {activePin.mandiPrice && (
-          <div className="spotlight-mandi-metrics">
-            <div className="mandi-price-badge-box">
-              <span className="mp-label">
-                {t.commonModalBadge} ({activePin.cropName?.[currentLang]}):
-              </span>
-              <span className="mp-rate">
-                ₹{activePin.mandiPrice.toLocaleString()} {t.quintalUnit}
-              </span>
+        {/* Right Column: Full-Height Interactive Leaflet Map */}
+        <div className="farmer-map-viewport-panel">
+          {/* Map Top Floating Tools: Layer Switcher & Recenter */}
+          <div className="map-float-tools">
+            <div className="layer-toggle-group">
+              <button
+                type="button"
+                onClick={() => setMapLayer('streets')}
+                className={`layer-btn ${mapLayer === 'streets' ? 'active' : ''}`}
+              >
+                <Layers size={14} />
+                <span>{currentLang === 'hi' ? 'सड़क नक्शा' : currentLang === 'te' ? 'రోడ్డు మ్యాప్' : 'Road & District'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapLayer('satellite')}
+                className={`layer-btn ${mapLayer === 'satellite' ? 'active' : ''}`}
+              >
+                <Satellite size={14} />
+                <span>{currentLang === 'hi' ? 'सैटेलाइट व्यू' : currentLang === 'te' ? 'శాటిలైట్' : 'Satellite'}</span>
+              </button>
             </div>
-            <span className="e-nam-tag">
-              <CheckCircle2 size={13} /> {t.enamVerified} • Today's Yard Arrivals: {activePin.arrivals || '18,000 Bags'}
-            </span>
-          </div>
-        )}
 
-        {/* Action Dialers */}
-        <div className="spotlight-actions-row">
-          <button
-            type="button"
-            onClick={() => onOpenHelpline(activePin.contactPhone)}
-            className="s-call-btn"
-          >
-            <PhoneCall size={16} />
-            <span>{currentLang === 'hi' ? 'कॉल करें' : currentLang === 'te' ? 'కాల్ చేయండి' : 'Call APMC'}: {activePin.contactPhone}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenBookingGate(activePin.name[currentLang])}
-            className="s-book-btn"
-          >
-            <CheckCircle2 size={16} />
-            <span>{activePin.type === 'storage' ? t.bookStorageBtn : t.shareWhatsapp}</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleRecenter}
+              className="map-recenter-btn"
+              title="Recenter on your farm"
+            >
+              <RotateCcw size={14} />
+              <span>{currentLang === 'hi' ? 'मेरा खेत' : currentLang === 'te' ? 'నా పొలం' : 'My Farm Origin'}</span>
+            </button>
+          </div>
+
+          {/* Leaflet Map Target DOM */}
+          <div ref={mapContainerRef} className="leaflet-map-target-dom" />
+
+          {/* Map Bottom Legend Overlay */}
+          <div className="leaflet-map-legend-bar">
+            <div className="leg-item">
+              <span className="leg-dot farm" style={{ background: '#10B981' }} />
+              <span>{currentLang === 'hi' ? 'आपका खेत (GPS)' : currentLang === 'te' ? 'మీ క్షేత్రం' : 'Farm GPS Base'}</span>
+            </div>
+            <div className="leg-item">
+              <span className="leg-dot storage" style={{ background: '#0284C7' }} />
+              <span>{currentLang === 'hi' ? 'कोल्ड स्टोरेज (ब्लू)' : currentLang === 'te' ? 'కోల్డ్ స్టోరేజ్' : 'Cold Storage'}</span>
+            </div>
+            <div className="leg-item">
+              <span className="leg-dot mandi" style={{ background: '#16A34A' }} />
+              <span>{currentLang === 'hi' ? 'एपीएमसी मंडी (ग्रीन)' : currentLang === 'te' ? 'మార్కెట్ యార్డ్' : 'APMC Mandi'}</span>
+            </div>
+            <div className="leg-item">
+              <span className="leg-line route" style={{ borderTop: '2px dashed #0284C7', width: '20px' }} />
+              <span>{currentLang === 'hi' ? 'सड़क मार्ग' : currentLang === 'te' ? 'రవాణా మార్గం' : 'Transit Route'}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -19,6 +19,9 @@ service-account*.json
 secrets/
 
 # Local data and artifacts
+*.db
+*.sqlite
+*.sqlite3
 backend/data/rag_docs/*.pdf
 backend/data/*.sqlite
 backend/data/chroma/

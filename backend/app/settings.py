@@ -9,8 +9,19 @@ class Settings(BaseSettings):
     model_fast: str = "gemini-2.5-flash"
     model_strong: str = "gemini-2.5-pro"
 
-    # Location Services
+    # Database (PostgreSQL 16+ Primary, fallback SQLite)
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/kisan_sethu"
+
+    # Redis Cache Server
+    redis_url: str = "redis://localhost:6379/0"
+    redis_ttl_mandi: int = 900          # 15 minutes for live mandi arrivals
+    redis_ttl_weather: int = 3600       # 1 hour for operational weather & spray advisories
+    redis_ttl_storage: int = 21600      # 6 hours for cold storage facilities
+    redis_ttl_schemes: int = 43200      # 12 hours for government loan & subsidy schemes
+
+    # Location Services & Climate APIs
     google_maps_api_key: str = ""
+    google_weather_api_key: str = ""
 
     # Ingestion & External APIs
     data_gov_api_key: str = ""
