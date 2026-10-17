@@ -4,7 +4,6 @@
 3. Mandi Logistics calculation and corridors
 4. Price Alert subscription and retrieval
 5. Farmer Profile login and fetch
-6. Educational grading matrix
 """
 import sys
 from pathlib import Path
@@ -97,12 +96,7 @@ def test_new_endpoints():
     assert res.status_code == 200, f"Farmer profile fetch failed: {res.text}"
     print("[PASS] GET /v1/farmer/profile:", res.json()["profile"]["farmer_name"], "| Lang:", res.json()["profile"]["preferred_lang"])
 
-    # 6. Educational
-    res = client.get("/v1/db/educational/grading-matrix?crop_key=chilli&lang=en")
-    assert res.status_code == 200, f"Grading matrix failed: {res.text}"
-    print("[PASS] GET /v1/db/educational/grading-matrix:", len(res.json()["grades"]), "grades")
-
-    print("\nALL 10 NEW ENDPOINTS TESTED AND PASSED WITH 200 OK!")
+    print("\nALL NEW ENDPOINTS TESTED AND PASSED WITH 200 OK!")
 
 if __name__ == "__main__":
     test_new_endpoints()

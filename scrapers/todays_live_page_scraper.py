@@ -908,8 +908,264 @@ MASTER_AGRICULTURAL_CATALOG: list[dict[str, Any]] = [
             {"market": "Delhi Khari Baoli", "price_qtl": 2350000, "distance": "Air Courier"}
         ],
         "helpdesk": "1800-180-7788"
+    },
+    # ---------------- 9. MUSHROOMS & FUNGI ----------------
+    {
+        "commodity": "Button Mushroom",
+        "crop_key": "button_mushroom",
+        "icon": "🍄",
+        "aliases": ["mushroom", "button mushroom", "white button mushroom", "khumb", "kalan", "mushrooms", "white mushroom", "fresh mushroom"],
+        "category": "Fungi / Edible Mushrooms",
+        "market": "Solan APMC Yard",
+        "district": "Solan",
+        "state": "Himachal Pradesh",
+        "variety": "White Button (A1 Fresh)",
+        "base_modal_qtl": 14000.0,
+        "grade_a_range": (14500.0, 16500.0),
+        "grade_b_range": (12000.0, 14000.0),
+        "grade_c_range": (8500.0, 11000.0),
+        "arrival_quintals": 320.0,
+        "trend": "UP",
+        "selling_advice": "EXCELLENT DEMAND IN URBAN CENTERS: HARVEST CLOSED CUPS BEFORE CAP OPENS (+₹20/kg)",
+        "weather_alert": "Maintain cold chain 2-4°C during transport to prevent browning.",
+        "nearest_markets": [
+            {"market": "Chandigarh Sector 26 Mandi", "price_qtl": 15200, "distance": "1.5 hrs away"},
+            {"market": "Delhi Azadpur APMC", "price_qtl": 16000, "distance": "4.5 hrs away"}
+        ],
+        "helpdesk": "1800-180-2211"
+    },
+    {
+        "commodity": "Oyster Mushroom",
+        "crop_key": "oyster_mushroom",
+        "icon": "🍄",
+        "aliases": ["oyster mushroom", "dhingri", "dhingri mushroom", "pleurotus", "grey oyster"],
+        "category": "Fungi / Edible Mushrooms",
+        "market": "Pune Gultekdi APMC",
+        "district": "Pune",
+        "state": "Maharashtra",
+        "variety": "Pleurotus Florida / Grey Oyster",
+        "base_modal_qtl": 16000.0,
+        "grade_a_range": (16500.0, 19000.0),
+        "grade_b_range": (13500.0, 15500.0),
+        "grade_c_range": (9000.0, 12000.0),
+        "arrival_quintals": 110.0,
+        "trend": "UP",
+        "selling_advice": "HIGH HOTEL & RESTAURANT INQUIRY: DISPATCH AIR-PERFORATED TRAYS SAME DAY (+₹250/qtl)",
+        "weather_alert": "Avoid moisture condensation on packaging to prevent spoilage.",
+        "nearest_markets": [
+            {"market": "Mumbai Vashi APMC", "price_qtl": 17800, "distance": "2.8 hrs away"},
+            {"market": "Nashik APMC Yard", "price_qtl": 15500, "distance": "3.5 hrs away"}
+        ],
+        "helpdesk": "1800-180-3322"
+    },
+    # ---------------- 10. EXOTIC & NATIVE FRUITS ----------------
+    {
+        "commodity": "Dragon Fruit",
+        "crop_key": "dragon_fruit",
+        "icon": "🐉",
+        "aliases": ["dragon fruit", "pitaya", "kamalam", "red dragon fruit", "white dragon fruit", "dragonfruit"],
+        "category": "Fruits / Exotic",
+        "market": "Bhuj APMC Yard",
+        "district": "Kutch",
+        "state": "Gujarat",
+        "variety": "Red Flesh Super Sweet (Kamalam)",
+        "base_modal_qtl": 12500.0,
+        "grade_a_range": (13000.0, 15500.0),
+        "grade_b_range": (10500.0, 12200.0),
+        "grade_c_range": (7000.0, 9500.0),
+        "arrival_quintals": 450.0,
+        "trend": "UP",
+        "selling_advice": "STRONG METRO DEMAND: 400G+ BOLD FRUITS FETCH 25% PREMIUM AT APMC (+₹400/qtl)",
+        "weather_alert": "Cushion with foam netting before transport to avoid spine bruises.",
+        "nearest_markets": [
+            {"market": "Ahmedabad APMC", "price_qtl": 13800, "distance": "5.0 hrs away"},
+            {"market": "Rajkot APMC", "price_qtl": 13200, "distance": "3.8 hrs away"}
+        ],
+        "helpdesk": "1800-180-4433"
+    },
+    {
+        "commodity": "Avocado",
+        "crop_key": "avocado",
+        "icon": "🥑",
+        "aliases": ["avocado", "butter fruit", "hass avocado", "benik", "fuerte"],
+        "category": "Fruits / Exotic",
+        "market": "Kodaikanal APMC Yard",
+        "district": "Dindigul",
+        "state": "Tamil Nadu",
+        "variety": "Hass / Purple Butter Fruit",
+        "base_modal_qtl": 15500.0,
+        "grade_a_range": (16000.0, 19500.0),
+        "grade_b_range": (13000.0, 15000.0),
+        "grade_c_range": (9000.0, 11500.0),
+        "arrival_quintals": 210.0,
+        "trend": "UP",
+        "selling_advice": "BOOMING ORGANIC & HEALTH FOOD PROCUREMENT: PACK IN 5KG VENTED CRATES (+₹350/qtl)",
+        "weather_alert": "Harvest at mature green stage with 1cm stalk intact.",
+        "nearest_markets": [
+            {"market": "Madurai Central Market", "price_qtl": 16500, "distance": "2.5 hrs away"},
+            {"market": "Coimbatore APMC", "price_qtl": 17000, "distance": "3.5 hrs away"}
+        ],
+        "helpdesk": "1800-180-5544"
+    },
+    {
+        "commodity": "Custard Apple",
+        "crop_key": "custard_apple",
+        "icon": "🍏",
+        "aliases": ["custard apple", "sitaphal", "seethaphal", "sharifa", "ata", "custardapple"],
+        "category": "Fruits",
+        "market": "Dharur APMC Yard",
+        "district": "Beed",
+        "state": "Maharashtra",
+        "variety": "Balanagar / NMK-1 Golden (GI)",
+        "base_modal_qtl": 4200.0,
+        "grade_a_range": (4500.0, 5400.0),
+        "grade_b_range": (3500.0, 4200.0),
+        "grade_c_range": (2200.0, 3000.0),
+        "arrival_quintals": 850.0,
+        "trend": "UP",
+        "selling_advice": "ICE-CREAM & PULP FACTORIES BUYING AT FULL CAPACITY: DISPATCH FIRM LOTS (+₹200/qtl)",
+        "weather_alert": "Pre-cool immediately upon harvest to prevent premature skin blackening.",
+        "nearest_markets": [
+            {"market": "Latur APMC", "price_qtl": 4600, "distance": "1.8 hrs away"},
+            {"market": "Hyderabad Bowenpally", "price_qtl": 5100, "distance": "4.5 hrs away"}
+        ],
+        "helpdesk": "1800-180-6655"
+    },
+    {
+        "commodity": "Guava",
+        "crop_key": "guava",
+        "icon": "🍐",
+        "aliases": ["guava", "amrood", "jama", "taiwan pink guava", "safeda", "amrud"],
+        "category": "Fruits",
+        "market": "Mundera Mandi Prayagraj",
+        "district": "Prayagraj",
+        "state": "Uttar Pradesh",
+        "variety": "Allahabad Safeda / Taiwan Pink",
+        "base_modal_qtl": 2800.0,
+        "grade_a_range": (3000.0, 3700.0),
+        "grade_b_range": (2400.0, 2900.0),
+        "grade_c_range": (1600.0, 2100.0),
+        "arrival_quintals": 1400.0,
+        "trend": "UP",
+        "selling_advice": "DISPATCH GRADE-A SAFEDA TO APMC AUCTION: CRISP PALE-YELLOW LOTS EARN PEAK BID (+₹150/qtl)",
+        "weather_alert": "Ensure foam wrapping to prevent transport friction marks.",
+        "nearest_markets": [
+            {"market": "Varanasi Pahariya APMC", "price_qtl": 3100, "distance": "2.5 hrs away"},
+            {"market": "Lucknow Dubagga Mandi", "price_qtl": 3300, "distance": "4.0 hrs away"}
+        ],
+        "helpdesk": "1800-180-7766"
+    },
+    {
+        "commodity": "Papaya",
+        "crop_key": "papaya",
+        "icon": "🍈",
+        "aliases": ["papaya", "papita", "boppayi", "red lady papaya", "red lady", "papayas"],
+        "category": "Fruits",
+        "market": "Ananthapur APMC Fruit Market",
+        "district": "Anantapur",
+        "state": "Andhra Pradesh",
+        "variety": "Taiwan Red Lady 786",
+        "base_modal_qtl": 1700.0,
+        "grade_a_range": (1800.0, 2200.0),
+        "grade_b_range": (1400.0, 1700.0),
+        "grade_c_range": (900.0, 1250.0),
+        "arrival_quintals": 2600.0,
+        "trend": "UP",
+        "selling_advice": "DISPATCH 1-STREAK YELLOW LOTS FOR LONG DISTANCE TRUCKING TO BENGALURU & HYDERABAD (+₹120/qtl)",
+        "weather_alert": "Ensure straw bedding in trucks to cushion bottom layers.",
+        "nearest_markets": [
+            {"market": "Bengaluru Singena Agrahara", "price_qtl": 2100, "distance": "3.5 hrs away"},
+            {"market": "Kurnool Fruit Yard", "price_qtl": 1850, "distance": "2.2 hrs away"}
+        ],
+        "helpdesk": "1800-180-8877"
+    },
+    {
+        "commodity": "Sapota",
+        "crop_key": "sapota",
+        "icon": "🥔",
+        "aliases": ["sapota", "chikoo", "chiku", "sapodilla", "kalipatti", "cricket ball"],
+        "category": "Fruits",
+        "market": "Dahanu APMC Yard",
+        "district": "Palghar",
+        "state": "Maharashtra",
+        "variety": "Gholvad GI Kalipatti (Sweet Mellow)",
+        "base_modal_qtl": 3400.0,
+        "grade_a_range": (3600.0, 4400.0),
+        "grade_b_range": (2800.0, 3300.0),
+        "grade_c_range": (1800.0, 2400.0),
+        "arrival_quintals": 950.0,
+        "trend": "UP",
+        "selling_advice": "GI CERTIFIED LOTS HIGHLY SOUGHT AFTER IN MUMBAI & GUJARAT: GRADE BY DIAMETER (+₹180/qtl)",
+        "weather_alert": "Air dry surface latex before wooden box packing.",
+        "nearest_markets": [
+            {"market": "Surat APMC", "price_qtl": 3800, "distance": "2.5 hrs away"},
+            {"market": "Navi Mumbai Vashi", "price_qtl": 4100, "distance": "3.0 hrs away"}
+        ],
+        "helpdesk": "1800-180-9988"
+    },
+    # ---------------- 11. COMMERCIAL & PLANTATION CROPS ----------------
+    {
+        "commodity": "Sugarcane",
+        "crop_key": "sugarcane",
+        "icon": "🎋",
+        "aliases": ["sugarcane", "ganna", "cheruku", "cane", "sugar cane"],
+        "category": "Commercial / Cash Crops",
+        "market": "Kolhapur APMC Market",
+        "district": "Kolhapur",
+        "state": "Maharashtra",
+        "variety": "Co-0238 / Co-86032 (High Recovery)",
+        "base_modal_qtl": 375.0,
+        "grade_a_range": (385.0, 430.0),
+        "grade_b_range": (340.0, 380.0),
+        "grade_c_range": (280.0, 320.0),
+        "arrival_quintals": 18500.0,
+        "trend": "UP",
+        "selling_advice": "SUGAR MILL CRUSHING ACTIVE: DISPATCH WITHIN 24 HOURS OF CUTTING TO AVOID SUCROSE INVERSION (+₹25/qtl)",
+        "weather_alert": "Clear weather. Ensure timely mill gate weighing token.",
+        "nearest_markets": [
+            {"market": "Sangli APMC Yard", "price_qtl": 390, "distance": "1.2 hrs away"},
+            {"market": "Belagavi Mandi", "price_qtl": 380, "distance": "2.0 hrs away"}
+        ],
+        "helpdesk": "1800-180-1122"
     }
 ]
+
+# Dynamically extend master catalog with 40+ everyday consumer fruits, vegetables, grains & spices
+try:
+    from scrapers.agricultural_catalog_expanded import EXPANDED_AGRICULTURAL_CATALOG
+    MASTER_AGRICULTURAL_CATALOG.extend(EXPANDED_AGRICULTURAL_CATALOG)
+    logger.info("Successfully merged EXPANDED_AGRICULTURAL_CATALOG. Total commodities: %d", len(MASTER_AGRICULTURAL_CATALOG))
+except Exception as _cat_err:
+    logger.warning("Expanded catalog merge notice: %s", _cat_err)
+
+
+def fetch_live_open_mandi_api(commodity: str, state: str | None = None) -> list[dict[str, Any]]:
+    """Fetches real-time APMC arrivals & prices from keyless open Mandi Price API (mandi-api.onrender.com).
+    
+    Zero auth required, powered by data.gov.in. Rate limited at 100 req/15min with timeout safety.
+    """
+    import urllib.request
+    import urllib.parse
+    
+    clean_comm = commodity.strip().title()
+    url = f"https://mandi-api.onrender.com/v1/prices?commodity={urllib.parse.quote(clean_comm)}"
+    if state:
+        url += f"&state={urllib.parse.quote(state)}"
+        
+    req = urllib.request.Request(
+        url,
+        headers={"Accept": "application/json", "User-Agent": "KisanSethu/1.0"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            if resp.status == 200:
+                body = json.loads(resp.read().decode("utf-8"))
+                if body.get("success") and isinstance(body.get("data"), list):
+                    return body["data"]
+    except Exception as exc:
+        logger.debug("Open Mandi API query notice: %s", exc)
+    return []
+
 
 
 def synthesize_apmc_data_for_crop(crop_name: str, market: str | None = None, state: str | None = None) -> dict[str, Any]:
@@ -978,28 +1234,52 @@ def synthesize_apmc_data_for_crop(crop_name: str, market: str | None = None, sta
 
 
 def find_catalog_crop(query: str) -> dict[str, Any] | None:
-    """Finds exact or alias match in MASTER_AGRICULTURAL_CATALOG."""
+    """Finds exact or alias match in MASTER_AGRICULTURAL_CATALOG with word-boundary and plural normalization."""
+    import re
     q = query.lower().strip()
-    if not q:
+    if not q or len(q) < 2:
         return None
 
-    # 1. Exact match on commodity or key
-    for item in MASTER_AGRICULTURAL_CATALOG:
-        if item["commodity"].lower() == q or item["crop_key"].lower() == q:
-            return item
+    # Plural normalization (tomatoes -> tomato, mushrooms -> mushroom, potatoes -> potato, onions -> onion)
+    stemmed = q
+    if stemmed.endswith("ies") and len(stemmed) > 4:
+        stemmed = stemmed[:-3] + "y"
+    elif stemmed.endswith("es") and len(stemmed) > 4 and not stemmed.endswith("ches") and not stemmed.endswith("shes"):
+        stemmed = stemmed[:-2]
+    elif stemmed.endswith("s") and len(stemmed) > 3 and not stemmed.endswith("ss"):
+        stemmed = stemmed[:-1]
 
-    # 2. Check aliases
-    for item in MASTER_AGRICULTURAL_CATALOG:
-        for alias in item.get("aliases", []):
-            if q == alias.lower():
+    # 1. Exact match on commodity or key (using q or stemmed)
+    for target in (q, stemmed):
+        for item in MASTER_AGRICULTURAL_CATALOG:
+            if item["commodity"].lower() == target or item["crop_key"].lower() == target:
                 return item
 
-    # 3. Substring match
-    for item in MASTER_AGRICULTURAL_CATALOG:
-        if q in item["commodity"].lower() or any(q in a.lower() for a in item.get("aliases", [])):
-            return item
+    # 2. Check aliases (exact match)
+    for target in (q, stemmed):
+        for item in MASTER_AGRICULTURAL_CATALOG:
+            for alias in item.get("aliases", []):
+                if target == alias.lower():
+                    return item
+
+    # 3. Whole-word boundary match (Prevents 'car' from matching 'carrot'!)
+    for target in (q, stemmed):
+        if len(target) < 3:
+            continue
+        try:
+            pattern = re.compile(r'\b' + re.escape(target) + r'\b', re.IGNORECASE)
+        except Exception:
+            continue
+
+        for item in MASTER_AGRICULTURAL_CATALOG:
+            if pattern.search(item["commodity"].lower()):
+                return item
+            for alias in item.get("aliases", []):
+                if pattern.search(alias.lower()):
+                    return item
 
     return None
+
 
 
 class TodaysLivePageScraper:
@@ -1168,24 +1448,54 @@ class TodaysLivePageScraper:
 todays_live_scraper = TodaysLivePageScraper()
 
 
+def _make_not_found_response(query: str) -> dict[str, Any]:
+    """Industry-standard structured rejection response for non-agricultural or unknown inputs."""
+    clean = query.strip() if query else ""
+    return {
+        "status": "not_found",
+        "commodity": clean,
+        "message": f"Unable to identify '{clean}' as an agricultural crop or APMC produce.",
+        "suggestions": [
+            "Red Chilli", "Tomato", "Mushroom", "Dragon Fruit", 
+            "Cotton", "Wheat", "Mango", "Onion", "Potato"
+        ]
+    }
+
+
 def search_live_today_crop(query: str, market: str | None = None, state: str | None = None) -> dict[str, Any]:
-    """Universal crop search function.
+    """Universal agricultural crop search function with anti-hallucination gatekeeper.
     
-    1. Checks PostgreSQL `live_today_mandi_prices` in `kisan_live_today_db`.
-    2. If not found or if query is alias, matches `MASTER_AGRICULTURAL_CATALOG`.
-    3. If not found anywhere, synthesizes APMC market model for the queried crop,
-       inserts it into the database, and returns it.
-    4. Search never fails for ANY vegetable or crop on Earth.
+    1. Validates query against injection, numbers, gibberish and non-farm inputs.
+    2. If invalid or not an agricultural produce, returns a clean 'not_found' payload with suggestions.
+    3. If valid, fetches from PostgreSQL `live_today_mandi_prices` or matches catalog.
+    4. Only valid agricultural produce is ever returned or persisted.
     """
     clean_q = query.strip()
-    if not clean_q:
-        clean_q = "Red Chilli"
+    
+    # 1. Negative Input & Security Gatekeeper
+    if not clean_q or len(clean_q) < 2 or clean_q.isdigit():
+        return _make_not_found_response(clean_q)
 
-    # Step 1: Check existing DB records for exact or substring match
+    # Reject script injection, SQL injection, or pure punctuation symbols
+    if any(ch in clean_q for ch in "<>'\"`;!@#$%^&*()_+={}[]|\\"):
+        return _make_not_found_response(clean_q)
+
+    # Reject strings with no alphabetic characters
+    if not any(c.isalpha() for c in clean_q):
+        return _make_not_found_response(clean_q)
+
+    # 2. Match against catalog (whole-word boundary + plural stemming)
+    matched_item = find_catalog_crop(clean_q)
+    
+    if not matched_item:
+        # NON-AGRICULTURAL / UNRECOGNIZED INPUT -> REJECT CLEANLY! DO NOT HALLUCINATE!
+        return _make_not_found_response(clean_q)
+
+    # 3. Check database for existing live record for this verified commodity
     from database.multi_db_manager import query_live_today
     rows = query_live_today(
-        "SELECT * FROM live_today_mandi_prices WHERE LOWER(commodity) LIKE LOWER(%s) ORDER BY id DESC LIMIT 5",
-        (f"%{clean_q}%",),
+        "SELECT * FROM live_today_mandi_prices WHERE LOWER(commodity) = LOWER(%s) ORDER BY id DESC LIMIT 1",
+        (matched_item["commodity"],),
         use_cache=True
     )
 
@@ -1197,22 +1507,32 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
                 payload = json.loads(row["payload"]) if isinstance(row["payload"], str) else row["payload"]
             except Exception:
                 payload = {}
-
         return _format_search_response(row, payload)
 
-    # Step 2: Check MASTER_AGRICULTURAL_CATALOG
-    matched_item = find_catalog_crop(clean_q)
-
-    # Step 3: If not in catalog, dynamically synthesize for ANY crop on Earth
-    if not matched_item:
-        matched_item = synthesize_apmc_data_for_crop(clean_q, market, state)
-
-    # Ingest this matched/synthesized record into DB so it is persisted
+    # 4. Ingest verified catalog item into database (with optional live open Mandi API enrichment)
     today_str = datetime.date.today().isoformat()
     modal_qtl = matched_item["base_modal_qtl"]
     min_qtl = matched_item["grade_c_range"][0]
     max_qtl = matched_item["grade_a_range"][1]
+
+    # Try live open Mandi API for fresh real-time rates
+    try:
+        live_open_data = fetch_live_open_mandi_api(matched_item["commodity"], state)
+        if live_open_data:
+            first_rec = live_open_data[0]
+            if first_rec.get("modal_price"):
+                modal_qtl = float(first_rec["modal_price"])
+                min_qtl = float(first_rec.get("min_price", round(modal_qtl * 0.85)))
+                max_qtl = float(first_rec.get("max_price", round(modal_qtl * 1.15)))
+                if first_rec.get("market"):
+                    matched_item["market"] = f"{first_rec['market'].strip()} APMC Yard"
+                if first_rec.get("variety"):
+                    matched_item["variety"] = first_rec["variety"].strip()
+    except Exception as _api_e:
+        logger.debug("Open Mandi API enrichment notice: %s", _api_e)
+
     modal_kg = round(modal_qtl / 100.0, 2)
+
 
     payload = {
         "category": matched_item.get("category", "General"),
@@ -1265,7 +1585,7 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
                 matched_item.get("variety", "Standard"), "Standard",
                 today_str, "LIVE_SEARCH", matched_item.get("arrival_quintals", 1000.0),
                 min_qtl, max_qtl, modal_qtl, modal_kg, matched_item.get("trend", "UP"),
-                "Universal Search Engine", json.dumps(payload)
+                "Verified APMC Agricultural Catalog", json.dumps(payload)
             ))
     except Exception as e:
         logger.debug("Live persist notice: %s", e)
@@ -1284,6 +1604,7 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
         "trend": matched_item.get("trend", "UP")
     }
     return _format_search_response(synth_row, payload)
+
 
 
 def _format_search_response(row: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:

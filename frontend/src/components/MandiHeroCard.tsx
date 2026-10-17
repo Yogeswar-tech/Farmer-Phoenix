@@ -9,7 +9,6 @@ import {
   X,
   PhoneCall,
   Truck,
-  Sparkles,
   Loader2
 } from 'lucide-react';
 
@@ -54,132 +53,118 @@ const CROP_ICONS: Record<string, string> = {
   pomegranate: '🍎',
   watermelon: '🍉',
   paddy: '🌾',
+  rice: '🌾',
   wheat: '🌾',
   maize: '🌽',
+  corn: '🌽',
   chana: '🧆',
   toor_dal: '🥣',
   cotton: '🌱',
   turmeric: '🟡',
   soybean: '🫘',
+  soyabean: '🫘',
   groundnut: '🥜',
   black_pepper: '🧂',
-  saffron: '🌸'
+  saffron: '🌸',
+  mustard: '🌼',
+  sugarcane: '🎋',
+  sunflower: '🌻'
 };
 
-// Initial Fallback Queued Search Buttons (chips)
-const DEFAULT_QUEUED_CROPS = [
-  { key: 'red_chilli', name: 'Red Chilli', icon: '🌶️' },
-  { key: 'tomato', name: 'Tomato', icon: '🍅' },
-  { key: 'potato', name: 'Potato', icon: '🥔' },
-  { key: 'onion', name: 'Onion', icon: '🧅' },
-  { key: 'brinjal', name: 'Brinjal', icon: '🍆' },
-  { key: 'okra', name: 'Okra (Bhindi)', icon: '🌿' },
-  { key: 'cauliflower', name: 'Cauliflower', icon: '🥦' },
-  { key: 'cabbage', name: 'Cabbage', icon: '🥬' },
-  { key: 'carrot', name: 'Carrot', icon: '🥕' },
-  { key: 'ginger', name: 'Ginger', icon: '🫚' },
-  { key: 'garlic', name: 'Garlic', icon: '🧄' },
-  { key: 'cherry', name: 'Cherry', icon: '🍒' },
-  { key: 'cotton', name: 'Cotton', icon: '🌱' },
-  { key: 'turmeric', name: 'Turmeric', icon: '🟡' },
-  { key: 'paddy', name: 'Paddy', icon: '🌾' },
-  { key: 'wheat', name: 'Wheat', icon: '🌾' },
-  { key: 'maize', name: 'Maize (Corn)', icon: '🌽' },
-  { key: 'mango', name: 'Mango', icon: '🥭' },
-  { key: 'banana', name: 'Banana', icon: '🍌' },
-  { key: 'apple', name: 'Apple', icon: '🍎' },
-  { key: 'cucumber', name: 'Cucumber', icon: '🥒' },
-  { key: 'green_peas', name: 'Green Peas', icon: '🫛' },
-  { key: 'capsicum', name: 'Capsicum', icon: '🫑' },
-  { key: 'drumstick', name: 'Drumstick', icon: '🥢' },
-  { key: 'pomegranate', name: 'Pomegranate', icon: '🍎' },
-  { key: 'watermelon', name: 'Watermelon', icon: '🍉' },
-  { key: 'groundnut', name: 'Groundnut', icon: '🥜' },
-  { key: 'soybean', name: 'Soybean', icon: '🫘' },
-  { key: 'black_pepper', name: 'Black Pepper', icon: '🧂' },
-  { key: 'saffron', name: 'Saffron', icon: '🌸' }
-];
+const getMandiAdaptedCropData = (m: MandiItem, loc?: LocationOption) => {
+  const gradeAItem = m.grades?.find((g) => g.gradeCode === 'A') || m.grades?.[0];
+  const modalItem = m.grades?.find((g) => g.gradeCode === 'MODAL') || gradeAItem;
+  const gradeBItem = m.grades?.find((g) => g.gradeCode === 'B') || modalItem;
+  const gradeCItem = m.grades?.find((g) => g.gradeCode === 'C') || m.grades?.[2] || m.grades?.[(m.grades?.length || 1) - 1];
+
+  const modalPrice = modalItem?.modalPrice || gradeAItem?.modalPrice || 3200;
+  const minQtlA = gradeAItem?.minPrice || Math.round(modalPrice * 1.05);
+  const maxQtlA = gradeAItem?.maxPrice || Math.round(modalPrice * 1.15);
+
+  const minQtlB = gradeBItem?.minPrice || Math.round(modalPrice * 0.95);
+  const maxQtlB = gradeBItem?.maxPrice || Math.round(modalPrice * 1.02);
+
+  const minQtlC = gradeCItem?.minPrice || Math.round(modalPrice * 0.65);
+  const maxQtlC = gradeCItem?.maxPrice || Math.round(modalPrice * 0.80);
+
+  const cropTitle = m.cropName?.en || m.cropKey || 'Commodity';
+  const locName = loc?.name?.en ? `${loc.name.en} APMC Yard` : m.mandiName?.en || 'APMC Yard';
+  const stateName = loc?.state?.en || m.state?.en || 'India';
+
+  return {
+    commodity: cropTitle,
+    ribbon_title: `TODAY'S LIVE PRICE: ${cropTitle.toUpperCase()}`,
+    market: locName,
+    state: stateName,
+    variety: m.variety || 'Standard Quality',
+    grade_a: {
+      name: 'BEST QUALITY (Grade A)',
+      min_qtl: minQtlA,
+      max_qtl: maxQtlA,
+      min_kg: Math.round(minQtlA / 100),
+      max_kg: Math.round(maxQtlA / 100)
+    },
+    grade_b: {
+      name: 'MEDIUM QUALITY (Grade B)',
+      min_qtl: minQtlB,
+      max_qtl: maxQtlB,
+      min_kg: Math.round(minQtlB / 100),
+      max_kg: Math.round(maxQtlB / 100)
+    },
+    grade_c: {
+      name: 'LOW QUALITY (Grade C)',
+      min_qtl: minQtlC,
+      max_qtl: maxQtlC,
+      min_kg: Math.round(minQtlC / 100),
+      max_kg: Math.round(maxQtlC / 100)
+    },
+    selling_advice: m.whySellReasons?.trendReason?.en || 'FAVORABLE YARD DEMAND (+₹200 / Quintal Today)',
+    weather_alert: m.whySellReasons?.weatherReason?.en || 'Normal weather. Safe for harvest transport.',
+    nearest_markets: (m.otherNearbyMandis || []).map((om) => ({
+      market: om.name?.en || 'Regional Mandi',
+      price_qtl: om.modalPrice,
+      distance: `${om.distance} km away`
+    })),
+    helpdesk: '1800-180-1551'
+  };
+};
 
 export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   currentLang,
   mandi,
   currentLocation,
-  onShareWhatsApp,
   onOpenHelpline,
   onSelectCrop
 }) => {
-  const t = translations[currentLang];
   const [productSearch, setProductSearch] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [queuedCrops, setQueuedCrops] = useState<any[]>(DEFAULT_QUEUED_CROPS);
+  const [notFoundError, setNotFoundError] = useState<{ query: string; message: string; suggestions: string[] } | null>(null);
 
-  // Active crop live dataset from backend
-  const [activeCropData, setActiveCropData] = useState<any>({
-    commodity: mandi.cropName.en,
-    ribbon_title: `TODAY'S LIVE PRICE: ${mandi.cropName.en.toUpperCase()}`,
-    market: currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : 'Guntur APMC Yard',
-    state: currentLocation?.state.en || 'Andhra Pradesh',
-    variety: mandi.variety || 'Deluxe Grade',
-    grade_a: {
-      name: 'BEST QUALITY (Grade A)',
-      min_qtl: 14910,
-      max_qtl: 18816,
-      min_kg: 149.1,
-      max_kg: 188.16
-    },
-    grade_b: {
-      name: 'MEDIUM QUALITY (Grade B)',
-      min_qtl: 12400,
-      max_qtl: 13200,
-      min_kg: 124.0,
-      max_kg: 132.0
-    },
-    grade_c: {
-      name: 'LOW QUALITY (Grade C)',
-      min_qtl: 7500,
-      max_qtl: 9200,
-      min_kg: 75.0,
-      max_kg: 92.0
-    },
-    selling_advice: 'GOOD TIME TO SELL (+₹300 / Quintal Today)',
-    weather_alert: 'Heavy rain forecast for Thursday. Protect open harvest.',
-    nearest_markets: [
-      { market: 'Warangal Mandi', price_qtl: 14100, distance: '2.5 hrs away' },
-      { market: 'Kurnool Mandi', price_qtl: 13800, distance: '4.0 hrs away' }
-    ],
-    helpdesk: '1800-123-1234'
-  });
+  // Active crop live dataset from backend or dynamic mandi fallback
+  const [activeCropData, setActiveCropData] = useState<any>(() =>
+    getMandiAdaptedCropData(mandi, currentLocation)
+  );
 
-  // 1. Fetch all queued search buttons (crops) on mount
+  // Synchronize live today crop data whenever mandi or location changes
   useEffect(() => {
     let isMounted = true;
-    KisanSethuApi.getAllQueuedCrops()
-      .then((crops) => {
-        if (isMounted && crops && crops.length > 0) {
-          const formatted = crops.map((c) => ({
-            key: c.key,
-            name: c.commodity,
-            icon: c.icon || CROP_ICONS[c.key] || '🌱'
-          }));
-          setQueuedCrops(formatted);
-        }
-      })
-      .catch(() => {
-        // Fallback to DEFAULT_QUEUED_CROPS
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const cropQuery = mandi.cropName?.en || mandi.cropKey || 'Commodity';
+    const mkt = currentLocation?.name?.en ? `${currentLocation.name.en} APMC Yard` : undefined;
+    const st = currentLocation?.state?.en;
 
-  // 2. Fetch live today crop data whenever mandi or crop changes
-  useEffect(() => {
-    let isMounted = true;
-    const cropQuery = mandi.cropName.en || mandi.cropKey || 'Red Chilli';
-    const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
-    const st = currentLocation?.state.en;
+    // Check if activeCropData is already showing this exact commodity (e.g. from a recent user search)
+    const currentComm = (activeCropData?.commodity || '').toLowerCase().trim();
+    const queryComm = cropQuery.toLowerCase().trim();
+    const isAlreadyMatching =
+      Boolean(currentComm && queryComm && (currentComm === queryComm || currentComm.includes(queryComm) || queryComm.includes(currentComm)));
 
+    if (!isAlreadyMatching) {
+      const fallbackData = getMandiAdaptedCropData(mandi, currentLocation);
+      setActiveCropData(fallbackData);
+    }
+
+    // Call live scraper backend to get fresh real-time arrivals and prices if available
     KisanSethuApi.searchCropTodayPrice(cropQuery, mkt, st)
       .then((res) => {
         if (isMounted && res && res.status === 'success') {
@@ -187,57 +172,63 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         }
       })
       .catch(() => {
-        // Keep resilient current data
+        // Fallback data already rendered smoothly
       });
 
     return () => {
       isMounted = false;
     };
-  }, [mandi.cropKey, mandi.cropName.en, currentLocation?.name.en]);
+  }, [mandi.cropKey, mandi.cropName?.en, currentLocation?.name?.en, currentLocation?.state?.en]);
 
-  // Handle Search Submission (Universal: searches ANY crop on Earth)
-  const handleSearchSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const query = productSearch.trim();
-    if (!query) return;
+  // Execute search against verified APMC catalog & anti-hallucination gatekeeper
+  const executeSearch = async (query: string) => {
+    const clean = query.trim();
+    if (!clean) return;
 
     setIsSearching(true);
+    const mkt = currentLocation?.name?.en ? `${currentLocation.name.en} APMC Yard` : undefined;
+    const st = currentLocation?.state?.en;
+
     try {
-      const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
-      const st = currentLocation?.state.en;
-      const res = await KisanSethuApi.searchCropTodayPrice(query, mkt, st);
+      const res = await KisanSethuApi.searchCropTodayPrice(clean, mkt, st);
 
       if (res && res.status === 'success') {
+        setNotFoundError(null);
         setActiveCropData(res);
         if (onSelectCrop) {
           const matchKey = res.commodity.toLowerCase().replace(/\s+/g, '_');
           onSelectCrop(matchKey);
         }
+      } else if (res && res.status === 'not_found') {
+        // Non-agricultural or unrecognized commodity -> DO NOT FABRICATE PRICES!
+        setNotFoundError({
+          query: clean,
+          message: res.message || `Unable to identify '${clean}' as an agricultural crop or APMC produce.`,
+          suggestions: res.suggestions || ['Red Chilli', 'Tomato', 'Mushroom', 'Dragon Fruit', 'Cotton', 'Wheat', 'Mango', 'Onion']
+        });
+      } else {
+        setNotFoundError({
+          query: clean,
+          message: `Unable to identify '${clean}' as an agricultural crop or APMC produce.`,
+          suggestions: ['Red Chilli', 'Tomato', 'Mushroom', 'Dragon Fruit', 'Cotton', 'Wheat', 'Mango', 'Onion']
+        });
       }
-    } catch (err) {
-      console.warn('Search failed:', err);
+    } catch {
+      setNotFoundError({
+        query: clean,
+        message: `Unable to identify '${clean}' as an agricultural crop or APMC produce.`,
+        suggestions: ['Red Chilli', 'Tomato', 'Mushroom', 'Dragon Fruit', 'Cotton', 'Wheat', 'Mango', 'Onion']
+      });
     } finally {
       setIsSearching(false);
       setProductSearch('');
     }
   };
 
-  // 1-Tap Queue Crop Selection
-  const handleQueueChipTap = async (chip: { key: string; name: string }) => {
-    if (onSelectCrop) onSelectCrop(chip.key);
-    setIsSearching(true);
-    try {
-      const mkt = currentLocation?.name.en ? `${currentLocation.name.en} APMC Yard` : undefined;
-      const st = currentLocation?.state.en;
-      const res = await KisanSethuApi.searchCropTodayPrice(chip.name, mkt, st);
-      if (res && res.status === 'success') {
-        setActiveCropData(res);
-      }
-    } catch (err) {
-      console.warn('Chip fetch failed:', err);
-    } finally {
-      setIsSearching(false);
-    }
+  // Handle Search Form Submit
+  const handleSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    executeSearch(productSearch);
   };
 
   // Audio Read Aloud
@@ -284,15 +275,15 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   };
 
   const cropKey = (activeCropData.commodity || 'crop').toLowerCase().replace(/\s+/g, '_');
-  const cropEmoji = CROP_ICONS[cropKey] || '🌶️';
+  const cropEmoji = CROP_ICONS[cropKey] || '🌱';
 
   const gradeA = activeCropData.grade_a || { min_qtl: 14910, max_qtl: 18816, min_kg: 149, max_kg: 188 };
   const gradeB = activeCropData.grade_b || { min_qtl: 12400, max_qtl: 13200, min_kg: 124, max_kg: 132 };
   const gradeC = activeCropData.grade_c || { min_qtl: 7500, max_qtl: 9200, min_kg: 75, max_kg: 92 };
 
   const marketSubtitle = useMemo(() => {
-    const locName = currentLocation?.name[currentLang] || activeCropData.market || 'Guntur APMC Yard';
-    const stateName = currentLocation?.state[currentLang] || activeCropData.state || 'Andhra Pradesh';
+    const locName = currentLocation?.name?.[currentLang] || activeCropData.market || 'APMC Yard';
+    const stateName = currentLocation?.state?.[currentLang] || activeCropData.state || 'India';
     return `${locName}, ${stateName} (GPS Locked)`;
   }, [currentLocation, activeCropData, currentLang]);
 
@@ -341,7 +332,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
           <input
             type="text"
             className="advisor-search-input"
-            placeholder="Search ANY Crop, Variety, or Mandi (e.g., Red Chilli, Tomato)..."
+            placeholder="Search ANY Crop, Variety, or Mandi (e.g. Tomato, Cotton, Onion, Wheat, Soyabean)..."
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
           />
@@ -360,35 +351,46 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
             <span>Search</span>
           </button>
         </form>
-
-        {/* 3. QUEUED SEARCH BUTTONS (Horizontally Scrollable Chips) */}
-        <div className="queued-search-buttons-scroll">
-          <div className="queue-label">
-            <Sparkles size={14} color="#16A34A" />
-            <span>Fast Select:</span>
-          </div>
-          {queuedCrops.map((chip) => {
-            const isSelected =
-              activeCropData.commodity.toLowerCase().includes(chip.name.toLowerCase()) ||
-              chip.name.toLowerCase().includes(activeCropData.commodity.toLowerCase());
-
-            return (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={() => handleQueueChipTap(chip)}
-                className={`queued-crop-chip ${isSelected ? 'active' : ''}`}
-                title={`Instant Rates for ${chip.name}`}
-              >
-                <span className="chip-icon">{chip.icon}</span>
-                <span className="chip-label">{chip.name}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
-      {/* 4. THE RED RIBBON BANNER */}
+      {/* 2.1 COMMODITY NOT FOUND REJECTION BANNER (Anti-Hallucination) */}
+      {notFoundError && (
+        <div className="search-not-found-banner">
+          <div className="not-found-header">
+            <span className="not-found-icon">⚠️</span>
+            <div className="not-found-text">
+              <div className="not-found-title">Commodity Not Found</div>
+              <div className="not-found-msg">{notFoundError.message}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNotFoundError(null)}
+              className="not-found-close-btn"
+              title="Dismiss warning"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="not-found-suggestions-row">
+            <span className="suggestions-label">Try searching:</span>
+            {notFoundError.suggestions.map((sug) => (
+              <button
+                key={sug}
+                type="button"
+                onClick={() => {
+                  setNotFoundError(null);
+                  executeSearch(sug);
+                }}
+                className="suggestion-chip"
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. THE CEREMONIAL RIBBON BANNER */}
       <div className="ceremonial-ribbon-outer">
         <div className="ribbon-tail ribbon-tail-left" />
         <div className="ceremonial-ribbon-body">
@@ -411,14 +413,14 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         <div className="ribbon-tail ribbon-tail-right" />
       </div>
 
-      {/* 5. QUALITY & PRICE GUIDE SUBTITLE */}
+      {/* 4. QUALITY & PRICE GUIDE SUBTITLE */}
       <div className="guide-subtitle-row">
         <h3 className="guide-main-heading">
-          Quality & Price Guide ({currentLocation?.district.en || 'Guntur'} Local)
+          Quality & Price Guide ({currentLocation?.district?.en || 'Mandi'} Local)
         </h3>
       </div>
 
-      {/* 6. 3-TIER QUALITY & PRICE GUIDE CARDS */}
+      {/* 5. 3-TIER QUALITY & PRICE GUIDE CARDS */}
       <div className="quality-cards-grid">
         {/* CARD 1: BEST QUALITY (Grade A) */}
         <div className="quality-card grade-a-card">
@@ -493,7 +495,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         </div>
       </div>
 
-      {/* 7. SELLING ADVICE BANNER (Green) */}
+      {/* 6. SELLING ADVICE BANNER (Green) */}
       <div className="selling-advice-pill-banner">
         <span className="advice-check-icon">✅</span>
         <span className="advice-text">
@@ -501,7 +503,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         </span>
       </div>
 
-      {/* 8. WEATHER ALERT BANNER (Amber) */}
+      {/* 7. WEATHER ALERT BANNER (Amber) */}
       <div className="weather-alert-pill-banner">
         <span className="alert-warn-icon">⚠️</span>
         <span className="alert-text">
@@ -509,7 +511,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         </span>
       </div>
 
-      {/* 9. NEAREST MARKETS & HELPDESK FOOTER STRIP */}
+      {/* 8. NEAREST MARKETS & HELPDESK FOOTER STRIP */}
       <div className="advisor-footer-ticker">
         <div className="ticker-left-markets">
           <Truck size={16} className="truck-icon" />
@@ -537,7 +539,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
           >
             <PhoneCall size={14} />
             <span>
-              {currentLocation?.name.en || 'Guntur'} APMC Helpdesk: <b>{activeCropData.helpdesk || '1800-123-1234'}</b>
+              {currentLocation?.name?.en || 'Mandi'} APMC Helpdesk: <b>{activeCropData.helpdesk || '1800-123-1234'}</b>
             </span>
           </button>
         </div>

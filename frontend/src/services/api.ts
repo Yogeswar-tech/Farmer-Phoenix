@@ -77,25 +77,6 @@ export class KisanSethuApi {
     }
   }
 
-  /**
-   * Retrieve today's live scraped mandi prices from dedicated PostgreSQL kisan_live_today_db
-   */
-  static async getLiveTodayPrices(commodity?: string, state?: string, session?: string): Promise<any[]> {
-    try {
-      const q = new URLSearchParams();
-      if (commodity) q.append('commodity', commodity);
-      if (state) q.append('state', state);
-      if (session) q.append('session', session);
-      const res = await this.request<any>(`/db/live-today/prices?${q.toString()}`);
-      if (res && res.data && res.data.length > 0) {
-        return res.data;
-      }
-      return [];
-    } catch (err) {
-      console.warn('[API Client] Failed to fetch live today prices:', err);
-      return [];
-    }
-  }
 
   /**
    * Trigger 6-Hour Automated Refresh Lifecycle: prunes data older than 6 hours and updates DB
@@ -555,17 +536,6 @@ export class KisanSethuApi {
     }
   }
 
-  /**
-   * 7. Trigger Live Scraper Sync
-   */
-  static async triggerScraper(): Promise<any> {
-    try {
-      return await this.request<any>('/db/trigger-scraper', { method: 'POST' });
-    } catch (err) {
-      console.warn('[API Client] Trigger scraper failed:', err);
-      return null;
-    }
-  }
 
   /**
    * 8. Force Refresh Government Schemes
@@ -981,23 +951,7 @@ export class KisanSethuApi {
   }
 
   /**
-   * 14. Educational Quality Grading Matrix (kisan_education_charts_db)
-   */
-  static async getEducationalGradingMatrix(cropKey: string = 'chilli', lang: Language = 'en'): Promise<any | null> {
-    try {
-      const res = await this.request<any>(`/db/educational/grading-matrix?crop_key=${encodeURIComponent(cropKey)}&lang=${lang}`);
-      if (res && res.status === 'success') {
-        return res;
-      }
-      return null;
-    } catch (err) {
-      console.warn('[API Client] Educational grading matrix fetch error:', err);
-      return null;
-    }
-  }
-
-  /**
-   * 15. Today's Live Page Mandi Prices (kisan_live_today_db)
+   * 14. Today's Live Page Mandi Prices (kisan_live_today_db)
    * Scraped twice daily (Morning 06:00 AM & Evening 06:00 PM)
    */
   static async getLiveTodayPrices(commodity?: string, state?: string, session?: string): Promise<any[]> {
@@ -1019,28 +973,7 @@ export class KisanSethuApi {
   }
 
   /**
-   * 16. Education Charts & 6-Day Stock Trends (kisan_education_charts_db)
-   * Scraped every 6 days
-   */
-  static async getEducationChartsData(commodity?: string, lang: Language = 'en'): Promise<any | null> {
-    try {
-      const params = new URLSearchParams();
-      if (commodity) params.append('commodity', commodity);
-      params.append('lang', lang);
-
-      const res = await this.request<any>(`/db/education/charts-data?${params.toString()}`);
-      if (res && res.status === 'success') {
-        return res;
-      }
-      return null;
-    } catch (err) {
-      console.warn('[API Client] Education charts fetch error:', err);
-      return null;
-    }
-  }
-
-  /**
-   * 17. Unified Background Scrapers Telemetry
+   * 15. Unified Background Scrapers Telemetry
    */
   static async getScrapersTelemetry(): Promise<any | null> {
     try {
@@ -1058,13 +991,16 @@ export class KisanSethuApi {
   /**
    * 18. Trigger Manual Scraper Ingestion Cycle
    */
-  static async triggerScraper(scraperName: string): Promise<any | null> {
+  static async triggerScraper(scraperName?: string): Promise<any | null> {
     try {
-      const res = await this.request<any>('/db/scrapers/trigger', {
-        method: 'POST',
-        body: JSON.stringify({ scraper_name: scraperName })
-      });
-      return res;
+      if (scraperName) {
+        const res = await this.request<any>('/db/scrapers/trigger', {
+          method: 'POST',
+          body: JSON.stringify({ scraper_name: scraperName })
+        });
+        return res;
+      }
+      return await this.request<any>('/db/trigger-scraper', { method: 'POST' });
     } catch (err) {
       console.warn('[API Client] Trigger scraper error:', err);
       return null;

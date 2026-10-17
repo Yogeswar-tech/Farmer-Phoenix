@@ -24,6 +24,7 @@ from database.connection import get_db_cursor, is_postgres_active, init_database
 from scrapers.mandi_scraper import scrape_mandi_prices
 from scrapers.govt_scraper import scrape_govt_policies
 from scrapers.weather_scraper import fetch_weather_advisories
+from scrapers.todays_live_page_scraper import todays_live_scraper
 
 logger = logging.getLogger("ScraperIngester")
 
@@ -249,11 +250,13 @@ def run_full_ingestion() -> dict[str, Any]:
     mandi_records = scrape_mandi_prices()
     weather_records = fetch_weather_advisories()
     scheme_records = scrape_govt_policies()
+    live_today_res = todays_live_scraper.run_scrape_and_ingest()
 
     # 2. Ingest
     mandi_count = ingest_mandi_records(mandi_records)
     weather_count = ingest_weather_records(weather_records)
     scheme_count = ingest_govt_schemes(scheme_records)
+    live_today_count = live_today_res.get("crops_ingested", 0)
 
     # 3. Cache Invalidation
     invalidate_redis_cache()
@@ -269,20 +272,21 @@ def run_full_ingestion() -> dict[str, Any]:
             source_name, target_commodity, records_scraped, records_upserted, duration_seconds, status
         ) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder});
         """, (
-            "ALL_SCRAPERS_ORCHESTRATOR", "MANDI_WEATHER_SCHEMES",
-            len(mandi_records) + len(weather_records) + len(scheme_records),
-            mandi_count + weather_count + scheme_count,
+            "ALL_SCRAPERS_ORCHESTRATOR", "MANDI_WEATHER_SCHEMES_LIVETODAY",
+            len(mandi_records) + len(weather_records) + len(scheme_records) + live_today_count,
+            mandi_count + weather_count + scheme_count + live_today_count,
             duration, "SUCCESS"
         ))
 
-    logger.info("Ingestion completed: %d mandis, %d weather forecasts, %d schemes (pruned %s) in %.2fs",
-                mandi_count, weather_count, scheme_count, pruned, duration)
+    logger.info("Ingestion completed: %d mandis, %d weather, %d schemes, %d live today crops (pruned %s) in %.2fs",
+                mandi_count, weather_count, scheme_count, live_today_count, pruned, duration)
 
     return {
         "status": "SUCCESS",
         "mandi_records": mandi_count,
         "weather_advisories": weather_count,
         "govt_schemes": scheme_count,
+        "live_today_crops": live_today_count,
         "pruned_stale_records": pruned,
         "retention_window_hours": 6,
         "duration_seconds": duration,

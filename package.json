@@ -5,10 +5,12 @@
   "description": "Kisan Sethu monorepo root",
   "scripts": {
     "web": "npm --prefix frontend run web",
-    "dev": "npm --prefix frontend run dev",
+    "dev": "node dev.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "py -m uvicorn app.main:app --app-dir backend --port 8000",
     "build": "npm --prefix frontend run build",
     "test": "npm --prefix frontend test",
-    "start": "npm --prefix frontend run dev",
+    "start": "node dev.js",
     "frontend": "npm --prefix frontend run dev",
     "lint": "npm --prefix frontend run lint"
   }

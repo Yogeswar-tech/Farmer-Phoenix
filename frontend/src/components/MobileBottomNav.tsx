@@ -13,7 +13,6 @@ import {
   TestTube2,
   Landmark,
   Warehouse,
-  BarChart3,
   X
 } from 'lucide-react';
 
@@ -39,7 +38,6 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
   ];
 
   const moreItems: { id: NavigationTab; label: string; icon: ReactNode }[] = [
-    { id: 'charts', label: t.tabCharts.split(' ')[0], icon: <BarChart3 size={22} color={activeTab === 'charts' ? '#2D5A27' : '#334155'} /> },
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={22} color={activeTab === 'logistics' ? '#2D5A27' : '#334155'} /> },
     { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={22} color={activeTab === 'soildoctor' ? '#2D5A27' : '#334155'} /> },
     { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={22} color={activeTab === 'schemes' ? '#2D5A27' : '#334155'} /> },

@@ -8,12 +8,10 @@ import {
   TrendingUp,
   CloudSun,
   Leaf,
-  FlaskConical,
   TestTube2,
   Landmark,
   Warehouse,
-  PhoneCall,
-  BarChart3
+  PhoneCall
 } from 'lucide-react';
 
 interface DesktopSidebarProps {
@@ -32,7 +30,6 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
   const t = translations[currentLang];
 
   const badges: Record<string, Record<Language, string>> = {
-    charts: { en: 'Guide', hi: 'गाइड', te: 'గైడ్' },
     logistics: { en: 'ROI', hi: 'मुनाफा', te: 'లాభం' },
     rates: { en: 'Live', hi: 'लाइव', te: 'లైవ్' },
     advisory: { en: 'Doctor', hi: 'डॉक्टर', te: 'డాక్టర్' },
@@ -40,7 +37,6 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
 
   const menuItems: { id: NavigationTab; label: string; icon: ReactNode; badge?: string }[] = [
     { id: 'home', label: t.tabHome, icon: <Home size={18} /> },
-    { id: 'charts', label: t.tabCharts, icon: <BarChart3 size={18} />, badge: badges.charts[currentLang] },
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={18} />, badge: badges.logistics[currentLang] },
     { id: 'rates', label: t.tabRates, icon: <TrendingUp size={18} />, badge: badges.rates[currentLang] },
     { id: 'climate', label: t.tabClimate, icon: <CloudSun size={18} /> },

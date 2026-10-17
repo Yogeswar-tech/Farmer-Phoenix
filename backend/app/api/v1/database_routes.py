@@ -1057,89 +1057,6 @@ def get_price_alerts_endpoint(
     }
 
 
-# ==============================================================================
-# 14. Educational Quality Grading & Dedicated DB Endpoints
-# ==============================================================================
-
-@router.get("/educational/grading-matrix")
-def get_educational_grading_matrix_endpoint(
-    crop_key: str = Query("chilli", description="Crop key"),
-    lang: str = Query("en", description="Preferred language (en, hi, te)")
-) -> dict[str, Any]:
-    """Retrieve statutory AGMARKNET quality grading criteria and moisture dockage tiers."""
-    from database.multi_db_manager import query_education_charts
-
-    key = crop_key.lower().strip()
-    try:
-        rows = query_education_charts(
-            "SELECT * FROM education_grading_matrix WHERE LOWER(crop_key) = %s ORDER BY id ASC;",
-            (key,)
-        )
-        if not rows:
-            # Fallback to chilli if specific crop not yet populated
-            rows = query_education_charts(
-                "SELECT * FROM education_grading_matrix WHERE LOWER(crop_key) = 'chilli' ORDER BY id ASC;"
-            )
-
-        dockage_rows = query_education_charts(
-            "SELECT * FROM education_moisture_dockage ORDER BY id ASC;"
-        )
-
-        if rows:
-            seen_grades: set[str] = set()
-            grades = []
-            for r in rows:
-                code = r["grade_code"]
-                if code in seen_grades:
-                    continue
-                seen_grades.add(code)
-
-                name_field = f"grade_name_{lang}" if f"grade_name_{lang}" in r else "grade_name_en"
-                crit_field = f"criteria_{lang}" if f"criteria_{lang}" in r else "criteria_en"
-                risk_field = f"deduction_risk_{lang}" if f"deduction_risk_{lang}" in r else "deduction_risk_en"
-
-                grades.append({
-                    "grade_code": code,
-                    "grade_name": r.get(name_field) or r["grade_name_en"],
-                    "criteria": r.get(crit_field) or r["criteria_en"],
-                    "moisture_limit": r["moisture_limit"],
-                    "price_per_qtl": float(r["benchmark_price_qtl"]),
-                    "deduction_risk": r.get(risk_field) or r["deduction_risk_en"],
-                    "badge_color": r.get("badge_color", "#1B5E20"),
-                    "meta_payload": r.get("meta_payload")
-                })
-
-            seen_dockage: set[str] = set()
-            dockage = []
-            for d in dockage_rows:
-                tier = d["moisture_tier"]
-                if tier in seen_dockage:
-                    continue
-                seen_dockage.add(tier)
-
-                st_field = f"tier_status_{lang}" if f"tier_status_{lang}" in d else "tier_status_en"
-                adv_field = f"advice_{lang}" if f"advice_{lang}" in d else "advice_en"
-                dockage.append({
-                    "tier": tier,
-                    "status": d.get(st_field) or d["tier_status_en"],
-                    "dockage_pct": float(d["dockage_deduction_pct"]),
-                    "penalty_qtl": float(d.get("penalty_qtl", 0)),
-                    "advice": d.get(adv_field) or d["advice_en"]
-                })
-
-            return {
-                "status": "success",
-                "database_engine": "PostgreSQL (kisan_education_charts_db)",
-                "crop_key": key,
-                "grades": grades,
-                "moisture_dockage_tiers": dockage
-            }
-    except Exception as e:
-        pass
-
-    # Resilient fallback to domain educational service
-    from app.domain.educational_service import get_grading_matrix
-    return get_grading_matrix(crop_key=crop_key, lang=lang)
 
 
 # ==============================================================================
@@ -1160,11 +1077,11 @@ def get_live_today_prices(
     params: list[Any] = []
 
     if commodity:
-        query += " AND LOWER(commodity) = LOWER(%s)"
-        params.append(commodity)
+        query += " AND (LOWER(commodity) LIKE %s OR LOWER(COALESCE(payload->>'aliases', '')) LIKE %s)"
+        params.extend([f"%{commodity.lower().strip()}%", f"%{commodity.lower().strip()}%"])
     if state:
-        query += " AND LOWER(state) = LOWER(%s)"
-        params.append(state)
+        query += " AND LOWER(state) LIKE %s"
+        params.append(f"%{state.lower().strip()}%")
     if session:
         query += " AND session = %s"
         params.append(session.upper())
@@ -1233,61 +1150,9 @@ def trigger_6h_refresh_and_prune() -> dict[str, Any]:
 
 
 
-@router.get("/education/charts-data")
-def get_education_charts_data(
-    commodity: str | None = Query(None, description="Crop filter (e.g. chilli, tomato, onion)"),
-    lang: str = Query("en", description="Language: en, hi, te")
-) -> dict[str, Any]:
-    """Retrieve statutory grading matrix, moisture dockage schedule & 6-day stock trends from `kisan_education_charts_db`."""
-    from database.multi_db_manager import query_education_charts
-
-    grades_q = "SELECT * FROM education_grading_matrix"
-    grades_params = ()
-    if commodity:
-        grades_q += " WHERE LOWER(crop_key) = LOWER(%s)"
-        grades_params = (commodity,)
-    grades_q += " ORDER BY id ASC;"
-
-    raw_grades = query_education_charts(grades_q, grades_params, use_cache=True)
-    raw_dockage = query_education_charts("SELECT * FROM education_moisture_dockage ORDER BY id ASC;", (), use_cache=True)
-    raw_trends = query_education_charts("SELECT * FROM education_stock_trends ORDER BY id ASC;", (), use_cache=True)
-
-    # Deduplicate unique records
-    seen_grades_keys: set[str] = set()
-    dedup_grades = []
-    for g in raw_grades:
-        k = f"{g['crop_key']}_{g['grade_code']}"
-        if k not in seen_grades_keys:
-            seen_grades_keys.add(k)
-            dedup_grades.append(g)
-
-    seen_dock_tiers: set[str] = set()
-    dedup_dockage = []
-    for d in raw_dockage:
-        if d["moisture_tier"] not in seen_dock_tiers:
-            seen_dock_tiers.add(d["moisture_tier"])
-            dedup_dockage.append(d)
-
-    seen_trend_comm: set[str] = set()
-    dedup_trends = []
-    for tr in raw_trends:
-        if tr["commodity"] not in seen_trend_comm:
-            seen_trend_comm.add(tr["commodity"])
-            dedup_trends.append(tr)
-
-    return {
-        "status": "success",
-        "scraper_source": "Education Charts 1 (Every 6 Days)",
-        "target_database": "PostgreSQL (kisan_education_charts_db)",
-        "grading_matrix": dedup_grades,
-        "moisture_dockage_tiers": dedup_dockage,
-        "stock_trends_6day": dedup_trends
-    }
-
-
 @router.get("/scrapers/telemetry")
 def get_scrapers_telemetry() -> dict[str, Any]:
-    """Retrieve real-time telemetry, execution schedules and status of all 3 background scrapers."""
+    """Retrieve real-time telemetry, execution schedules and status of background scrapers."""
     from scrapers.unified_scheduler import get_all_scheduler_telemetry
     return get_all_scheduler_telemetry()
 
@@ -1299,7 +1164,7 @@ def trigger_scraper_endpoint(
     """Manually trigger an immediate execution cycle for any scraper."""
     scraper_name = payload.get("scraper_name", "")
     if not scraper_name:
-        raise HTTPException(status_code=400, detail="Must provide 'scraper_name' (today_live, education_charts, govt_policies)")
+        raise HTTPException(status_code=400, detail="Must provide 'scraper_name' (today_live, govt_policies)")
 
     from scrapers.unified_scheduler import trigger_scraper_by_name
     try:
