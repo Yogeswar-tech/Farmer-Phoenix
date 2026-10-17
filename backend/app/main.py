@@ -51,6 +51,12 @@ app.include_router(farmer_router, prefix="/v1")
 app.include_router(db_router, prefix="/v1")
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"status": "ok", "service": "kisan-sethu-api", "version": "1.0.0"}
+
+
 @app.get("/v1/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
