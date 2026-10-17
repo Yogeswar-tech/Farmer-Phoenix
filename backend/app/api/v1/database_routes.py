@@ -1086,14 +1086,20 @@ def get_educational_grading_matrix_endpoint(
         )
 
         if rows:
+            seen_grades: set[str] = set()
             grades = []
             for r in rows:
+                code = r["grade_code"]
+                if code in seen_grades:
+                    continue
+                seen_grades.add(code)
+
                 name_field = f"grade_name_{lang}" if f"grade_name_{lang}" in r else "grade_name_en"
                 crit_field = f"criteria_{lang}" if f"criteria_{lang}" in r else "criteria_en"
                 risk_field = f"deduction_risk_{lang}" if f"deduction_risk_{lang}" in r else "deduction_risk_en"
 
                 grades.append({
-                    "grade_code": r["grade_code"],
+                    "grade_code": code,
                     "grade_name": r.get(name_field) or r["grade_name_en"],
                     "criteria": r.get(crit_field) or r["criteria_en"],
                     "moisture_limit": r["moisture_limit"],
@@ -1103,12 +1109,18 @@ def get_educational_grading_matrix_endpoint(
                     "meta_payload": r.get("meta_payload")
                 })
 
+            seen_dockage: set[str] = set()
             dockage = []
             for d in dockage_rows:
+                tier = d["moisture_tier"]
+                if tier in seen_dockage:
+                    continue
+                seen_dockage.add(tier)
+
                 st_field = f"tier_status_{lang}" if f"tier_status_{lang}" in d else "tier_status_en"
                 adv_field = f"advice_{lang}" if f"advice_{lang}" in d else "advice_en"
                 dockage.append({
-                    "tier": d["moisture_tier"],
+                    "tier": tier,
                     "status": d.get(st_field) or d["tier_status_en"],
                     "dockage_pct": float(d["dockage_deduction_pct"]),
                     "penalty_qtl": float(d.get("penalty_qtl", 0)),
@@ -1185,17 +1197,40 @@ def get_education_charts_data(
         grades_params = (commodity,)
     grades_q += " ORDER BY id ASC;"
 
-    grades = query_education_charts(grades_q, grades_params, use_cache=True)
-    dockage = query_education_charts("SELECT * FROM education_moisture_dockage ORDER BY id ASC;", (), use_cache=True)
-    trends = query_education_charts("SELECT * FROM education_stock_trends ORDER BY id ASC;", (), use_cache=True)
+    raw_grades = query_education_charts(grades_q, grades_params, use_cache=True)
+    raw_dockage = query_education_charts("SELECT * FROM education_moisture_dockage ORDER BY id ASC;", (), use_cache=True)
+    raw_trends = query_education_charts("SELECT * FROM education_stock_trends ORDER BY id ASC;", (), use_cache=True)
+
+    # Deduplicate unique records
+    seen_grades_keys: set[str] = set()
+    dedup_grades = []
+    for g in raw_grades:
+        k = f"{g['crop_key']}_{g['grade_code']}"
+        if k not in seen_grades_keys:
+            seen_grades_keys.add(k)
+            dedup_grades.append(g)
+
+    seen_dock_tiers: set[str] = set()
+    dedup_dockage = []
+    for d in raw_dockage:
+        if d["moisture_tier"] not in seen_dock_tiers:
+            seen_dock_tiers.add(d["moisture_tier"])
+            dedup_dockage.append(d)
+
+    seen_trend_comm: set[str] = set()
+    dedup_trends = []
+    for tr in raw_trends:
+        if tr["commodity"] not in seen_trend_comm:
+            seen_trend_comm.add(tr["commodity"])
+            dedup_trends.append(tr)
 
     return {
         "status": "success",
         "scraper_source": "Education Charts 1 (Every 6 Days)",
         "target_database": "PostgreSQL (kisan_education_charts_db)",
-        "grading_matrix": grades,
-        "moisture_dockage_tiers": dockage,
-        "stock_trends_6day": trends
+        "grading_matrix": dedup_grades,
+        "moisture_dockage_tiers": dedup_dockage,
+        "stock_trends_6day": dedup_trends
     }
 
 

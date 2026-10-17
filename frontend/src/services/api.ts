@@ -47,6 +47,13 @@ export class KisanSethuApi {
    */
   static async getMandiRates(commodity?: string, state?: string): Promise<any[]> {
     try {
+      // 1. First priority: Today's live prices from dedicated PostgreSQL kisan_live_today_db
+      const liveToday = await this.getLiveTodayPrices(commodity, state);
+      if (liveToday && liveToday.length > 0) {
+        return liveToday;
+      }
+
+      // 2. Secondary fallback: Generic APMC table
       const queryParams = new URLSearchParams();
       if (commodity) queryParams.append('commodity', commodity);
       if (state) queryParams.append('state', state);
