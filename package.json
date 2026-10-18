@@ -7,7 +7,7 @@
     "web": "npm --prefix frontend run web",
     "dev": "node dev.js",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "py -m uvicorn app.main:app --app-dir backend --port 8000",
+    "dev:backend": "uv run uvicorn app.main:app --app-dir backend --port 8000",
     "build": "npm --prefix frontend run build",
     "test": "npm --prefix frontend test",
     "start": "node dev.js",
