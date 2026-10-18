@@ -24,11 +24,11 @@ gcloud auth application-default login
 ## Step 1 — Create GCP Project
 
 ```bash
-gcloud projects create kisan-sethu-prod --name="Kisan Sethu"
-gcloud config set project kisan-sethu-prod
+gcloud projects create kisansetu-dev --name="Kisan Sethu"
+gcloud config set project kisansetu-dev
 
 # Link billing (get your billing account ID from: gcloud billing accounts list)
-gcloud billing projects link kisan-sethu-prod \
+gcloud billing projects link kisansetu-dev \
   --billing-account=XXXXXX-XXXXXX-XXXXXX
 ```
 
@@ -58,7 +58,7 @@ gcloud services enable \
 
 ### 3a. Gemini API Key (Google AI Studio — free)
 1. Go to: **https://aistudio.google.com**
-2. Click **"Get API key"** → **"Create API key"** → select your project `kisan-sethu-prod`
+2. Click **"Get API key"** → **"Create API key"** → select your project `kisansetu-dev`
 3. Copy the key — this is `KS_GEMINI_API_KEY`
 
 ### 3b. Google Maps API Key
@@ -76,18 +76,18 @@ Save this output — it is `KS_ADMIN_API_KEY`. Never put it in frontend code.
 ### 3d. Firebase Phone Auth Setup (for real SMS OTP)
 
 1. Go to [Firebase Console](https://console.firebase.google.com) and click **Add project**
-2. Type your existing GCP project ID `kisan-sethu-prod` — Firebase will attach to it
+2. Type your existing GCP project ID `kisansetu-dev` — Firebase will attach to it
 3. In the left nav: **Authentication → Sign-in method → Phone** → Enable
 4. Click the **gear ⚙ → Project settings → Your apps** → click **Web `</>`**
 5. Register the app (any nickname), then copy the config block that looks like:
    ```js
    const firebaseConfig = {
-     apiKey: "AIzaSy...",
-     authDomain: "kisan-sethu-prod.firebaseapp.com",
-     projectId: "kisan-sethu-prod",
-     storageBucket: "kisan-sethu-prod.appspot.com",
-     messagingSenderId: "123456789",
-     appId: "1:123456789:web:abc123"
+     apiKey: "AIzaSyD1Jw46rpGDOckqBh2sGqePmYHXvJZFL2s",
+     authDomain: "kisansetu-dev.firebaseapp.com",
+     projectId: "kisansetu-dev",
+     storageBucket: "kisansetu-dev.firebasestorage.app",
+     messagingSenderId: "66226476599",
+     appId: "1:66226476599:web:7efe71ca2f83c32818d1b2"
    };
    ```
 6. Save these 6 values — you will use them as `--build-arg` in Step 8.
@@ -127,7 +127,7 @@ Get your Cloud SQL connection name (you will need this later):
 ```bash
 gcloud sql instances describe kisan-sethu-db \
   --format="value(connectionName)"
-# Output looks like: kisan-sethu-prod:asia-south1:kisan-sethu-db
+# Output looks like: kisansetu-dev:asia-south1:kisan-sethu-db
 ```
 
 **Save this connection name.**
@@ -216,12 +216,12 @@ PROJECT_ID=$(gcloud config get-value project)
 
 docker build \
   --platform linux/amd64 \
-  --build-arg VITE_FIREBASE_API_KEY="AIzaSy..." \
-  --build-arg VITE_FIREBASE_AUTH_DOMAIN="kisan-sethu-prod.firebaseapp.com" \
-  --build-arg VITE_FIREBASE_PROJECT_ID="kisan-sethu-prod" \
-  --build-arg VITE_FIREBASE_STORAGE_BUCKET="kisan-sethu-prod.appspot.com" \
-  --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="123456789" \
-  --build-arg VITE_FIREBASE_APP_ID="1:123456789:web:abc123" \
+  --build-arg VITE_FIREBASE_API_KEY="AIzaSyD1Jw46rpGDOckqBh2sGqePmYHXvJZFL2s" \
+  --build-arg VITE_FIREBASE_AUTH_DOMAIN="kisansetu-dev.firebaseapp.com" \
+  --build-arg VITE_FIREBASE_PROJECT_ID="kisansetu-dev" \
+  --build-arg VITE_FIREBASE_STORAGE_BUCKET="kisansetu-dev.firebasestorage.app" \
+  --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="66226476599" \
+  --build-arg VITE_FIREBASE_APP_ID="1:66226476599:web:7efe71ca2f83c32818d1b2" \
   -t asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest \
   .
 
@@ -242,7 +242,7 @@ PROJECT_ID=$(gcloud config get-value project)
 IMAGE="asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest"
 
 # Cloud SQL connection name from Step 4 (format: PROJECT:REGION:INSTANCE)
-CLOUD_SQL_CONN="kisan-sethu-prod:asia-south1:kisan-sethu-db"
+CLOUD_SQL_CONN="kisansetu-dev:asia-south1:kisan-sethu-db"
 
 # Memorystore private IP from Step 5a
 REDIS_IP="10.x.x.x"
