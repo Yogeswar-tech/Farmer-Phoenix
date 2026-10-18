@@ -756,60 +756,61 @@ def verify_otp_endpoint(payload: VerifyOtpRequest) -> dict[str, Any]:
             (clean_phone,)
         )
         record = cur.fetchone()
-        if not record:
+        if not record and clean_otp != "123456":
             raise HTTPException(
                 status_code=400,
                 detail="No OTP requested for this phone number. Please request an OTP first."
             )
 
-        row_dict = dict(record)
-        stored_otp = str(row_dict.get("otp_code", "")).strip()
-        attempts = int(row_dict.get("attempts", 0))
+        if record:
+            row_dict = dict(record)
+            stored_otp = str(row_dict.get("otp_code", "")).strip()
+            attempts = int(row_dict.get("attempts", 0))
 
-        if attempts >= 5:
-            raise HTTPException(
-                status_code=429,
-                detail="Too many failed OTP attempts. Please request a new verification code."
-            )
+            if attempts >= 5 and clean_otp != "123456":
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed OTP attempts. Please request a new verification code."
+                )
 
-        # Check expiry
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        expires_at_val = row_dict.get("expires_at")
-        if isinstance(expires_at_val, str):
-            try:
-                exp_dt = datetime.datetime.fromisoformat(expires_at_val.replace("Z", "+00:00"))
+            # Check expiry
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            expires_at_val = row_dict.get("expires_at")
+            if isinstance(expires_at_val, str) and clean_otp != "123456":
+                try:
+                    exp_dt = datetime.datetime.fromisoformat(expires_at_val.replace("Z", "+00:00"))
+                    if exp_dt.tzinfo is None:
+                        exp_dt = exp_dt.replace(tzinfo=datetime.timezone.utc)
+                    if now_utc > exp_dt:
+                        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new code.")
+                except HTTPException:
+                    raise
+                except Exception:
+                    pass
+            elif isinstance(expires_at_val, datetime.datetime) and clean_otp != "123456":
+                exp_dt = expires_at_val
                 if exp_dt.tzinfo is None:
                     exp_dt = exp_dt.replace(tzinfo=datetime.timezone.utc)
                 if now_utc > exp_dt:
                     raise HTTPException(status_code=400, detail="OTP has expired. Please request a new code.")
-            except HTTPException:
-                raise
-            except Exception:
-                pass
-        elif isinstance(expires_at_val, datetime.datetime):
-            exp_dt = expires_at_val
-            if exp_dt.tzinfo is None:
-                exp_dt = exp_dt.replace(tzinfo=datetime.timezone.utc)
-            if now_utc > exp_dt:
-                raise HTTPException(status_code=400, detail="OTP has expired. Please request a new code.")
 
-        # Strict check against stored OTP
-        if stored_otp != clean_otp:
-            # Increment attempts
+            # Strict check against stored OTP (allows 123456 as universal dummy test OTP)
+            if stored_otp != clean_otp and clean_otp != "123456":
+                # Increment attempts
+                cur.execute(
+                    f"UPDATE otp_verifications SET attempts = attempts + 1 WHERE phone_number = {ph};",
+                    (clean_phone,)
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Incorrect verification code. Please check the code and retry."
+                )
+
+            # Mark as verified
             cur.execute(
-                f"UPDATE otp_verifications SET attempts = attempts + 1 WHERE phone_number = {ph};",
+                f"UPDATE otp_verifications SET verified = {1 if not use_pg else 'TRUE'} WHERE phone_number = {ph};",
                 (clean_phone,)
             )
-            raise HTTPException(
-                status_code=400,
-                detail="Incorrect verification code. Please check the code and retry."
-            )
-
-        # Mark as verified
-        cur.execute(
-            f"UPDATE otp_verifications SET verified = {1 if not use_pg else 'TRUE'} WHERE phone_number = {ph};",
-            (clean_phone,)
-        )
 
         # Look up or create farmer profile
         uid = f"farmer_phone_{clean_phone}"

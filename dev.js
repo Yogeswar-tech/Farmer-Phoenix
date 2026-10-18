@@ -8,11 +8,11 @@ console.log('2. Starting Vite Frontend (http://localhost:3000)...');
 const venvUvicorn = path.join(__dirname, 'backend', '.venv', 'Scripts', 'uvicorn.exe');
 const fs = require('fs');
 let backendCmd = 'uv';
-let backendArgs = ['run', 'uvicorn', 'app.main:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '8000'];
+let backendArgs = ['run', 'uvicorn', 'app.main:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '8000', '--reload'];
 
 if (fs.existsSync(venvUvicorn)) {
   backendCmd = `"${venvUvicorn}"`;
-  backendArgs = ['app.main:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '8000'];
+  backendArgs = ['app.main:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '8000', '--reload'];
 }
 
 // 1. Start Python FastAPI Backend
