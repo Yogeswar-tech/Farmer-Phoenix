@@ -910,7 +910,6 @@ export function App() {
             onLogout={handleLogout}
             currentUserProfile={currentUserProfile}
             lockedFeatureName={undefined}
-            isMandatoryGate={true}
           />
         </div>
 
