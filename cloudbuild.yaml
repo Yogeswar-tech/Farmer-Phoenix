@@ -1,8 +1,10 @@
 steps:
-  # Step 1: Build Docker image with Firebase config baked in
+  # Step 1: Build Docker image (build-args baked in at build time)
   - name: 'gcr.io/cloud-builders/docker'
+    id: Build
     args:
       - build
+      - --no-cache
       - --platform=linux/amd64
       - --build-arg=VITE_FIREBASE_API_KEY=AIzaSyD1Jw46rpGDOckqBh2sGqePmYHXvJZFL2s
       - --build-arg=VITE_FIREBASE_AUTH_DOMAIN=kisansetu-dev.firebaseapp.com
@@ -11,44 +13,62 @@ steps:
       - --build-arg=VITE_FIREBASE_MESSAGING_SENDER_ID=66226476599
       - --build-arg=VITE_FIREBASE_APP_ID=1:66226476599:web:7efe71ca2f83c32818d1b2
       - -t
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
       - -t
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:latest
+      - -f
+      - Dockerfile
       - .
 
   # Step 2: Push image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
+    id: Push
     args:
       - push
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
 
   - name: 'gcr.io/cloud-builders/docker'
+    id: PushLatest
     args:
       - push
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:latest
 
-  # Step 3: Deploy new revision to Cloud Run (asia-south1)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  # Step 3: Deploy to kisan-sethu (STAGING)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: DeployStaging
     entrypoint: gcloud
     args:
       - run
-      - deploy
+      - services
+      - update
       - kisan-sethu
-      - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
-      - --region=asia-south1
       - --platform=managed
-      - --allow-unauthenticated
-      - --port=8080
-      - --memory=1Gi
-      - --cpu=1
-      - --min-instances=0
-      - --max-instances=10
-      - --set-env-vars=KS_ENV=production
-      - --update-env-vars=KS_GCP_LOCATION=asia-south1
+      - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
+      - --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - --region=asia-south1
+      - --quiet
+
+  # Step 4: Promote same image to farmer-phoenix (PRODUCTION)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: DeployProduction
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - farmer-phoenix
+      - --platform=managed
+      - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
+      - --labels=promoted-from=kisan-sethu,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - --region=asia-south1
+      - --quiet
 
 images:
-  - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
-  - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:latest
+
+substitutions:
+  _TRIGGER_ID: 5fe8b7bb-361d-422f-8dbc-730a1aa33bf5
 
 options:
   machineType: E2_HIGHCPU_8
