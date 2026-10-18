@@ -1268,16 +1268,418 @@ class ClimateEngine:
             "dryingWindow": drying_window,
 
             "irrigationStatus": irrigation_status,
-
             "irrigationAdvice": irrigation_advice,
-
             "thermalStress": thermal_stress,
-
             "soilSuitability": soil_suitability,
-
             "dayTypes": day_types
-
         }
+
+    def build_location_aware_seasonal_outlook(
+        self,
+        state: str,
+        district: str,
+        current_month: int,
+        base_date: datetime.date,
+        lat: float | None = None,
+        lon: float | None = None,
+        location_name: str | None = None,
+        zone: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Generates location-aware 3-month seasonal agricultural climate outlook tailored to
+        user location, geographic coordinates, agro-climatic zones, and seasonal harvest cycles.
+        DOES NOT hardcode district lists; dynamically adapts to ANY village, tehsil, or district.
+        """
+        st_clean = (state or "").lower().strip()
+        zone_clean = (zone or "").lower().strip()
+
+        latitude = float(lat) if lat is not None else 20.0
+        longitude = float(lon) if lon is not None else 78.0
+
+        # Dynamic Agro-Climatic Belt classification based on Coordinates, State, and Zone
+        # (Zero hardcoded district lists - works across all 750+ districts and coordinates in India)
+        is_ap_telangana = (
+            any(s in st_clean for s in ["andhra", "telangana", "ap"]) or
+            (latitude < 16.5 and longitude > 77.0) or
+            any(z in zone_clean for z in ["krishna", "godavari", "coastal", "rayalaseema"])
+        )
+        is_maharashtra = (
+            "maharashtra" in st_clean or
+            "goa" in st_clean or
+            (16.5 <= latitude < 21.5 and 72.5 <= longitude <= 78.5)
+        )
+        is_punjab_haryana = (
+            any(s in st_clean for s in ["punjab", "haryana", "chandigarh", "delhi", "himachal", "jammu", "kashmir"]) or
+            (latitude >= 26.5 and longitude <= 78.5)
+        )
+        is_karnataka = (
+            "karnataka" in st_clean or
+            (12.0 <= latitude < 16.0 and 74.0 <= longitude <= 78.0 and not is_ap_telangana)
+        )
+        is_tamil_nadu = (
+            any(s in st_clean for s in ["tamil", "kerala", "puducherry"]) or
+            (latitude < 13.0 and longitude >= 77.0)
+        )
+
+        month_names = [
+            (1, {"en": "January", "hi": "जनवरी", "te": "జనవరి"}),
+            (2, {"en": "February", "hi": "फरवरी", "te": "ఫిబ్రవరి"}),
+            (3, {"en": "March", "hi": "मार्च", "te": "మార్చి"}),
+            (4, {"en": "April", "hi": "अप्रैल", "te": "ఏప్రిల్"}),
+            (5, {"en": "May", "hi": "मई", "te": "మే"}),
+            (6, {"en": "June", "hi": "जून", "te": "జూన్"}),
+            (7, {"en": "July", "hi": "जुलाई", "te": "జూలై"}),
+            (8, {"en": "August", "hi": "अगस्त", "te": "ఆగస్టు"}),
+            (9, {"en": "September", "hi": "सितंबर", "te": "సెప్టెంబర్"}),
+            (10, {"en": "October", "hi": "अक्टूबर", "te": "అక్టోబర్"}),
+            (11, {"en": "November", "hi": "नवंबर", "te": "నవంబర్"}),
+            (12, {"en": "December", "hi": "दिसंबर", "te": "డిసెంబర్"}),
+        ]
+
+        seasonal_outlook = []
+        for offset in range(1, 4):
+            m_idx = ((current_month - 1 + offset) % 12) + 1
+            m_entry = next(item for item in month_names if item[0] == m_idx)
+            m_year = base_date.year if m_idx >= current_month else base_date.year + 1
+
+            if is_ap_telangana:
+                if m_idx == 11:
+                    desc = {
+                        "en": "Post-monsoon transition with cool nights. Critical flowering and fruit development stage for Chilli; second cotton picking. Maintain field drainage; optimal for sowing Rabi Bengal gram and black gram (Minumu).",
+                        "hi": "मानसून बाद की हल्की फुहारें। मिर्च में फूल व फल विकास की मुख्य अवस्था; कपास की दूसरी चुनाई। खेतों से जल निकास रखें तथा रबी चना व उड़द की बुवाई करें।",
+                        "te": "ఈశాన్య రుతుపవనాల జల్లులు తగ్గుముఖం పడతాయి. మిర్చి పంటలో పూత, పిందె దశ; పత్తి రెండవ కోత. పొలంలో నీటి నిల్వ లేకుండా చూసుకోండి; రబీ శనగ, మినుము విత్తనాలు వేయడానికి అనుకూలం."
+                    }
+                    rain_text = {
+                        "en": "Scattered Coastal Showers (25–50 mm)",
+                        "hi": "छिटपुट तटीय वर्षा (25–50 मिमी)",
+                        "te": "తేలికపాటి తీరప్రాంత జల్లులు (25–50 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": "Mild dry winter with clear sunny days. Peak red & green chilli pod development and first picking; Cotton boll maturity. Monitor for thrips, mites, and powdery mildew.",
+                        "hi": "हल्की सूखी सर्दी, रातें ठंडी। मिर्च में फल विकास एवं पहली तुड़ाई का मुख्य समय; कपास की चुनाई। थ्रिप्स, माइट्स एवं पाउडरी मिल्ड्यू पर निगरानी रखें।",
+                        "te": "చల్లని రాత్రులు, పొడి వాతావరణం. మిర్చి కాయలు ముదిరి మొదటి కోతలు ప్రారంభం; పత్తి కాయల పరిపక్వత. తామర పురుగులు, నల్లి మరియు బూడిద తెగులు నివారణపై శ్రద్ధ వహించండి."
+                    }
+                    rain_text = {
+                        "en": "Dry Winter Conditions (< 15 mm)",
+                        "hi": "शुष्क शीतकालीन मौसम (< 15 मिमी)",
+                        "te": "పొడి శీతాకాల వాతావరణం (< 15 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": "Clear skies and abundant sunshine (Sankranti season). Prime window for harvesting and open-yard sun-drying of red chillies (Kallalu). Bengal gram pod filling; irrigate Rabi paddy.",
+                        "hi": "खिली धूप एवं शुष्क मौसम (संक्रांति काल)। लाल मिर्च की तुड़ाई कर खलिहानों में धूप में सुखाने का आदर्श समय। चना में फली विकास; रबी धान में समय पर सिंचाई दें।",
+                        "te": "సంక్రాంతి కాలం, స్పష్టమైన పొడి ఎండ. ఎర్రమిర్చి కోతలు చేసి కళ్ళాలలో ఎండబెట్టడానికి అత్యంత అనుకూలం. శనగ కాయల దశ; రబీ వరికి క్రమబద్ధమైన నీటి తడులు ఇవ్వండి."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 8 mm)",
+                        "hi": "शुष्क एवं खिली धूप (< 8 मिमी)",
+                        "te": "స్పష్టమైన పొడి ఎండ (< 8 మిమీ)"
+                    }
+                elif m_idx == 2:
+                    desc = {
+                        "en": "Gradual temperature rise. Peak red chilli arrivals in Guntur & Khammam mandis. Harvesting and threshing of Bengal gram; panicle initiation in Rabi paddy.",
+                        "hi": "तापमान में क्रमिक वृद्धि। गुंटूर व खम्मम मंडियों में लाल मिर्च की भारी आवक। चना की कटाई व गहाई; रबी धान में गभोट अवस्था पर सिंचाई।",
+                        "te": "ఉష్ణోగ్రతలు క్రమంగా పెరుగుతాయి. గుంటూరు, ఖమ్మం మార్కెట్ యార్డులలో మిర్చి అమ్మకాల జోరు. శనగ కోతలు, రబీ వరి చిరుపొట్ట దశకు నీటి యాజమాన్యం."
+                    }
+                    rain_text = {
+                        "en": "Dry & Warming (< 5 mm)",
+                        "hi": "शुष्क व बढ़ता तापमान (< 5 मिमी)",
+                        "te": "పొడి వాతావరణం, ఎండ తీవ్రత (< 5 మిమీ)"
+                    }
+                elif m_idx == 3:
+                    desc = {
+                        "en": "Early summer heat onset. Final pickings of chilli; post-harvest cold storage loading. Harvesting of Rabi paddy, maize, and pulses; plan for summer land preparation.",
+                        "hi": "गर्मी की शुरुआत। मिर्च की अंतिम तुड़ाई व कोल्ड स्टोरेज भंडारण; रबी धान, मक्का एवं उड़द की कटाई। ग्रीष्मकालीन गहरी जुताई की योजना बनाएं।",
+                        "te": "ఎండల తీవ్రత పెరుగుతుంది. మిర్చి ఆఖరి కోతలు పూర్తి చేసి కోల్డ్ స్టోరేజ్ నిల్వకు ప్యాకింగ్ చేయండి. రబీ వరి, మొక్కజొన్న కోతలు; వేసవి దుక్కులకు ప్రణాళిక."
+                    }
+                    rain_text = {
+                        "en": "Dry Spring (< 10 mm)",
+                        "hi": "शुष्क वसंत (< 10 मिमी)",
+                        "te": "పొడి వాతావరణం (< 10 మిమీ)"
+                    }
+                elif m_idx in [4, 5]:
+                    desc = {
+                        "en": "Peak summer temperature. Conduct deep summer ploughing to eradicate soil-borne pests and wilt pathogens. Sow green manure crops (Sunnhemp/Dhaincha) with pre-monsoon showers.",
+                        "hi": "भीषण ग्रीष्मकाल। मृदा जनित रोगों व कीटों के नियंत्रण हेतु गहरी जुताई अवश्य करें। मानसूनी पूर्व वर्षा पर ढैंचा व सनई की हरी खाद बोएं।",
+                        "te": "తీవ్రమైన వేసవి ఎండలు. నేలలోని శిలీంధ్రాలు, పురుగుల నివారణకు లోతైన వేసవి దుక్కులు చేపట్టండి. తొలకరి వర్షాలకు జీలుగ, జనుము పచ్చిరొట్ట ఎరువుల విత్తనాలు చల్లండి."
+                    }
+                    rain_text = {
+                        "en": "Pre-Monsoon Thundershowers (15–35 mm)",
+                        "hi": "प्री-मानसून गरज-चमक की वर्षा (15–35 मिमी)",
+                        "te": "తొలకరి ఉరుములతో కూడిన జల్లులు (15–35 మిమీ)"
+                    }
+                elif m_idx in [6, 7]:
+                    desc = {
+                        "en": "South-West Monsoon onset. Sowing of Kharif Cotton, Groundnut, and Redgram; raise Chilli nurseries and Paddy nurseries.",
+                        "hi": "दक्षिण-पश्चिम मानसून का आगमन। खरीफ कपास, मूंगफली, अरहर की बुवाई का समय। मिर्च व धान की नर्सरी तैयार करें।",
+                        "te": "నైరుతి రుతుపవనాల ప్రవేశం. ఖరీఫ్ పత్తి, వేరుశనగ, కంది విత్తనాలు వేయడానికి అనువైన సమయం. మిర్చి నారుమడులు మరియు వరి నారు పోయండి."
+                    }
+                    rain_text = {
+                        "en": "SW Monsoon Influx (110–190 mm)",
+                        "hi": "द-प मानसून सक्रिय (110–190 मिमी)",
+                        "te": "నైరుతి రుతుపవనాల వర్షాలు (110–190 మిమీ)"
+                    }
+                elif m_idx in [8, 9]:
+                    desc = {
+                        "en": "Heavy active monsoon. Transplanting Chilli and Paddy seedlings to main field. Weed management, balanced fertilizer application, and drainage clearing.",
+                        "hi": "सक्रिय मानसून। मिर्च व धान के पौधों की मुख्य खेत में रोपाई। खरपतवार नियंत्रण, उर्वरक प्रबंधन और खेतों से जल निकासी सुनिश्चित करें।",
+                        "te": "భారీ వర్షాకాలం. మిర్చి నారు మరియు వరి నారు ప్రధాన పొలంలో నాటుకోవాలి. కలుపు నివారణ, యూరియా/పొటాష్ సమతుల్య వాడకం, నీటి కాల్వలు శుభ్రపరచండి."
+                    }
+                    rain_text = {
+                        "en": "Heavy Monsoon Precipitation (140–240 mm)",
+                        "hi": "भारी मानसूनी वर्षा (140–240 मिमी)",
+                        "te": "భారీ వర్షపాతం (140–240 మిమీ)"
+                    }
+                else: # Month 10
+                    desc = {
+                        "en": "Monsoon withdrawal and cyclonic watch. Rapid vegetative growth in Chilli. Early Kharif paddy harvesting; apply protective spray against sucking pests.",
+                        "hi": "मानसून वापसी व चक्रवात निगरानी। मिर्च में वानस्पतिक बढ़वार। अगेती खरीफ धान की कटाई; रस चूसक कीटों से सुरक्षा करें।",
+                        "te": "రుతుపవనాల నిష్క్రమణ, తుఫానుల కాలం. మిర్చి మొక్కల ఏపుగా పెరిగే దశ. ముందస్తు ఖరీఫ్ వరి కోతలు; రసం పీల్చే పురుగుల నివారణకు మందుల పిచికారీ."
+                    }
+                    rain_text = {
+                        "en": "Cyclonic Coastal Showers (60–120 mm)",
+                        "hi": "तटीय चक्रवाती वर्षा (60–120 मिमी)",
+                        "te": "తీరప్రాంత తుఫాను జల్లులు (60–120 మిమీ)"
+                    }
+            elif is_maharashtra:
+                if m_idx == 11:
+                    desc = {
+                        "en": "Post-monsoon transition. Transplanting of Rabi Onion (Pol/Rabi Kanda) nurseries; Kharif Cotton and Soybean harvest completion. Pruning and fruit canopy care in vineyards.",
+                        "hi": "मानसून बाद का समय। रबी प्याज की नर्सरी रोपाई; खरीफ कपास व सोयाबीन की कटाई का समापन। अंगूर के बागों में छंटाई एवं कैनोपी प्रबंधन।",
+                        "te": "రబీ ఉల్లి నారు నాటుకోవడానికి అనుకూలం; పత్తి, సోయాబీన్ పంటల కోతలు పూర్తి చేయండి. ద్రాక్ష తోటల సంరక్షణ."
+                    }
+                    rain_text = {
+                        "en": "Light Transition Showers (15–30 mm)",
+                        "hi": "हल्की मानसूनी फुहारें (15–30 मिमी)",
+                        "te": "తేలికపాటి వర్షం (15–30 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": "Crisp cool winter. Vegetative development of Rabi Onion; Grape berry development and bunch dipping; Chickpea (Chana) flowering.",
+                        "hi": "ठंडी शुष्क सर्दी। रबी प्याज की बढ़वार; अंगूर में फल विकास एवं डिपिंग; चना में फूल आने का समय।",
+                        "te": "శీతాకాల వాతావరణం: రబీ ఉల్లి ఎదుగుదల, ద్రాక్ష కాయల పరిమాణం పెరగడం, శనగ పూత దశ."
+                    }
+                    rain_text = {
+                        "en": "Dry Winter (< 10 mm)",
+                        "hi": "शुष्क सर्दी (< 10 मिमी)",
+                        "te": "పొడి వాతావరణం (< 10 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": "Dry winter with clear skies. Late Kharif (Rangada) onion harvest; Grape veraison and sugar accumulation; Mrig bahar pomegranate harvesting.",
+                        "hi": "शुष्क शीत ऋतु। रबी रंगड़ा प्याज की तुड़ाई; अंगूर में रंग व मिठास का भराव; अनार की मृग बहार तुड़ाई।",
+                        "te": "పొడి చల్లని వాతావరణం: రబీ ఉల్లి కోతలు, ద్రాక్ష పండ్ల పక్వత, దానిమ్మ పంట కోతలు."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 5 mm)",
+                        "hi": "शुष्क व धूप (< 5 मिमी)",
+                        "te": "పొడి ఎండ (< 5 మిమీ)"
+                    }
+                else:
+                    desc = {
+                        "en": "Spring warming in Maharashtra belt. Peak harvest of export-quality Grapes; Rabi Onion harvesting, grading, and chawl storage loading.",
+                        "hi": "महाराष्ट्र क्षेत्र में गर्मी की शुरुआत। निर्यात गुणवत्ता वाले अंगूर की तुड़ाई; रबी प्याज की कटाई, ग्रेडिंग व भंडारण।",
+                        "te": "ఉష్ణోగ్రతలు పెరుగుతాయి: నాణ్యమైన ద్రాక్ష కోతలు, రబీ ఉల్లి కోత మరియు నిల్వ."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 10 mm)",
+                        "hi": "शुष्क (< 10 मिमी)",
+                        "te": "పొడి వాతావరణం (< 10 మిమీ)"
+                    }
+            elif is_punjab_haryana:
+                if m_idx == 11:
+                    desc = {
+                        "en": "Post-paddy harvest window. Peak sowing of Rabi Wheat (HD-2967, PBW-725) and Mustard germination; Potato crop emergence.",
+                        "hi": "धान कटाई के बाद का समय। रबी गेहूं की मुख्य बुवाई एवं सरसों का जमाव; आलू की फसल की बढ़वार।",
+                        "te": "వరి కోతల అనంతరం గోధుమ మరియు ఆవాల విత్తనాలు వేసే సమయం; బంగాళాదుంప పంట పెరుగుదల."
+                    }
+                    rain_text = {
+                        "en": "Dry Autumn (< 15 mm)",
+                        "hi": "शुष्क शरद (< 15 मिमी)",
+                        "te": "పొడి వాతావరణం (< 15 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": "Severe winter onset. Wheat crown root initiation and tillering; Mustard vegetative growth; monitor for yellow rust and frost risk.",
+                        "hi": "कड़ाके की ठंड। गेहूं में ताज मूल (CRI) एवं कल्ले फूटने की अवस्था; सरसों में बढ़वार; पीला रतुआ व पाला से बचाव करें।",
+                        "te": "తీవ్రమైన చలి కాలం: గోధుమ పిలకలు వేసే దశ, ఆవాల ఎదుగుదల; పసుపు తుప్పు తెగులు పట్ల జాగ్రత్త."
+                    }
+                    rain_text = {
+                        "en": "Western Disturbance Light Rain (10–25 mm)",
+                        "hi": "पश्चिमी विक्षोभ से हल्की वर्षा (10–25 मिमी)",
+                        "te": "తేలికపాటి చలికాల వర్షం (10–25 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": "Peak winter and dense fog. Wheat jointing stage; Mustard pod formation; provide light evening irrigation during cold wave warnings.",
+                        "hi": "शीत लहर व घना कोहरा। गेहूं में गांठें बनने की अवस्था; सरसों में फलियां बनना; पाला पड़ने पर हल्की सिंचाई दें।",
+                        "te": "దట్టమైన పొగమంచు, తీవ్ర చలి: గోధుమ మరియు ఆవాల కాయ దశ; రాత్రి వేళల్లో తేలికపాటి తడులు ఇవ్వండి."
+                    }
+                    rain_text = {
+                        "en": "Winter Rain / Drizzle (15–30 mm)",
+                        "hi": "शीतकालीन वर्षा (15–30 मिमी)",
+                        "te": "చలికాలపు జల్లులు (15–30 మిమీ)"
+                    }
+                else:
+                    desc = {
+                        "en": "Spring warming across Punjab-Haryana plains. Wheat heading and grain filling; Mustard harvesting, threshing, and mandi dispatch.",
+                        "hi": "मैदानी भागों में मौसम गर्म। गेहूं में बालियां निकलना व दाना भराव; सरसों की कटाई व गहाई।",
+                        "te": "వాతావరణం వేడెక్కుతుంది: గోధుమ గింజ పాలు పోసుకునే దశ; ఆవాల కోత మరియు మార్కెట్ రవాణా."
+                    }
+                    rain_text = {
+                        "en": "Pre-Monsoon Dry (< 15 mm)",
+                        "hi": "शुष्क मौसम (< 15 मिमी)",
+                        "te": "పొడి వాతావరణం (< 15 మిమీ)"
+                    }
+            elif is_karnataka:
+                if m_idx == 11:
+                    desc = {
+                        "en": "Post-monsoon dry spell. Late Kharif Ragi harvesting; field preparation, staking, and drip fertigation for winter Tomato.",
+                        "hi": "मानसून समाप्ति। रागी की कटाई; शीतकालीन टमाटर की क्यारियों की तैयारी, बंधाई एवं ड्रिप फर्टिगेशन।",
+                        "te": "రుతుపవనాల నిష్క్రమణ: రాగుల కోత; శీతాకాలపు టమోటా నాట్లు మరియు డ్రిప్ ఎరువుల యాజమాన్యం."
+                    }
+                    rain_text = {
+                        "en": "Passing Showers (20–40 mm)",
+                        "hi": "हल्की फुहारें (20–40 मिमी)",
+                        "te": "తేలికపాటి జల్లులు (20–40 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": "Pleasant dry winter. High-yield winter Tomato fruiting and harvesting; Arecanut sun-drying in open yards; Maize grain maturity.",
+                        "hi": "सुहावनी शुष्क सर्दी। शीतकालीन टमाटर में भारी फलन एवं तुड़ाई; सुपारी को धूप में सुखाना; मक्का की परिपक्वता।",
+                        "te": "హాయిగా ఉండే చల్లని వాతావరణం: టమోటా కాయలు కోతకు రావడం, పోకచెక్క ఆరబెట్టడం."
+                    }
+                    rain_text = {
+                        "en": "Dry Weather (< 10 mm)",
+                        "hi": "शुष्क मौसम (< 10 मिमी)",
+                        "te": "పొడి వాతావరణం (< 10 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": "Crisp sunny weather. Peak winter Tomato harvest and dispatch to Kolar market; Mango panicle emergence and blossom protection.",
+                        "hi": "खिली धूप। कोलार मंडी हेतु टमाटर की बंपर तुड़ाई; आम के पेड़ों में बौर निकलना एवं सुरक्षा।",
+                        "te": "స్పష్టమైన ఎండ: కోలార్ మార్కెట్‌కు టమోటా రవాణా, మామిడి పూత సంరక్షణ."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 8 mm)",
+                        "hi": "शुष्क व खिली धूप (< 8 मिमी)",
+                        "te": "పొడి ఎండ (< 8 మిమీ)"
+                    }
+                else:
+                    desc = {
+                        "en": "Warming weather across South Karnataka plateau. Harvesting of Rabi crops; deep summer tillage and orchard soil mulching.",
+                        "hi": "तापमान में वृद्धि। रबी फसलों की कटाई; गहरी गर्मी की जुताई तथा बागवानी में मल्चिंग करें।",
+                        "te": "ఉష్ణోగ్రతలు పెరుగుతాయి: రబీ పంటల కోతలు, పండ్ల తోటల్లో మల్చింగ్ చేపట్టండి."
+                    }
+                    rain_text = {
+                        "en": "Dry Pre-Monsoon (< 15 mm)",
+                        "hi": "प्री-मानसून शुष्क (< 15 मिमी)",
+                        "te": "ప్రీ-మాన్సూన్ (< 15 మిమీ)"
+                    }
+            elif is_tamil_nadu:
+                if m_idx == 11:
+                    desc = {
+                        "en": "Peak North-East Monsoon rainfall. Samba paddy tillering stage; maintain field drainage channels and monitor stem borer.",
+                        "hi": "उत्तर-पूर्वी मानसूनी वर्षा का चरम। साम्बा धान में कल्ले फूटने की अवस्था; खेतों से जल निकासी एवं तना छेदक पर नजर रखें।",
+                        "te": "ఈశాన్య రుతుపవనాల వర్షాలు: సాంబా వరి పిలకల దశ; పొలాల్లో మురుగునీటి పారుదల శుభ్రపరచండి."
+                    }
+                    rain_text = {
+                        "en": "Heavy NE Monsoon (120–220 mm)",
+                        "hi": "भारी उ-पू मानसूनी वर्षा (120–220 मिमी)",
+                        "te": "భారీ ఈశాన్య వర్షాలు (120–220 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": "Tapering NE monsoon rains. Samba paddy panicle initiation and flowering; earthing up in sugarcane and nutrient feeding for banana.",
+                        "hi": "मानसूनी वर्षा में कमी। साम्बा धान में बालियां निकलना; गन्ने में मिट्टी चढ़ाना तथा केले में पोषण प्रबंधन।",
+                        "te": "వర్షాలు తగ్గుముఖం: సాంబా వరి చిరుపొట్ట దశ; చెరకు మరియు అరటి తోటల యాజమాన్యం."
+                    }
+                    rain_text = {
+                        "en": "Moderate Coastal Showers (40–80 mm)",
+                        "hi": "मध्यम तटीय वर्षा (40–80 मिमी)",
+                        "te": "మధ్యస్థ వర్షపాతం (40–80 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": "Pongal harvest season with bright sunshine. Harvesting of Samba paddy; broadcasting Blackgram and Greengram in rice fallows.",
+                        "hi": "पोंगल कटाई काल एवं खिली धूप। साम्बा धान की कटाई; धान के खाली खेतों में उड़द व मूंग की बुवाई।",
+                        "te": "పొంగల్ కోతల కాలం: సాంబా వరి కోతలు పూర్తి చేసి, పచ్చి వరి పొలాల్లో మినుము/పెసర విత్తనాలు చల్లుకోండి."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 15 mm)",
+                        "hi": "शुष्क व धूप (< 15 मिमी)",
+                        "te": "పొడి ఎండ (< 15 మిమీ)"
+                    }
+                else:
+                    desc = {
+                        "en": "Early summer warming across Tamil Nadu plains. Pulse crop maturity in rice fallows; drip irrigation for sugarcane and banana.",
+                        "hi": "तमिलनाडु में गर्मी की शुरुआत। धान के परती खेतों में दलहन की परिपक्वता; गन्ने व केले में ड्रिप सिंचाई।",
+                        "te": "వేసవి ఆరంభం: పప్పుధాన్యాల పంట కోతలు, చెరకు మరియు అరటికి క్రమబద్ధమైన నీటి తడులు."
+                    }
+                    rain_text = {
+                        "en": "Dry Spring (< 15 mm)",
+                        "hi": "शुष्क (< 15 मिमी)",
+                        "te": "పొడి వాతావరణం (< 15 మిమీ)"
+                    }
+            else: # General Indian Agricultural Region
+                region_name = district or state or "Local Farm"
+                if m_idx == 11:
+                    desc = {
+                        "en": f"Post-monsoon transition across {region_name}. Rabi sowing of seasonal pulses, oilseeds, and regional cereals; maintain field drainage channels.",
+                        "hi": f"{region_name} में मानसून बाद का समय। क्षेत्रीय दलहन, तिलहन एवं खाद्यान्न फसलों की रबी बुवाई का उपयुक्त काल।",
+                        "te": f"{region_name} పరిధిలో వర్షాకాలం అనంతరం రబీ విత్తనాలు వేయడానికి అనుకూలమైన తేమ మరియు వాతావరణం."
+                    }
+                    rain_text = {
+                        "en": "Post-Monsoon Showers (20–45 mm)",
+                        "hi": "मानसून बाद की फुहारें (20–45 मिमी)",
+                        "te": "తేలికపాటి వర్షం (20–45 మిమీ)"
+                    }
+                elif m_idx == 12:
+                    desc = {
+                        "en": f"Cool dry winter in {region_name}. Vegetative establishment of Rabi crops; timely weed control and protective irrigation.",
+                        "hi": f"{region_name} में शीत ऋतु। रबी फसलों की वानस्पतिक बढ़वार; समय पर निराई-गुड़ाई एवं संरक्षी सिंचाई दें।",
+                        "te": f"{region_name} ప్రాంతంలో చల్లని వాతావరణం: రబీ పంటల ఏపుగా పెరిగే దశ, సకాలంలో కలుపు నివారణ మరియు నీటి తడులు."
+                    }
+                    rain_text = {
+                        "en": "Dry Winter (< 15 mm)",
+                        "hi": "शुष्क सर्दी (< 15 मिमी)",
+                        "te": "పొడి శీతాకాలం (< 15 మిమీ)"
+                    }
+                elif m_idx == 1:
+                    desc = {
+                        "en": f"Crisp winter with bright sunshine in {region_name}. Peak flowering and pod/grain development; monitor for localized pest infestation.",
+                        "hi": f"{region_name} में खिली धूप वाली सर्दी। फसलों में फूल व फलियां बनने की मुख्य अवस्था; कीट व रोगों से बचाव रखें।",
+                        "te": f"{region_name} ప్రాంతంలో స్పష్టమైన ఎండ: పూత మరియు కాయల అభివృద్ధి దశ; తెగుళ్ల నివారణపై దృష్టి పెట్టండి."
+                    }
+                    rain_text = {
+                        "en": "Dry & Sunny (< 10 mm)",
+                        "hi": "शुष्क व खिली धूप (< 10 मिमी)",
+                        "te": "స్పష్టమైన ఎండ (< 10 మిమీ)"
+                    }
+                else:
+                    desc = {
+                        "en": f"Spring seasonal transition across {region_name}. Accelerates grain maturity, harvesting, and open sun-drying of harvested farm produce.",
+                        "hi": f"{region_name} में तापमान में वृद्धि। दाना पकने, फसल कटाई एवं खुले खलिहान में सुखाई के लिए सर्वोत्तम मौसम।",
+                        "te": f"{region_name} లో ఉష్ణోగ్రతల పెరుగుదల: గింజ ముదరడం, కోతలు మరియు ధాన్యం ఆరబెట్టడానికి అనుకూలం."
+                    }
+                    rain_text = {
+                        "en": "Dry Season (< 12 mm)",
+                        "hi": "शुष्क मौसम (< 12 मिमी)",
+                        "te": "పొడి వాతావరణం (< 12 మిమీ)"
+                    }
+
+            seasonal_outlook.append({
+                "month": {
+                    "en": f"{m_entry[1]['en']} {m_year}",
+                    "hi": f"{m_entry[1]['hi']} {m_year}",
+                    "te": f"{m_entry[1]['te']} {m_year}"
+                },
+                "favorable": True,
+                "description": desc,
+                "expectedRainfall": rain_text
+            })
+
+        return seasonal_outlook
 
     def get_unified_prediction(
 
@@ -1311,69 +1713,50 @@ class ClimateEngine:
 
         resolved_zone: str
 
-        if lat is not None and lon is not None:
+        # Check if user explicitly searched for a location name or selected a hub
+        if query and query.strip() and not query.strip().lower().startswith("gps-"):
+            matches = self.search_all_india_locations(query.strip())
+            if matches:
+                top = matches[0]
+                resolved_lat = top["latitude"]
+                resolved_lon = top["longitude"]
+                resolved_name = top["name"]
+                resolved_district = top["district"]
+                resolved_state = top["state"]
+                resolved_pin = top.get("pincode", "")
+                resolved_zone = top.get("zone", f"{resolved_state} Agricultural Zone")
+                loc_key = top["id"]
+            elif lat is not None and lon is not None:
+                geo_info = self.reverse_geocode_coordinates(float(lat), float(lon))
+                resolved_lat = float(lat)
+                resolved_lon = float(lon)
+                resolved_name = query.strip().title()
+                resolved_district = geo_info["district"]
+                resolved_state = geo_info["state"]
+                resolved_pin = geo_info.get("pincode", "")
+                resolved_zone = geo_info.get("zone", f"{resolved_state} Agricultural Zone")
+                loc_key = f"gps-{resolved_lat:.2f}-{resolved_lon:.2f}"
+            else:
+                resolved_lat = 16.3067
+                resolved_lon = 80.4365
+                resolved_name = query.strip().title()
+                resolved_district = district or resolved_name
+                resolved_state = "India"
+                resolved_pin = ""
+                resolved_zone = f"{resolved_district} Agri-Climatic Zone"
+                loc_key = query.lower().replace(" ", "-")
+
+        elif lat is not None and lon is not None:
             # GPS Location resolution
             geo_info = self.reverse_geocode_coordinates(float(lat), float(lon))
             resolved_lat = float(lat)
             resolved_lon = float(lon)
-            if query and query.strip() and not query.strip().startswith("gps-"):
-                resolved_name = query.strip().title()
-            else:
-                resolved_name = geo_info["name"]
-
+            resolved_name = geo_info["name"]
             resolved_district = geo_info["district"]
-
             resolved_state = geo_info["state"]
-
             resolved_pin = geo_info.get("pincode", "")
-
             resolved_zone = geo_info.get("zone", f"{resolved_state} Agricultural Zone")
-
             loc_key = f"gps-{resolved_lat:.2f}-{resolved_lon:.2f}"
-
-        elif query and query.strip():
-
-            # Universal All-India Search Query
-
-            matches = self.search_all_india_locations(query.strip())
-
-            if matches:
-
-                top = matches[0]
-
-                resolved_lat = top["latitude"]
-
-                resolved_lon = top["longitude"]
-
-                resolved_name = top["name"]
-
-                resolved_district = top["district"]
-
-                resolved_state = top["state"]
-
-                resolved_pin = top.get("pincode", "")
-
-                resolved_zone = top.get("zone", f"{resolved_state} Agricultural Zone")
-
-                loc_key = top["id"]
-
-            else:
-
-                resolved_lat = 16.3067
-
-                resolved_lon = 80.4365
-
-                resolved_name = query.strip().title()
-
-                resolved_district = district or resolved_name
-
-                resolved_state = "India"
-
-                resolved_pin = ""
-
-                resolved_zone = f"{resolved_district} Agri-Climatic Zone"
-
-                loc_key = query.lower().replace(" ", "-")
 
         else:
 
@@ -1423,7 +1806,7 @@ class ClimateEngine:
 
         has_google_key = bool(self.get_google_weather_key())
 
-        cache_key = f"climate_unified_v6:{loc_key}:{days}:{lang}:{'gw' if has_google_key else 'sat'}"
+        cache_key = f"climate_unified_v10:{loc_key}:{days}:{lang}:{'gw' if has_google_key else 'sat'}"
 
         cached_payload = cache_service.get_json(cache_key)
 
@@ -1491,7 +1874,6 @@ class ClimateEngine:
         daily = live_met.get("daily", {}) if live_met else {}
 
         current = live_met.get("current", {}) if live_met else {}
-        hourly = live_met.get("hourly", {}) if live_met else {}
 
         dates = daily.get("time", [])
         t_max_list = daily.get("temperature_2m_max", [])
@@ -1852,133 +2234,18 @@ class ClimateEngine:
 
             crops = REGIONAL_CROP_PROFILES["default"]
 
-        # 5. Seasonal 3-Month Long-Range Climate Outlook
-
+        # 5. Seasonal 3-Month Long-Range Climate Outlook (Location-Aware)
         current_month = base_date.month
-
-        month_names = [
-
-            (1, {"en": "January", "hi": "जनवरी", "te": "జనవరి"}),
-
-            (2, {"en": "February", "hi": "फरवरी", "te": "ఫిబ్రవరి"}),
-
-            (3, {"en": "March", "hi": "मार्च", "te": "మార్చి"}),
-
-            (4, {"en": "April", "hi": "अप्रैल", "te": "ఏప్రిల్"}),
-
-            (5, {"en": "May", "hi": "मई", "te": "మే"}),
-
-            (6, {"en": "June", "hi": "जून", "te": "జూన్"}),
-
-            (7, {"en": "July", "hi": "जुलाई", "te": "జూలై"}),
-
-            (8, {"en": "August", "hi": "अगस्त", "te": "ఆగస్టు"}),
-
-            (9, {"en": "September", "hi": "सितंबर", "te": "సెప్టెంబర్"}),
-
-            (10, {"en": "October", "hi": "अक्टूबर", "te": "అక్టోబర్"}),
-
-            (11, {"en": "November", "hi": "नवंबर", "te": "నవంబర్"}),
-
-            (12, {"en": "December", "hi": "दिसंबर", "te": "డిసెంబర్"}),
-
-        ]
-
-        seasonal_outlook = []
-
-        for offset in range(1, 4):
-
-            m_idx = ((current_month - 1 + offset) % 12) + 1
-
-            m_entry = next(item for item in month_names if item[0] == m_idx)
-
-            m_year = base_date.year if m_idx >= current_month else base_date.year + 1
-
-            if m_idx in [10, 11]:
-
-                desc = {
-
-                    "en": "Post-monsoon transition with cool nights. Keep drainage channels open and prepare soil for rabi crops.",
-
-                    "hi": "मानसून के बाद का समय, रातें ठंडी होंगी। रबी फसलों की बुवाई के लिए खेत तैयार करें।",
-
-                    "te": "రబీ పంటల విత్తనాల తయారీకి అనుకూలం. పొలంలో నీరు నిల్వకుండా చూసుకోండి."
-
-                }
-
-                rain_text = {
-
-                    "en": "Normal to Light (20-40 mm)",
-
-                    "hi": "सामान्य से हल्की (20-40 मिमी)",
-
-                    "te": "తేలికపాటి వర్షం (20-40 మిమీ)"
-
-                }
-
-            elif m_idx in [12, 1]:
-
-                desc = {
-
-                    "en": "Cool crisp winter. Ideal for wheat tillering, chickpea growth, and orchard flowering.",
-
-                    "hi": "शीत ऋतु: गेहूं में फुटाव, चने की बढ़वार एवं बागवानी फसलों के लिए अत्यंत लाभकारी।",
-
-                    "te": "చల్లని వాతావరణం: గోధుమ మరియు పండ్ల తోటల పూతకు ఎంతో అనుకూలం."
-
-                }
-
-                rain_text = {
-
-                    "en": "Dry Winter (< 15 mm)",
-
-                    "hi": "शुष्क सर्दी (< 15 मिमी)",
-
-                    "te": "పొడి వాతావరణం (< 15 మిమీ)"
-
-                }
-
-            else:
-
-                desc = {
-
-                    "en": "Spring warming. Accelerates grain filling and harvest drying across all fields.",
-
-                    "hi": "तापमान में वृद्धि: दाना पकने एवं तुड़ाई के बाद धूप में सुखाई के लिए सर्वोत्तम।",
-
-                    "te": "ఉష్ణోగ్రత పెరుగుదల: గింజ ముదరడానికి మరియు ధాన్యం ఎండబెట్టడానికి ఉపయోగకరం."
-
-                }
-
-                rain_text = {
-
-                    "en": "Pre-Monsoon Dry (< 10 mm)",
-
-                    "hi": "प्री-मानसून शुष्क (< 10 मिमी)",
-
-                    "te": "ప్రీ-మాన్సూన్ (< 10 మిమీ)"
-
-                }
-
-            seasonal_outlook.append({
-
-                "month": {
-
-                    "en": f"{m_entry[1]['en']} {m_year}",
-
-                    "hi": f"{m_entry[1]['hi']} {m_year}",
-
-                    "te": f"{m_entry[1]['te']} {m_year}"
-
-                },
-
-                "favorable": True,
-
-                "description": desc,
-
-                "expectedRainfall": rain_text
-
-            })
+        seasonal_outlook = self.build_location_aware_seasonal_outlook(
+            state=resolved_state,
+            district=resolved_district,
+            current_month=current_month,
+            base_date=base_date,
+            lat=resolved_lat,
+            lon=resolved_lon,
+            location_name=resolved_name,
+            zone=resolved_zone
+        )
 
         # Generate Audio Voice Script for Kisan Salla
 

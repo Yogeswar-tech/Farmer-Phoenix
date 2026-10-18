@@ -194,6 +194,7 @@ export function App() {
 
   // Automatically detect user's Geo location if no user profile and no manual location set
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
     if (localStorage.getItem('ks_auth_profile') || localStorage.getItem('ks_loc_manual') === 'true') return;
 
@@ -312,6 +313,7 @@ export function App() {
 
   // Fetch live Mandi rates from Backend whenever selected crop or location changes
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     const fetchLiveMandi = async () => {
@@ -367,6 +369,7 @@ export function App() {
 
   // Fetch live operational weather from Backend
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     const fetchLiveWeather = async () => {
@@ -404,6 +407,7 @@ export function App() {
 
   // Fetch nearest APMC markets from backend using real distances from selected district
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     const fetchNearest = async () => {
@@ -741,6 +745,112 @@ export function App() {
   const handleOpenHelpline = (num: string) => {
     window.location.href = `tel:${num}`;
   };
+
+  // If user is not logged in, website strictly loads the Login Gate Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="login-gate-screen" style={{
+        minHeight: '100vh',
+        width: '100%',
+        background: 'linear-gradient(135deg, #064E3B 0%, #065F46 45%, #047857 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '24px 16px',
+        boxSizing: 'border-box',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      }}>
+        {/* Top Header of the Gate */}
+        <header style={{
+          maxWidth: '520px',
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '30px' }}>🌾</span>
+            <div>
+              <div style={{ color: '#FFFFFF', fontWeight: '900', fontSize: '20px', letterSpacing: '-0.3px' }}>
+                {currentLang === 'hi' ? 'किसान सेतु' : currentLang === 'te' ? 'కిసాన్ సేతు' : 'Kisan Setu'}
+              </div>
+              <div style={{ color: '#A7F3D0', fontSize: '11px', fontWeight: '600' }}>
+                {currentLang === 'hi' ? 'पारदर्शी मंडी भाव और एआई फसल परामर्श' : currentLang === 'te' ? 'పారదర్శక మార్కెట్ ధరలు & AI పంట సలహాలు' : 'Transparent Mandi Prices & AI Agri Terminal'}
+              </div>
+            </div>
+          </div>
+
+          {/* Language Switcher */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: '24px',
+            padding: '3px',
+            border: '1px solid rgba(255, 255, 255, 0.25)'
+          }}>
+            {(['te', 'hi', 'en'] as Language[]).map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => handleLanguageChange(lang)}
+                style={{
+                  background: currentLang === lang ? '#FFFFFF' : 'transparent',
+                  color: currentLang === lang ? '#065F46' : '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'te' ? 'తెలుగు' : lang === 'hi' ? 'हिन्दी' : 'English'}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        {/* Embedded Full Login Card */}
+        <div style={{ maxWidth: '520px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoginModal
+            currentLang={currentLang}
+            isOpen={true}
+            onClose={() => {}}
+            onLoginSuccess={handleGmailLoginSuccess}
+            onLogout={handleLogout}
+            currentUserProfile={currentUserProfile}
+            lockedFeatureName={undefined}
+            isMandatoryGate={true}
+          />
+        </div>
+
+        {/* Footer Trust Bar */}
+        <footer style={{
+          maxWidth: '520px',
+          width: '100%',
+          textAlign: 'center',
+          color: 'rgba(255, 255, 255, 0.8)',
+          fontSize: '12px',
+          marginTop: '24px',
+          paddingTop: '14px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.15)'
+        }}>
+          <div style={{ fontWeight: '700' }}>
+            🛡️ {currentLang === 'hi' ? 'सत्यापित सरकारी मंडी व कृषि डेटाबेस (Agmarknet • CIBRC • IMD)' : currentLang === 'te' ? 'ధృవీకరించిన మార్కెట్ & వ్యవసాయ సమాచారం (Agmarknet • CIBRC • IMD)' : 'Verified APMC Mandi Data & Agri Terminal (Agmarknet • CIBRC • IMD)'}
+          </div>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
+            {currentLang === 'hi' ? 'सुरक्षा हेतु वेबसाइट केवल किसान लॉगिन के बाद ही लोड होगी।' : currentLang === 'te' ? 'భద్రత దృష్ట్యా రైతు లాగిన్ తర్వాత మాత్రమే వెబ్‌సైట్ తెరవబడుతుంది.' : 'Website loads strictly after farmer login.'}
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, isMobile && styles.safeAreaMobile]}>

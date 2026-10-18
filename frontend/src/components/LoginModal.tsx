@@ -32,6 +32,7 @@ interface LoginModalProps {
   onLogout?: () => void;
   currentUserProfile?: FarmerProfile | null;
   lockedFeatureName?: string;
+  isMandatoryGate?: boolean;
 }
 
 export const LoginModal: FC<LoginModalProps> = ({
@@ -41,7 +42,8 @@ export const LoginModal: FC<LoginModalProps> = ({
   onLoginSuccess,
   onLogout,
   currentUserProfile,
-  lockedFeatureName
+  lockedFeatureName,
+  isMandatoryGate = false
 }) => {
   const [modalView, setModalView] = useState<'auth' | 'farmer_details'>('auth');
   const [pendingPhone, setPendingPhone] = useState<string>('');
@@ -241,12 +243,32 @@ export const LoginModal: FC<LoginModalProps> = ({
     ? 'మీ మొబైల్ నంబర్ (OTP) లేదా ఇమెయిల్‌తో సురక్షితంగా లాగిన్ అవ్వండి'
     : 'Sign in securely with Phone Number (OTP) or Email to sync your farm profile and data';
 
+  if (!isOpen) return null;
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card login-modal-gmail" onClick={(e) => e.stopPropagation()}>
-        <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Close">
-          <X size={18} />
-        </button>
+    <div
+      className={isMandatoryGate ? "login-gate-card-container" : "modal-backdrop"}
+      onClick={isMandatoryGate ? undefined : onClose}
+      style={isMandatoryGate ? { width: '100%', display: 'flex', justifyContent: 'center' } : undefined}
+    >
+      <div
+        className="modal-card login-modal-gmail"
+        style={isMandatoryGate ? {
+          position: 'static',
+          margin: 0,
+          maxWidth: '520px',
+          width: '100%',
+          boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.25)',
+          borderRadius: '20px',
+          border: '1px solid #E2E8F0'
+        } : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {!isMandatoryGate && (
+          <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Close">
+            <X size={18} />
+          </button>
+        )}
 
         {/* Header */}
         <div className="gmail-login-header">
@@ -616,7 +638,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               <PhoneOtpSignIn
                 currentLang={currentLang}
                 onLoginSuccess={handlePhoneLoginSuccess}
-                onCancel={onClose}
+                onCancel={isMandatoryGate ? undefined : onClose}
               />
             ) : (
               /* Form for Gmail-only login */

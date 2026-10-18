@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, type FC } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
-import { CROP_CHIPS, AGRICULTURAL_LOCATIONS } from '../data/mockData';
-import { Search, Mic, Globe, User, MapPin, Sparkles, ChevronDown, Check, Building2 } from 'lucide-react';
+import { CROP_CHIPS } from '../data/mockData';
+import { Search, Mic, Globe, User, MapPin, Sparkles, ChevronDown, Check } from 'lucide-react';
 
 interface HeaderProps {
   currentLang: Language;
@@ -39,9 +39,7 @@ export const Header: FC<HeaderProps> = ({
   const t = translations[currentLang];
   const [isListening, setIsListening] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-  const [locationSearchFilter, setLocationSearchFilter] = useState('');
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth <= 768;
@@ -57,15 +55,11 @@ export const Header: FC<HeaderProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const locationDropdownRef = useRef<any>(null);
   const langDropdownRef = useRef<any>(null);
 
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (locationDropdownRef.current && !locationDropdownRef.current.contains(target)) {
-        setShowLocationDropdown(false);
-      }
       if (langDropdownRef.current && !langDropdownRef.current.contains(target)) {
         setShowLanguageDropdown(false);
       }
@@ -132,17 +126,6 @@ export const Header: FC<HeaderProps> = ({
       )
     : CROP_CHIPS.slice(0, 5);
 
-  const filteredLocations = AGRICULTURAL_LOCATIONS.filter((loc) => {
-    if (!locationSearchFilter.trim()) return true;
-    const term = locationSearchFilter.toLowerCase();
-    return (
-      loc.name[currentLang].toLowerCase().includes(term) ||
-      loc.state[currentLang].toLowerCase().includes(term) ||
-      loc.district[currentLang].toLowerCase().includes(term) ||
-      loc.mandiName[currentLang].toLowerCase().includes(term) ||
-      loc.pincode.includes(term)
-    );
-  });
 
   const verifiedBadgeText =
     currentLang === 'hi' ? 'सत्यापित किसान' : currentLang === 'te' ? 'ధృవీకరించిన రైతు' : 'Verified Farmer';
@@ -227,166 +210,22 @@ export const Header: FC<HeaderProps> = ({
         {/* Actions Wrap: Location, Language, AI Mode, and Login */}
         <View style={[styles.actionsWrap, isMobile && styles.actionsWrapMobile]}>
           {/* Location Dropdown */}
-          <View ref={locationDropdownRef} style={styles.dropdownContainer}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowLocationDropdown((prev) => !prev);
-                setShowLanguageDropdown(false);
-              }}
-              style={[styles.locationBtn, showLocationDropdown && styles.dropdownBtnActive]}
-              activeOpacity={0.7}
-              accessibilityLabel={t.selectLocationTitle}
-            >
-              <MapPin size={14} color="#2D5A27" />
-              <Text style={styles.locName}>{currentLocation.name[currentLang]}</Text>
-              <ChevronDown
-                size={13}
-                color="#2D5A27"
-                style={{
-                  transform: showLocationDropdown ? 'rotate(180deg)' : 'none',
-                  transition: 'transform 0.2s ease'
-                }}
-              />
-            </TouchableOpacity>
-
-            {showLocationDropdown && (
-              <View style={styles.locationMenuDropdown}>
-                <View style={styles.dropdownHeaderRow}>
-                  <View style={styles.dropdownTitleWrap}>
-                    <MapPin size={14} color="#2D5A27" />
-                    <Text style={styles.dropdownHeaderTitle}>
-                      {currentLang === 'hi'
-                        ? 'मंडी व स्थान चुनें'
-                        : currentLang === 'te'
-                        ? 'మార్కెట్ యార్డ్ ఎంచుకోండి'
-                        : 'Select Mandi Yard'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setShowLocationDropdown(false)}
-                    style={styles.closeDropdownBtn}
-                    accessibilityLabel="Close"
-                  >
-                    <Text style={styles.closeDropdownText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Auto GPS Trigger Button */}
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowLocationDropdown(false);
-                    onOpenLocationModal();
-                  }}
-                  style={styles.dropdownGpsActionRow}
-                  activeOpacity={0.8}
-                >
-                  <MapPin size={13} color="#15803D" />
-                  <Text style={styles.dropdownGpsActionText}>
-                    {currentLang === 'hi' ? '🛰️ ऑटो जीपीएस व अखिल भारतीय खोज' : currentLang === 'te' ? '🛰️ ఆటో జీపీఎస్ & అఖిల భారత శోధన' : '🛰️ Auto GPS & All-India Search'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Quick Search inside Location Dropdown */}
-                <View style={styles.locSearchBox}>
-                  <Search size={13} color="#64748B" />
-                  <TextInput
-                    style={styles.locSearchInput}
-                    placeholder={
-                      currentLang === 'hi'
-                        ? 'मंडी, जिला या पिन खोजें...'
-                        : currentLang === 'te'
-                        ? 'యార్డ్ లేదా పిన్ కోడ్...'
-                        : 'Filter mandi or PIN...'
-                    }
-                    placeholderTextColor="#94A3B8"
-                    value={locationSearchFilter}
-                    onChangeText={setLocationSearchFilter}
-                  />
-                  {locationSearchFilter ? (
-                    <TouchableOpacity onPress={() => setLocationSearchFilter('')}>
-                      <Text style={styles.locClearFilterText}>✕</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-
-                {/* Scrollable list of Mandi Locations */}
-                <ScrollView
-                  style={styles.locListScroll}
-                  showsVerticalScrollIndicator={true}
-                  nestedScrollEnabled={true}
-                >
-                  {filteredLocations.map((loc) => {
-                    const isSelected = loc.id === currentLocation.id;
-                    const handleSelectThisLocation = () => {
-                      if (onSelectLocation) {
-                        onSelectLocation(loc);
-                      }
-                      setShowLocationDropdown(false);
-                      setLocationSearchFilter('');
-                    };
-                    return (
-                      <TouchableOpacity
-                        key={loc.id}
-                        onPress={handleSelectThisLocation}
-                        {...({
-                          onClick: (e: any) => {
-                            e.stopPropagation();
-                            handleSelectThisLocation();
-                          }
-                        } as any)}
-                        style={[styles.locMenuItem, isSelected && styles.locMenuItemActive]}
-                        activeOpacity={0.7}
-                      >
-                        <Building2 size={14} color={isSelected ? '#2D5A27' : '#64748B'} />
-                        <View style={styles.locTextColumn}>
-                          <Text
-                            style={[styles.locItemMandi, isSelected && styles.locItemMandiActive]}
-                            numberOfLines={1}
-                          >
-                            {loc.mandiName[currentLang]}
-                          </Text>
-                          <Text style={styles.locItemSub} numberOfLines={1}>
-                            {loc.name[currentLang]} · {loc.district[currentLang]}, {loc.state[currentLang]} ({loc.pincode})
-                          </Text>
-                        </View>
-                        {isSelected && <Check size={14} color="#2D5A27" />}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {filteredLocations.length === 0 && (
-                    <Text style={styles.noLocFoundText}>
-                      {currentLang === 'hi'
-                        ? 'कोई मंडी नहीं मिली'
-                        : currentLang === 'te'
-                        ? 'ఫలితాలు లేవు'
-                        : 'No mandi found'}
-                    </Text>
-                  )}
-                </ScrollView>
-
-                {/* Footer to open advanced modal search */}
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowLocationDropdown(false);
-                    onOpenLocationModal();
-                  }}
-                  style={styles.locMenuFooter}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.locMenuFooterText}>
-                    🔍 {currentLang === 'hi' ? 'सभी मंडियां व स्थान विवरण खोजें...' : currentLang === 'te' ? 'మరిన్ని మార్కెట్లు & లొకేషన్ వివరాలు...' : 'All Mandis & Location Search...'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          {/* Location Trigger: Directly opens Auto GPS & Location Modal */}
+          <TouchableOpacity
+            onPress={onOpenLocationModal}
+            style={styles.locationBtn}
+            activeOpacity={0.7}
+            accessibilityLabel={t.selectLocationTitle}
+          >
+            <MapPin size={14} color="#2D5A27" />
+            <Text style={styles.locName}>{currentLocation.name[currentLang]}</Text>
+          </TouchableOpacity>
 
           {/* Language Dropdown */}
           <View ref={langDropdownRef} style={styles.dropdownContainer}>
             <TouchableOpacity
               onPress={() => {
                 setShowLanguageDropdown((prev) => !prev);
-                setShowLocationDropdown(false);
               }}
               style={[styles.langBtn, showLanguageDropdown && styles.dropdownBtnActive]}
               activeOpacity={0.7}

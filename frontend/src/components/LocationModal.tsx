@@ -65,14 +65,9 @@ export const LocationModal: FC<LocationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadGoogleMapsSdk().catch(() => {});
-      if (isPostLoginPrompt) {
-        setViewMode('auto_gps');
-        setGpsError(null);
-        triggerAutoGps();
-      } else {
-        setViewMode('auto_gps');
-        setGpsError(null);
-      }
+      setViewMode('auto_gps');
+      setGpsError(null);
+      triggerAutoGps();
     } else {
       setCandidateLocation(null);
       setGpsError(null);
@@ -184,9 +179,9 @@ export const LocationModal: FC<LocationModalProps> = ({
     );
   };
 
-  // Local static agricultural options filtered
-  const term = searchTerm.toLowerCase();
-  const filteredLocal = AGRICULTURAL_LOCATIONS.filter((loc) => {
+  // Local static agricultural options filtered only when user types a search term (no unsolicited sample locations)
+  const term = searchTerm.toLowerCase().trim();
+  const filteredLocal = term.length >= 2 ? AGRICULTURAL_LOCATIONS.filter((loc) => {
     const matchesSearch =
       loc.name[currentLang]?.toLowerCase().includes(term) ||
       loc.name.en?.toLowerCase().includes(term) ||
@@ -201,10 +196,10 @@ export const LocationModal: FC<LocationModalProps> = ({
       loc.state.en.toLowerCase().includes(selectedStateFilter.toLowerCase());
 
     return matchesSearch && matchesState;
-  });
+  }) : [];
 
   // Clean deduplicated results list
-  const combinedLocations = [...filteredLocal];
+  const combinedLocations = term.length >= 2 ? [...filteredLocal] : [];
   remoteResults.forEach((r) => {
     if (!combinedLocations.some((c) => c.name.en.toLowerCase() === r.name.en.toLowerCase())) {
       combinedLocations.push(r);
@@ -587,11 +582,17 @@ export const LocationModal: FC<LocationModalProps> = ({
               {combinedLocations.length === 0 && !isSearchingRemote && (
                 <div className="clean-empty-state">
                   <p>
-                    {currentLang === 'hi'
-                      ? `"${searchTerm}" से संबंधित कोई स्थान नहीं मिला। जिला या 6-अंकीय पिन कोड लिखकर देखें।`
-                      : currentLang === 'te'
-                      ? `"${searchTerm}" కి సంబంధించి ఫలితాలు లేవు. జిల్లా లేదా 6-అంకెల పిన్ కోడ్ ప్రయత్నించండి.`
-                      : `No location found matching "${searchTerm}". Try district, taluk or 6-digit PIN.`}
+                    {!searchTerm.trim()
+                      ? (currentLang === 'hi'
+                          ? 'पूरे भारत में अपना गांव, तहसील, जिला, मंडी या 6-अंकीय पिनकोड लिखकर खोजें।'
+                          : currentLang === 'te'
+                          ? 'భారతదేశంలో ఎక్కడైనా మీ గ్రామం, మండలం, జిల్లా లేదా పిన్‌కోడ్ నమోదు చేయండి.'
+                          : 'Type village, tehsil, district, mandi, or 6-digit PIN code anywhere in India.')
+                      : (currentLang === 'hi'
+                          ? `"${searchTerm}" से संबंधित कोई स्थान नहीं मिला। जिला या 6-अंकीय पिन कोड लिखकर देखें।`
+                          : currentLang === 'te'
+                          ? `"${searchTerm}" కి సంబంధించి ఫలితాలు లేవు. జిల్లా లేదా 6-అంకెల పిన్ కోడ్ ప్రయత్నించండి.`
+                          : `No location found matching "${searchTerm}". Try district, taluk or 6-digit PIN.`)}
                   </p>
                 </div>
               )}
