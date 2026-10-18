@@ -56,10 +56,7 @@ class CropDoctorService:
         # Multimodal inspection if image provided
         if image_bytes and self.llm_gateway.is_available():
             try:
-                vision_prompt = (
-                    "Inspect this plant image. Identify the crop and visible pest/disease symptom. "
-                    "Output JSON: {\"crop_key\": \"...\", \"symptom\": \"...\"}"
-                )
+                vision_prompt = load_prompt("doctor", "vision_extract", version=1)
                 vision_res = await self.llm_gateway.generate_vision_response(
                     image_bytes=image_bytes,
                     mime_type="image/jpeg",

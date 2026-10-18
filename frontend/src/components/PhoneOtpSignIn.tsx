@@ -99,12 +99,21 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
             (window as any).recaptchaVerifier = null;
           }
         } catch {}
+        // In production, show the error — do NOT fall through to dev mock flow
+        const firebaseMsg = (realSmsError?.message || '').toLowerCase();
+        const userMsg = firebaseMsg.includes('quota')
+          ? 'SMS quota reached. Please try again in a few minutes.'
+          : firebaseMsg.includes('invalid-phone')
+          ? 'Invalid phone number format. Please check and retry.'
+          : 'SMS verification failed. Please try again.';
+        setErrorMessage(userMsg);
+        setLoading(false);
+        return;
       }
     }
 
-    // 2. Development & Offline Fallback: Instantly verifies with a real dynamic code
+    // 2. Local Development Fallback (only reached when Firebase is NOT configured)
     setTimeout(() => {
-      // Generate a dynamic, unique 6-digit verification code
       const sessionOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
       setConfirmationResult({
@@ -133,10 +142,10 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
       setResendCooldown(30);
       setSuccessMessage(
         currentLang === 'hi'
-          ? `सत्यापन कोड: '${sessionOtp}' (${fullPhoneNumber})`
+          ? `[DEV] सत्यापन कोड भेजा गया: ${fullPhoneNumber}`
           : currentLang === 'te'
-          ? `ధృవీకరణ కోడ్: '${sessionOtp}' (${fullPhoneNumber})`
-          : `Verification Code: '${sessionOtp}' (${fullPhoneNumber})`
+          ? `[DEV] ధృవీకరణ కోడ్ పంపబడింది: ${fullPhoneNumber}`
+          : `[DEV] Verification code sent to ${fullPhoneNumber}`
       );
       setLoading(false);
     }, 300);

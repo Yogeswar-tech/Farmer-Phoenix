@@ -74,7 +74,7 @@ def rate_limit_dependency(limiter: InMemoryRateLimiter) -> Callable[[Request], N
         # Respect X-Forwarded-For if deployed behind reverse proxy
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
-            client_ip = forwarded.split(",")[-1].strip()
+            client_ip = forwarded.split(",")[0].strip()  # first hop = real client IP
         limiter.check_rate_limit(client_ip)
     return _dep
 

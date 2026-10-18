@@ -85,9 +85,12 @@ export class KisanSethuApi {
           if (auth?.currentUser) {
             const freshToken = await auth.currentUser.getIdToken(true);
             KisanSethuApi.setAuthToken(freshToken);
+          } else {
+            throw new Error('No current user');
           }
         } catch {
-          // If refresh fails, fall through and throw the original 401
+          // Refresh failed — throw immediately instead of retrying with stale token
+          throw new Error('HTTP Error 401: Session expired. Please sign in again.');
         }
         return KisanSethuApi.request<T>(endpoint, options, true);
       }
@@ -734,10 +737,10 @@ export class KisanSethuApi {
       console.warn('[API Client] AI backend offline. Providing calibrated response.', err);
       return {
         answer: language === 'te'
-          ? 'ప్రస్తుతం సర్వర్ ఆఫ్‌లైన్‌లో ఉంది. గ్రేడ్-ఎ మిర్చి ధరలు ₹15,200/క్వింటా వద్ద స్థిరంగా ఉన్నాయి.'
+          ? 'సర్వర్ ప్రస్తుతం అందుబాటులో లేదు. దయచేసి కొంత సేపటి తర్వాత మళ్ళీ ప్రయత్నించండి.'
           : language === 'hi'
-            ? 'सर्वर वर्तमान में ऑफ़लाइन है। ग्रेड-ए मिर्च के भाव ₹15,200/क्विंटल पर स्थिर हैं।'
-            : 'Server currently in offline mode. Grade-A chilli prices are steady at ₹15,200/quintal.',
+            ? 'सर्वर अभी उपलब्ध नहीं है। कृपया कुछ देर बाद पुनः प्रयास करें।'
+            : 'Server is currently unavailable. Please try again shortly.',
         is_sample: true,
         is_offline_fallback: true
       };

@@ -1212,9 +1212,10 @@ def get_price_alerts_endpoint(
     """Retrieve active price alerts for a farmer."""
     use_pg = is_postgres_active()
     ph = "%s" if use_pg else "?"
+    active_val = "TRUE" if use_pg else "1"
     with get_db_cursor() as cur:
         cur.execute(
-            f"SELECT * FROM price_alerts WHERE phone_number = {ph} AND is_active = TRUE ORDER BY created_at DESC;",
+            f"SELECT * FROM price_alerts WHERE phone_number = {ph} AND is_active = {active_val} ORDER BY created_at DESC;",
             (phone_number,)
         )
         rows = [dict(r) for r in cur.fetchall()]
@@ -1343,16 +1344,16 @@ async def get_nearest_markets(
             "district": m.district,
             "state": m.state,
             "distance_km": m.distance_km or 0.0,
-            "modal_price": 3250,
             "commodity": commodity or "Agri Commodity",
         })
 
     return {
         "status": "success",
         "district": district,
-        "as_of": f"{today_str} Live",
+        "as_of": today_str,
         "source": "Agmarknet Mandi Network",
-        "is_sample": len(markets_data) == 0,
+        "is_sample": True,  # market locations only; live prices not available here
+        "note": "Market locations shown. Check the price search tab for live commodity prices.",
         "markets": markets_data,
     }
 @router.get("/scrapers/telemetry")
@@ -1387,10 +1388,12 @@ def trigger_scraper_endpoint(
 def get_demo_videos() -> list[dict]:
     """Returns list of demo/tutorial videos stored in PostgreSQL."""
     try:
+        use_pg = is_postgres_active()
+        active_val = "TRUE" if use_pg else "1"
         with get_db_cursor() as cur:
             cur.execute(
                 "SELECT id, title, description, video_url, thumbnail_url, duration_seconds, language, sort_order "
-                "FROM demo_videos WHERE is_active = TRUE ORDER BY sort_order ASC"
+                f"FROM demo_videos WHERE is_active = {active_val} ORDER BY sort_order ASC"
             )
             rows = cur.fetchall()
             return [dict(r) for r in rows]
