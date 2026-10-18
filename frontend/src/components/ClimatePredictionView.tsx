@@ -213,6 +213,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   // Audio Voice Salla (TTS)
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const lastFetchedKeyRef = useRef<string>('');
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -274,16 +275,41 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
         }
 
         if (res.location) {
-          setActiveLocation((prev: any) => ({
-            ...prev,
-            name: getLocText(res.location.name, currentLang),
-            district: getLocText(res.location.district, currentLang),
-            state: getLocText(res.location.state, currentLang),
-            pincode: res.location.pincode || prev.pincode,
-            zone: getLocText(res.location.agroClimaticZone || prev.zone, currentLang),
-            lat: res.location.latitude || prev.lat,
-            lon: res.location.longitude || prev.lon
-          }));
+          setActiveLocation((prev: any) => {
+            const newName = getLocText(res.location.name, currentLang) || prev.name;
+            const newDistrict = getLocText(res.location.district, currentLang) || prev.district;
+            const newState = getLocText(res.location.state, currentLang) || prev.state;
+            const newPin = res.location.pincode || prev.pincode;
+            const newZone = getLocText(res.location.agroClimaticZone || prev.zone, currentLang);
+            const newLat = res.location.latitude ?? prev.lat;
+            const newLon = res.location.longitude ?? prev.lon;
+            const newId = res.location.id || prev.id;
+
+            if (
+              prev.id === newId &&
+              prev.name === newName &&
+              prev.district === newDistrict &&
+              prev.state === newState &&
+              prev.pincode === newPin &&
+              prev.zone === newZone &&
+              prev.lat === newLat &&
+              prev.lon === newLon
+            ) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              id: newId,
+              name: newName,
+              district: newDistrict,
+              state: newState,
+              pincode: newPin,
+              zone: newZone,
+              lat: newLat,
+              lon: newLon
+            };
+          });
         }
 
         setIsLiveSynced(true);
@@ -334,11 +360,13 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   };
 
   useEffect(() => {
-    const run = async () => {
-      await fetchUnifiedClimate(activeLocation, horizonDays);
-    };
-    run();
-  }, [activeLocation, horizonDays, currentLang, fetchUnifiedClimate]);
+    const fetchKey = `${activeLocation.id || ''}_${activeLocation.lat || ''}_${activeLocation.lon || ''}_${horizonDays}_${currentLang}`;
+    if (lastFetchedKeyRef.current === fetchKey) {
+      return;
+    }
+    lastFetchedKeyRef.current = fetchKey;
+    fetchUnifiedClimate(activeLocation, horizonDays);
+  }, [activeLocation.id, activeLocation.lat, activeLocation.lon, horizonDays, currentLang, fetchUnifiedClimate]);
 
   // All-India Dynamic Location Autocomplete
   useEffect(() => {
@@ -385,12 +413,14 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
         id: searchInput.trim().toLowerCase().replace(/\s+/g, '-')
       };
       setShowSuggestions(false);
+      lastFetchedKeyRef.current = '';
       setActiveLocation(customLoc);
     }
   };
 
   // Select a suggestion from All-India search
   const selectLocationResult = (loc: any) => {
+    lastFetchedKeyRef.current = '';
     setActiveLocation({
       name: getLocText(loc.name, currentLang),
       district: getLocText(loc.district, currentLang),
@@ -421,6 +451,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
           const resolved = await KisanSethuApi.reverseGeocodeLocation(lat, lon);
 
           if (resolved) {
+            lastFetchedKeyRef.current = '';
             setActiveLocation({
               name: getLocText(resolved.name, currentLang),
               district: getLocText(resolved.district, currentLang),
@@ -433,6 +464,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
             });
             setSearchInput(`${getLocText(resolved.name, currentLang)}, ${getLocText(resolved.district, currentLang)}`);
           } else {
+            lastFetchedKeyRef.current = '';
             setActiveLocation({
               name: `Farm (${lat.toFixed(2)}N, ${lon.toFixed(2)}E)`,
               district: 'Local District',
@@ -737,24 +769,40 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: '12px',
-                padding: '0 24px',
+                padding: '0 20px',
                 fontSize: '14px',
                 fontWeight: '700',
-                cursor: 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '8px',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                minWidth: '136px',
+                height: '42px',
+                boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                transition: 'all 0.2s ease',
+                opacity: isLoading ? 0.85 : 1
               }}
             >
-              <Search size={16} />
-              <span>{isLoading ? '...' : (currentLang === 'hi' ? 'मौसम देखें' : 'View Weather')}</span>
+              {isLoading ? (
+                <>
+                  <Loader2 size={16} className="spin-icon" />
+                  <span>{currentLang === 'hi' ? 'खोज रहे हैं...' : currentLang === 'te' ? 'శోధిస్తోంది...' : 'Searching...'}</span>
+                </>
+              ) : (
+                <>
+                  <Search size={16} />
+                  <span>{currentLang === 'hi' ? 'मौसम देखें' : currentLang === 'te' ? 'వాతావరణం చూడండి' : 'View Weather'}</span>
+                </>
+              )}
             </button>
 
             {activeLocation.id !== currentLocation.id && (
               <button
                 type="button"
                 onClick={() => {
+                  lastFetchedKeyRef.current = '';
                   setActiveLocation({
                     name: getLocText(currentLocation.name, currentLang),
                     district: getLocText(currentLocation.district, currentLang),
