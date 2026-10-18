@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any, Generator
 from contextlib import contextmanager
@@ -18,7 +19,9 @@ logger = logging.getLogger("KisanSethuDB")
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
-LOCAL_DB_PATH = ":memory:"
+# Use a persistent temp file so all SQLite connections within the same process
+# share the same database — :memory: gives each connection a new empty database.
+LOCAL_DB_PATH = os.path.join(tempfile.gettempdir(), "kisan_sethu_local.db")
 
 try:
     from dotenv import load_dotenv

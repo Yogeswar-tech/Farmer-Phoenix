@@ -20,6 +20,8 @@ secrets/
 
 # Local data and artifacts
 *.db
+# Allow CIBRC statutory reference data — pre-populated, read-only, required by CI tests
+!database/cibrc_pesticide_registry.db
 *.sqlite
 *.sqlite3
 backend/data/rag_docs/*.pdf

@@ -1082,7 +1082,12 @@ def seed_cibrc_registry():
         """
 
     with get_db_cursor() as cursor:
-        cursor.execute(create_sql)
+        if use_pg:
+            cursor.execute(create_sql)
+        else:
+            # SQLite rejects multiple statements in a single execute() call
+            for stmt in (s.strip() for s in create_sql.split(";") if s.strip()):
+                cursor.execute(stmt)
         if use_pg:
             # If constraint was missing on pre-existing table, create unique index
             cursor.execute("""
