@@ -17,15 +17,16 @@ from app.main import app
 from app.settings import Settings
 
 
-def test_production_settings_validation():
-    """Verify that in production without admin key or database url, ValueError is raised."""
-    # When KS_ENV is production and KS_ADMIN_API_KEY or KS_DATABASE_URL is missing
-    with pytest.raises(ValueError, match="CRITICAL: Missing KS_ADMIN_API_KEY or KS_DATABASE_URL in production!"):
-        # Simulate creating Settings in production with missing keys
+def test_production_settings_validation(monkeypatch):
+    """Verify that in production without admin key or database config, ValueError is raised."""
+    # Remove CI bypass so the validator fires as it would in a real production deploy
+    monkeypatch.delenv("CI", raising=False)
+    with pytest.raises(ValueError, match="CRITICAL: Missing KS_ADMIN_API_KEY or database config"):
         Settings(
             env="production",
             admin_api_key="",
             database_url="",
+            cloud_sql_connection_name="",
             _env_file=None,
         )
 

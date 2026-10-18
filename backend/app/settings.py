@@ -50,8 +50,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_env(self) -> "Settings":
-        # GitHub Actions and other CI systems set CI=true — skip strict validation there
+        # GitHub Actions and other CI systems set CI=true
+        # Force local/dev mode so tests run without real credentials
         if os.getenv("CI"):
+            self.env = "local"
+            if not self.admin_api_key:
+                self.admin_api_key = "ci-test-admin-key"
             return self
         has_db = bool(self.database_url or self.cloud_sql_connection_name)
         if self.env == "production" and (not self.admin_api_key or not has_db):
