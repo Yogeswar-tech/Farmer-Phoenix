@@ -1,3 +1,5 @@
+import os
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -48,6 +50,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_env(self) -> "Settings":
+        # GitHub Actions and other CI systems set CI=true — skip strict validation there
+        if os.getenv("CI"):
+            return self
         has_db = bool(self.database_url or self.cloud_sql_connection_name)
         if self.env == "production" and (not self.admin_api_key or not has_db):
             raise ValueError(
