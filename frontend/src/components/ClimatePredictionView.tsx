@@ -647,67 +647,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
         marginBottom: '20px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin size={18} style={{ color: '#059669' }} />
-              <span>{currentLang === 'hi' ? 'पूरे भारत में अपना गांव या खेत चुनें' : currentLang === 'te' ? 'భారతదేశంలో మీ గ్రామం ఎంచుకోండి' : 'Select Any Village, Tehsil, District, or PIN in India'}</span>
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748B', margin: '4px 0 0' }}>
-              {currentLang === 'hi'
-                ? 'कोई सीमित सूची नहीं! भारत के सभी 28 राज्यों, 750+ जिलों एवं गांवों का सटीक मौसम उपलब्ध है।'
-                : 'No restrictive list! High-precision operational weather available for all Indian villages, tehsils, and PIN codes.'}
-            </p>
-          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{
-              background: '#ECFDF5',
-              border: '1px solid #A7F3D0',
-              color: '#065F46',
-              borderRadius: '10px',
-              padding: '8px 14px',
-              fontSize: '12px',
-              fontWeight: '800',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              <span>🔒 📍 {t.lockedFarmLocation || 'Current Farm (GPS Locked)'}: {getLocText(currentLocation.name, currentLang)}</span>
-            </span>
-
-            {activeLocation.id !== currentLocation.id && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveLocation({
-                    name: getLocText(currentLocation.name, currentLang),
-                    district: getLocText(currentLocation.district, currentLang),
-                    state: getLocText(currentLocation.state, currentLang),
-                    pincode: currentLocation.pincode,
-                    lat: currentLocation.lat || 16.3067,
-                    lon: currentLocation.lng || 80.4365,
-                    zone: `${getLocText(currentLocation.state, currentLang)} Agricultural Zone`,
-                    id: currentLocation.id
-                  });
-                  setSearchInput('');
-                }}
-                style={{
-                  background: '#F1F5F9',
-                  border: '1px solid #CBD5E1',
-                  color: '#334155',
-                  borderRadius: '10px',
-                  padding: '8px 14px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
-              >
-                {t.returnToLockedFarm || '🔙 Return to My Farm'}
-              </button>
-            )}
-          </div>
-        </div>
 
         {/* Search Input with Dynamic Suggestions Dropdown */}
         <div ref={searchContainerRef} style={{ position: 'relative' }}>
@@ -772,12 +712,48 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '8px',
+                whiteSpace: 'nowrap'
               }}
             >
               <Search size={16} />
               <span>{isLoading ? '...' : (currentLang === 'hi' ? 'मौसम देखें' : 'View Weather')}</span>
             </button>
+
+            {activeLocation.id !== currentLocation.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveLocation({
+                    name: getLocText(currentLocation.name, currentLang),
+                    district: getLocText(currentLocation.district, currentLang),
+                    state: getLocText(currentLocation.state, currentLang),
+                    pincode: currentLocation.pincode,
+                    lat: currentLocation.lat || 16.3067,
+                    lon: currentLocation.lng || 80.4365,
+                    zone: `${getLocText(currentLocation.state, currentLang)} Agricultural Zone`,
+                    id: currentLocation.id
+                  });
+                  setSearchInput('');
+                }}
+                style={{
+                  background: '#F1F5F9',
+                  border: '1px solid #CBD5E1',
+                  color: '#334155',
+                  borderRadius: '12px',
+                  padding: '0 16px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {t.returnToLockedFarm || '🔙 Return to My Farm'}
+              </button>
+            )}
           </form>
 
           {/* Floating Autocomplete Suggestions */}
