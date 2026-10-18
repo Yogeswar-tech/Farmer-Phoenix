@@ -3,14 +3,11 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 
 import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, AGRICULTURAL_LOCATIONS } from '../data/mockData';
-import { Search, Mic, Globe, User, MapPin, Sparkles, ChevronDown, Check, Building2 } from 'lucide-react';
+import { Search, Mic, Globe, User, MapPin, ChevronDown, Check, Building2 } from 'lucide-react';
 
 interface HeaderProps {
   currentLang: Language;
   onLanguageChange: (lang: Language) => void;
-  isAiModeEnabled: boolean;
-  onToggleAiMode: (enabled: boolean) => void;
-  onOpenAiAssistant: () => void;
   onOpenLogin: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -25,9 +22,6 @@ interface HeaderProps {
 export const Header: FC<HeaderProps> = ({
   currentLang,
   onLanguageChange,
-  isAiModeEnabled,
-  onToggleAiMode: _onToggleAiMode,
-  onOpenAiAssistant,
   onOpenLogin,
   searchQuery,
   onSearchChange,
@@ -362,7 +356,7 @@ export const Header: FC<HeaderProps> = ({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.locMenuFooterText}>
-                    🔍 {currentLang === 'hi' ? 'सभी मंडियां व नक्शा देखें...' : currentLang === 'te' ? 'మరిన్ని మార్కెట్లు & మ్యాప్...' : 'All Mandis & Map search...'}
+                    🔍 {currentLang === 'hi' ? 'सभी मंडियां व स्थान विवरण खोजें...' : currentLang === 'te' ? 'మరిన్ని మార్కెట్లు & లొకేషన్ వివరాలు...' : 'All Mandis & Location Search...'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -445,41 +439,21 @@ export const Header: FC<HeaderProps> = ({
             )}
           </View>
 
-          {/* AI Voice Assistant Mode Quick Launcher */}
-          <TouchableOpacity
-            onPress={onOpenAiAssistant}
-            style={[styles.aiModeBtn, isAiModeEnabled ? styles.aiModeActive : styles.aiModeDisabled]}
-            activeOpacity={0.6}
-          >
-            <Sparkles size={14} color={isAiModeEnabled ? '#FFE600' : '#94A3B8'} />
-            <Text style={[styles.aiModeText, isAiModeEnabled && styles.aiModeTextActive]}>
-              {isAiModeEnabled
-                ? (currentLang === 'hi' ? 'एआई चालू' : currentLang === 'te' ? 'AI ఆన్' : 'AI Mode')
-                : (currentLang === 'hi' ? 'एआई बंद' : currentLang === 'te' ? 'AI ఆఫ్' : 'AI Off')}
-            </Text>
-            <View style={[styles.aiStatusDot, isAiModeEnabled ? styles.aiDotOn : styles.aiDotOff]} />
-          </TouchableOpacity>
 
-          {/* Profile / Gmail Login Button */}
+          {/* Profile / Login Button */}
           <TouchableOpacity
             onPress={onOpenLogin}
             style={[styles.authBtn, isLoggedIn && styles.authBtnLoggedIn]}
             activeOpacity={0.8}
-            accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Sign in with Gmail'}
+            accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Login'}
           >
-            {isLoggedIn ? (
-              <View style={styles.googleBadgePill}>
-                <Text style={styles.googleGLetter}>G</Text>
-              </View>
-            ) : (
-              <View style={styles.googleBadgeWhite}>
-                <Text style={styles.googleGLetterWhite}>G</Text>
-              </View>
+            {isLoggedIn && (
+              <User size={15} color="#2D5A27" />
             )}
             <Text style={[styles.authBtnText, isLoggedIn && styles.authBtnTextLoggedIn]}>
               {isLoggedIn
-                ? (userName || (currentLang === 'hi' ? 'Gmail प्रोफाइल' : currentLang === 'te' ? 'Gmail ప్రొఫైల్' : 'Gmail Profile'))
-                : (currentLang === 'hi' ? 'Gmail लॉगिन' : currentLang === 'te' ? 'Gmail లాగిన్' : 'Gmail Sign-In')}
+                ? (userName || (currentLang === 'hi' ? 'किसान प्रोफाइल' : currentLang === 'te' ? 'రైతు ప్రొఫైల్' : 'Farmer Profile'))
+                : (currentLang === 'hi' ? 'लॉगिन' : currentLang === 'te' ? 'లాగిన్' : 'Login')}
             </Text>
             {isLoggedIn && <View style={styles.authDot} />}
           </TouchableOpacity>
@@ -668,60 +642,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#334155',
   },
-  aiModeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  aiModeActive: {
-    backgroundColor: '#2D5A27',
-    borderColor: '#2D5A27',
-  },
-  aiModeDisabled: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
-  },
-  aiModeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  aiModeTextActive: {
-    color: '#FFFFFF',
-  },
-  aiStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  aiDotOn: {
-    backgroundColor: '#00E676',
-  },
-  aiDotOff: {
-    backgroundColor: '#94A3B8',
-  },
   authBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#2D5A27',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    minHeight: 38,
   },
   authBtnLoggedIn: {
     backgroundColor: '#EFF7EE',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#2D5A27',
   },
   authBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   authBtnTextLoggedIn: {
     color: '#2D5A27',
@@ -731,32 +671,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#16A34A',
-  },
-  googleBadgePill: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#EA4335',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleGLetter: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  googleBadgeWhite: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleGLetterWhite: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#EA4335',
   },
   dropdownGpsActionRow: {
     flexDirection: 'row',

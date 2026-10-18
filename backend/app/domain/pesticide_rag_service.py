@@ -336,7 +336,7 @@ class PesticideRagService:
             "crop": crop,
             "pesticide": pesticide,
             "language": lang,
-            "llm_engine": "Gemini 2.5 Flash (google-genai)" if is_llm_online else "CIBRC Grounded Rule Engine",
+            "llm_engine": "Gemini 3.8 Flash (google-genai)" if is_llm_online else "CIBRC Grounded Rule Engine",
             "rag_context_count": len(unique_docs),
             "retrieved_records": unique_docs[:10],
             "advisory": ai_response_text

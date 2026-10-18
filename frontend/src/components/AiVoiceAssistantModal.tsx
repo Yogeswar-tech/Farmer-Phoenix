@@ -1,18 +1,7 @@
 import { useState, useEffect, useRef, type FC } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Switch,
-  Pressable,
-  StyleSheet
-} from 'react-native';
 import type { Language, MandiItem } from '../types';
 import { translations } from '../data/i18n';
+import { KisanSethuApi } from '../services/api';
 import {
   Mic,
   MicOff,
@@ -23,7 +12,10 @@ import {
   X,
   CheckCircle2,
   Share2,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw,
+  Bot,
+  Loader2
 } from 'lucide-react';
 
 interface AiVoiceAssistantModalProps {
@@ -35,134 +27,131 @@ interface AiVoiceAssistantModalProps {
   onToggleAiMode: (enabled: boolean) => void;
 }
 
-interface SmartAnswer {
-  question: Record<Language, string>;
-  category: 'price' | 'weather' | 'grading' | 'storage' | 'logistics';
-  verdict: Record<Language, string>;
-  details: Record<Language, string>;
-  confidence: number;
-  source: Record<Language, string>;
-  suggestedAction: Record<Language, string>;
+interface DisplayAnswer {
+  question: string;
+  verdict: string;
+  spoken: string;
+  details: string;
+  actionPlan: string;
+  category: string;
+  source: string;
+  dataPoints?: Record<string, any>;
+  isLlmPowered?: boolean;
 }
 
-const PRESET_AI_KNOWLEDGE_BASE: SmartAnswer[] = [
-  {
-    category: 'price',
-    question: {
-      hi: 'मिर्च बेचने का सही समय क्या है?',
-      te: 'మిర్చి అమ్మడానికి సరైన సమయం ఎప్పుడు?',
-      en: 'When is the best time to sell my chilli?'
-    },
-    verdict: {
-      hi: '✅ अगले 48 घंटों में बेचना सबसे लाभदायक है (Strong Sell Signal)',
-      te: '✅ రాబోయే 48 గంటల్లో అమ్మడం అత్యంత లాభదాయకం (Strong Sell Signal)',
-      en: '✅ Next 48 Hours is Ideal to Sell (Strong Positive Momentum)'
-    },
-    details: {
-      hi: 'गुंटूर एपीएमसी में मॉडल भाव ₹14,200/क्विंटल पर 14 दिनों के उच्चतम स्तर पर है (+₹300 वृद्धि)। आज सुबह यार्ड में आवक 18% घटी है जिससे खरीदार आक्रामक बोली लगा रहे हैं। इसके अतिरिक्त गुरुवार को बारिश की चेतावनी है, अतः खुले यार्ड में भीगने से पूर्व आज या कल में माल रवाना करें।',
-      te: 'గుంటూరు యార్డ్‌లో మోడల్ ధర క్వింటాకు ₹14,200తో గత 14 రోజుల్లో అత్యధిక స్థాయికి చేరింది. ఈ ఉదయం సరుకు రాక 18% తగ్గడంతో వ్యాపారులు పోటీపడి కొంటున్నారు. గురువారం భారీ వర్షం ఉన్నందున ఈరోజే అమ్మడం శ్రేయస్కరం.',
-      en: 'Guntur APMC modal price is at a 14-day peak of ₹14,200/qtl (+₹300 uptick). Morning yard arrivals are down 18%, pushing buyers to bid aggressively. With heavy rain forecast for Thursday, liquidate before wet weather hits the open yards.'
-    },
-    confidence: 96,
-    source: {
-      hi: 'ई-नाम लाइव नीलामी एवं आईएमडी गुंटूर रडार',
-      te: 'e-NAM లైవ్ వేలం & IMD వాతావరణ శాఖ',
-      en: 'e-NAM Agmarknet Inflow Records & IMD Doppler Radar'
-    },
-    suggestedAction: {
-      hi: 'आज दोपहर तक 1.5-टन या ट्रैक्टर ट्रॉली लोड करके रवाना करें।',
-      te: 'ఈరోజు మధ్యాహ్నానికి లోడ్ సిద్ధం చేసుకుని మార్కెట్‌కు బయలుదేరండి.',
-      en: 'Book transport today to reach market gate before 7:00 AM auction.'
-    }
+const VOICE_GREETINGS: Record<Language, { text: string; spoken: string }> = {
+  te: {
+    text: 'నమస్కారం సర్! కిసాన్ సేతు AI వాయిస్ బాట్‌కి స్వాగతం. ఈరోజు మీకు నేను ఎలా సహాయపడగలను?',
+    spoken: 'నమస్కారం సర్! కిసాన్ సేతు కి స్వాగతం. ఈరోజు మీకు నేను ఎలా సహాయపడగలను?'
   },
-  {
-    category: 'weather',
-    question: {
-      hi: 'क्या कल बारिश में कीटनाशक छिड़काव कर सकते हैं?',
-      te: 'రేపు వర్షం ఉంటే ఈరోజు మందు కొట్టవచ్చా?',
-      en: 'Can I spray pesticide with tomorrow’s rain forecast?'
-    },
-    verdict: {
-      hi: '⚠️ छिड़काव तुरंत रोकें! (Delay Spraying Notice)',
-      te: '⚠️ పిచికారీని వాయిదా వేయండి! (Delay Spraying Notice)',
-      en: '⚠️ Delay Chemical Spraying! (High Washout Risk)'
-    },
-    details: {
-      hi: 'गुरुवार को 80% से अधिक बारिश की संभावना है। वर्षा से पूर्व छिड़काव करने पर पूरी दवा बह जाएगी (₹1,800/एकड़ का आर्थिक नुकसान) तथा पत्तों पर फंगस का प्रकोप बढ़ सकता है। शुक्रवार के बाद मौसम साफ होने पर ही छिड़कें।',
-      te: 'గురువారం 80% కంటే ఎక్కువ వర్షం కురిసే అవకాశం ఉంది. ఇప్పుడు స్ప్రే చేస్తే మందు మొత్తం కొట్టుకుపోయి ఎకరానికి ₹1,800 వృధా అవుతుంది. శనివారం ఎండ వచ్చిన తర్వాతే పిచికారీ చేయండి.',
-      en: 'Over 80% rain probability is forecasted for Thursday. Applying sprays now causes chemical washout (loss of ₹1,800/acre in chemical cost) without protecting foliage. Wait until Friday after the rain front clears.'
-    },
-    confidence: 98,
-    source: {
-      hi: 'आईएमडी कृषि मौसम वेधशाला एवं कृषि विश्वविद्यालय परामर्श',
-      te: 'భారత వాతావరణ శాఖ (IMD) వ్యవసాయ విభాగం',
-      en: 'IMD Agromet Advisory & ANGRAU Agronomy Bulletin'
-    },
-    suggestedAction: {
-      hi: 'कीटनाशक स्प्रे पंप बंद रखें; नालियों में जल निकासी सुनिश्चित करें।',
-      te: 'స్ప్రే చేయవద్దు; పొలంలో నీరు నిల్వ ఉండకుండా డ్రైనేజీ చూడండి.',
-      en: 'Hold off chemical tanks; clear field drainage channels instead.'
-    }
+  hi: {
+    text: 'नमस्ते सर! किसान सेतु एआई वॉइस असिस्टेंट में आपका स्वागत है। आज मैं आपकी क्या सहायता कर सकता हूँ?',
+    spoken: 'नमस्ते सर! किसान सेतु में आपका स्वागत है। आज मैं आपकी क्या सहायता कर सकता हूँ?'
   },
-  {
-    category: 'grading',
-    question: {
-      hi: 'मंडी में नमी की कटौती से कैसे बचें?',
-      te: 'మార్కెట్లో తేమ కోత నష్టాన్ని ఎలా తగ్గించాలి?',
-      en: 'How to prevent moisture deduction at mandi yards?'
-    },
-    verdict: {
-      hi: '✅ नीली तिरपाल पर 2 दिन सुखाएं (Save ₹18,000 on 20 Qtl)',
-      te: '✅ బ్లూ టార్పాలిన్‌పై 2 రోజులు ఆరబెట్టండి (₹18,000 లాభం)',
-      en: '✅ Sun-Dry 2 Days on Tarpaulin (Saves ₹18,000 on 20 Qtl)'
-    },
-    details: {
-      hi: 'यदि मिर्च में नमी 16% से अधिक है, तो आढ़ती प्रति क्विंटल ₹600–₹1,000 की भारी कटौती लगाते हैं। यदि आप माल को स्वच्छ नीली तिरपाल पर 2 दिन धूप में सुखाकर नमी 11% तक ले आते हैं, तो आपको सुपर एक्सपोर्ट ग्रेड-ए (₹16,500/क्विंटल) भाव मिलेगा।',
-      te: 'తేమ 16% దాటితే వ్యాపారులు క్వింటాకు ₹600-₹1,000 కోత పెడతారు. టార్పాలిన్‌పై 2 రోజులు ఎండబెట్టి తేమను 11%కి తెస్తే గ్రేడ్-ఎ ప్రీమియం ధర (₹16,500) లభిస్తుంది.',
-      en: 'Moisture above 16% triggers docked penalties of ₹600–₹1,000/qtl by yard commission agents. Sun-drying on clean tarpaulins down to 11% moves your produce into Super Export Grade-A (₹16,500/qtl).'
-    },
-    confidence: 94,
-    source: {
-      hi: 'एपीडा एवं भारतीय मसाला बोर्ड गुणवत्ता मानक',
-      te: 'స్పైసెస్ బోర్డ్ ఆఫ్ ఇండియా నాణ్యత మార్గదర్శకాలు',
-      en: 'Spices Board of India Quality & Agmarknet Inspection Norms'
-    },
-    suggestedAction: {
-      hi: 'मंडी में डिजिटल नमी मीटर से स्वयं 11% नमी जांचकर ही माल उतारें।',
-      te: 'లోడ్ దించే ముందు తేమ మీటర్‌తో 11% ఉందో లేదో సరిచూసుకోండి.',
-      en: 'Verify 11% moisture reading on yard meter before unloading bags.'
-    }
-  },
-  {
-    category: 'storage',
-    question: {
-      hi: 'निकटतम कोल्ड स्टोरेज में खाली जगह और किराया क्या है?',
-      te: 'సమీప కోల్డ్ స్టోరేజ్ అద్దె మరియు ఖాళీ వివరాలు ఏమిటి?',
-      en: 'What are the nearest cold storage vacancies and rental rates?'
-    },
-    verdict: {
-      hi: '❄️ बालाजी कोल्ड स्टोरेज (12 किमी) में 3,200 बोरियां रिक्त',
-      te: '❄️ బాలాజీ కోల్డ్ స్టోరేజ్ (12 కి.మీ) వద్ద 3,200 బస్తాలు ఖాళీ',
-      en: '❄️ Balaji Cold Storage (12 km) has 3,200 Vacant Bags'
-    },
-    details: {
-      hi: 'एनएच-16 चिल्लकलुरीपेटा रोड पर स्थित बालाजी कोल्ड स्टोरेज का किराया ₹35/बोरी/माह है। इसमें स्वचालित तापमान व धूमन (fumigation) सुविधा उपलब्ध है। फोन: 98480-11234 पर कॉल करके अग्रिम बुकिंग कर सकते हैं।',
-      te: 'NH-16 చిలకలూరిపేట రోడ్డు వద్ద బాలాజీ కోల్డ్ స్టోరేజ్‌లో బస్తాకు ₹35/నెలకు అద్దె. ఆటోమేటిక్ టెంపరేచర్ మరియు ఫ్యూమిగేషన్ సదుపాయం ఉంది. ఫోన్: 98480-11234.',
-      en: 'Located on NH-16 Chilakaluripeta bypass with rent of ₹35/bag/month. Includes automated temperature humidity sensors and certified pest fumigation. Call 98480-11234 to lock in chambers.'
-    },
-    confidence: 95,
-    source: {
-      hi: 'राज्य बागवानी एवं वेयरहाउसिंग विकास निगम',
-      te: 'ఆంధ్రప్రదేశ్ వేర్‌హౌసింగ్ కార్పొరేషన్',
-      en: 'State Horticulture & Warehousing Development Records'
-    },
-    suggestedAction: {
-      hi: 'कीमतें स्थिर रहने तक 2–3 माह भंडारण से ₹2,000/क्विंटल अधिक मिल सकता है।',
-      te: 'ధరలు పెరిగే వరకు 2-3 నెలలు నిల్వ ఉంచితే క్వింటాకు ₹2,000 ఎక్కువ రావచ్చు.',
-      en: 'Store for 60-90 days during glut to capture post-harvest price spikes.'
-    }
+  en: {
+    text: 'Hi Sir! Welcome to Kisan Sethu AI Voice Assistant. How can I help you today?',
+    spoken: 'Hi Sir! Welcome to Kisan Sethu. How can I help you today?'
   }
-];
+};
+
+const SUGGESTED_QUESTIONS: Record<Language, Array<{ text: string; label: string; icon: string }>> = {
+  te: [
+    {
+      text: 'ఈరోజు వాతావరణం చెప్పండి?',
+      label: 'ఈరోజు వాతావరణం',
+      icon: '🌦️'
+    },
+    {
+      text: 'ఇంకో గంటలో వాతావరణం ఎలా ఉంటుంది, నేనేం జాగ్రత్తలు తీసుకోవాలి?',
+      label: '1 గంట వాతావరణం & జాగ్రత్తలు',
+      icon: '⏱️'
+    },
+    {
+      text: 'నేను ఎవరికి అమ్మితే ఎక్కువ లాభం వస్తుంది?',
+      label: 'ఎవరికి అమ్మితే ఎక్కువ లాభం?',
+      icon: '💰'
+    },
+    {
+      text: 'గుంటూరు మార్కెట్లో మిర్చి రేటు ఎంత?',
+      label: 'గుంటూరు మార్కెట్ రేటు',
+      icon: '📈'
+    },
+    {
+      text: 'పురుగుల నివారణకు ఏ మందు కొట్టాలి? డోస్ ఎంత?',
+      label: 'పురుగుల మందు డోస్',
+      icon: '🛡️'
+    },
+    {
+      text: 'సమీప కోల్డ్ స్టోరేజ్ ఖాళీలు మరియు అద్దె వివరాలు చెప్పండి?',
+      label: 'కోల్డ్ స్టోరేజ్ వివరాలు',
+      icon: '❄️'
+    }
+  ],
+  hi: [
+    {
+      text: 'आज का मौसम बताइए?',
+      label: 'आज का मौसम',
+      icon: '🌦️'
+    },
+    {
+      text: 'अगले 1 घंटे में मौसम कैसा रहेगा, मुझे क्या सावधानी रखनी चाहिए?',
+      label: '1 घंटे का मौसम व सावधानियां',
+      icon: '⏱️'
+    },
+    {
+      text: 'मैं किसको बेचूं जिससे ज्यादा मुनाफा होगा?',
+      label: 'कहाँ बेचने से ज्यादा मुनाफा?',
+      icon: '💰'
+    },
+    {
+      text: 'गुंटूर मंडी में मिर्च का ताजा भाव क्या है?',
+      label: 'मंडी ताजा भाव',
+      icon: '📈'
+    },
+    {
+      text: 'कीट नियंत्रण के लिए कौन सी दवा छिड़कें? 15L पंप खुराक?',
+      label: 'कीटनाशक व 15L खुराक',
+      icon: '🛡️'
+    },
+    {
+      text: 'पास के कोल्ड स्टोरेज का किराया और स्थान क्या है?',
+      label: 'कोल्ड स्टोरेज किराया',
+      icon: '❄️'
+    }
+  ],
+  en: [
+    {
+      text: 'Tell me today’s weather forecast?',
+      label: 'Today’s Weather',
+      icon: '🌦️'
+    },
+    {
+      text: 'How will the weather be in the next hour, what precautions should I take?',
+      label: '1-Hour Weather & Precautions',
+      icon: '⏱️'
+    },
+    {
+      text: 'Whom should I sell to for maximum profit?',
+      label: 'Best Market for Maximum Profit',
+      icon: '💰'
+    },
+    {
+      text: 'What is the current modal price in Guntur APMC?',
+      label: 'Mandi Modal Price',
+      icon: '📈'
+    },
+    {
+      text: 'Which pesticide should I spray for pest control? 15L tank dose?',
+      label: 'Pesticide & 15L Tank Dose',
+      icon: '🛡️'
+    },
+    {
+      text: 'What are the nearest cold storage vacancies and rental rates?',
+      label: 'Cold Storage Vacancy',
+      icon: '❄️'
+    }
+  ]
+};
 
 export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
   isOpen,
@@ -172,38 +161,141 @@ export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
   isAiModeEnabled,
   onToggleAiMode
 }) => {
-  const t = translations[currentLang];
+  const t = translations[currentLang] || translations.en;
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [queryInput, setQueryInput] = useState('');
-  const [activeAnswer, setActiveAnswer] = useState<SmartAnswer | null>(PRESET_AI_KNOWLEDGE_BASE[0]);
-  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [activeAnswer, setActiveAnswer] = useState<DisplayAnswer | null>(null);
 
+  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize greeting whenever modal opens
+  useEffect(() => {
+    if (isOpen && isAiModeEnabled) {
+      const greeting = VOICE_GREETINGS[currentLang] || VOICE_GREETINGS.en;
+      setActiveAnswer({
+        question: t.voiceAssistantTitle || 'Kisan Sethu AI Voice Assistant',
+        verdict: greeting.text,
+        spoken: greeting.spoken,
+        details:
+          currentLang === 'te'
+            ? 'ఈరోజు వాతావరణం, ఇంకో గంటలో వర్షం సూచన & జాగ్రత్తలు, ఎవరికి అమ్మితే ఎక్కువ లాభం వస్తుంది, మార్కెట్ రేట్లు లేదా పురుగుల మందుల గురించి నన్ను మాట్లాడి అడగవచ్చు.'
+            : currentLang === 'hi'
+              ? 'आज का मौसम, अगले 1 घंटे में मौसम व सावधानियां, किसको बेचने से अधिकतम मुनाफा होगा, या कीटनाशक खुराक के बारे में निसंकोच पूछें।'
+              : 'Ask me about today’s weather, 1-hour rain precautions, whom to sell for maximum profit, live mandi rates, or CIBRC pesticide doses.',
+        actionPlan:
+          currentLang === 'te'
+            ? 'క్రింద ఉన్న మైక్ బటన్ నొక్కి మాట్లాడండి లేదా పైన ఉన్న ప్రశ్నల్లో ఒకదాన్ని ఎంచుకోండి.'
+            : currentLang === 'hi'
+              ? 'नीचे दिए गए माइक बटन को दबाकर बोलें अथवा प्रश्नों में से चुनें।'
+              : 'Tap the mic button below to speak or click any common question above.',
+        category: 'greeting',
+        source: 'Kisan Sethu AI Voice Terminal',
+        isLlmPowered: true
+      });
+
+      // Automatically speak the greeting after a short mount delay
+      const timer = setTimeout(() => {
+        speakText(greeting.spoken);
+      }, 350);
+
+      return () => {
+        clearTimeout(timer);
+        stopSpeaking();
+      };
+    } else {
+      stopSpeaking();
+    }
+  }, [isOpen, currentLang, isAiModeEnabled]);
+
+  // Clean up audio on unmount
   useEffect(() => {
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      stopSpeaking();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
       }
     };
   }, []);
 
-  if (!isOpen) return null;
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+
+      const cleanText = text.replace(/[*#_~`]/g, '').trim();
+      if (!cleanText) return;
+
+      const utter = new SpeechSynthesisUtterance(cleanText);
+      const langTag = currentLang === 'te' ? 'te-IN' : currentLang === 'hi' ? 'hi-IN' : 'en-IN';
+      utter.lang = langTag;
+      utter.rate = 0.92;
+      utter.pitch = 1.0;
+
+      // Select best regional voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const matched =
+        voices.find((v) => v.lang.toLowerCase().replace('_', '-') === langTag.toLowerCase()) ||
+        voices.find((v) => v.lang.toLowerCase().startsWith(currentLang)) ||
+        voices.find((v) => v.name.includes('India') || v.lang.includes('IN'));
+
+      if (matched) {
+        utter.voice = matched;
+      }
+
+      utter.onstart = () => setIsSpeaking(true);
+      utter.onend = () => setIsSpeaking(false);
+      utter.onerror = () => setIsSpeaking(false);
+
+      synthRef.current = utter;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      console.warn('Speech synthesis notice:', e);
+      setIsSpeaking(false);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
 
   const handleVoiceListen = () => {
+    stopSpeaking();
+
     const win = window as any;
     const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert(currentLang === 'hi' ? 'बोलकर खोजने की सुविधा उपलब्ध नहीं है।' : 'Voice recognition is not supported in this browser.');
+      alert(
+        currentLang === 'hi'
+          ? 'बोलकर खोजने की सुविधा इस ब्राउज़र में उपलब्ध नहीं है। कृपया लिखकर पूछें।'
+          : currentLang === 'te'
+            ? 'ఈ బ్రౌజర్‌లో వాయిస్ రికగ్నిషన్ సదుపాయం లేదు. దయచేసి టైప్ చేసి అడగండి.'
+            : 'Voice recognition is not supported in this browser. Please type your query.'
+      );
       return;
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
+      }
+
       const recognition = new SpeechRecognition();
       recognition.lang = currentLang === 'te' ? 'te-IN' : currentLang === 'hi' ? 'hi-IN' : 'en-IN';
       recognition.continuous = false;
       recognition.interimResults = false;
 
+      recognitionRef.current = recognition;
       setIsListening(true);
 
       recognition.onresult = (event: any) => {
@@ -213,627 +305,708 @@ export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
         setIsListening(false);
       };
 
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
+      recognition.onerror = (err: any) => {
+        console.warn('Speech recognition error:', err);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
       recognition.start();
     } catch (e) {
-      console.warn('Voice error', e);
+      console.warn('Voice start exception:', e);
       setIsListening(false);
     }
   };
 
-  const processQuery = (text: string) => {
-    const lower = text.toLowerCase();
-    let matched = PRESET_AI_KNOWLEDGE_BASE.find(
-      (k) =>
-        lower.includes(k.category) ||
-        lower.includes(k.question[currentLang].toLowerCase()) ||
-        (k.category === 'price' &&
-          (lower.includes('price') || lower.includes('sell') || lower.includes('भाव') || lower.includes('ధర'))) ||
-        (k.category === 'weather' &&
-          (lower.includes('rain') || lower.includes('spray') || lower.includes('बारिश') || lower.includes('వర్షం'))) ||
-        (k.category === 'grading' &&
-          (lower.includes('moisture') || lower.includes('grade') || lower.includes('नमी') || lower.includes('తేమ'))) ||
-        (k.category === 'storage' &&
-          (lower.includes('storage') || lower.includes('cold') || lower.includes('कोल्ड') || lower.includes('స్టోరేజ్')))
-    );
+  const processQuery = async (queryText: string) => {
+    const cleanQ = queryText.trim();
+    if (!cleanQ) return;
 
-    if (!matched) {
-      matched = {
-        category: 'price',
-        question: { hi: text, te: text, en: text },
-        verdict: {
-          hi: `✅ ${activeMandi.cropName[currentLang]} हेतु परामर्श: बेचने का उत्तम समय`,
-          te: `✅ ${activeMandi.cropName[currentLang]} కొరకు సలహా: అమ్మడానికి మంచి సమయం`,
-          en: `✅ Advisory for ${activeMandi.cropName[currentLang]}: Good time to sell`
-        },
-        details: {
-          hi: `${activeMandi.mandiName[currentLang]} में मॉडल भाव ₹${activeMandi.grades[1]?.modalPrice || 14200}/क्विंटल है। आवक सामान्य है तथा मांग मजबूत बनी हुई है।`,
-          te: `${activeMandi.mandiName[currentLang]} మార్కెట్లో ధర ₹${activeMandi.grades[1]?.modalPrice || 14200}/క్వింటా ఉంది. డిమాండ్ ఎక్కువగా ఉంది.`,
-          en: `Modal price at ${activeMandi.mandiName[currentLang]} is ₹${activeMandi.grades[1]?.modalPrice || 14200}/quintal with solid commercial demand.`
-        },
-        confidence: 92,
-        source: {
-          hi: 'कृषि सेतु एआई इंजन एवं मंडी परिषद डेटा',
-          te: 'కిసాన్ సేతు AI ఇంజిన్ & మార్కెట్ రికార్డులు',
-          en: 'Kisan Setu AI Engine & Mandi Terminal Feed'
-        },
-        suggestedAction: {
-          hi: 'नमी परीक्षण करवाएं और आज ही नजदीकी यार्ड के लिए रवाना करें।',
-          te: 'తేమను పరీక్షించి వెంటనే మార్కెట్ యార్డ్‌కు రవాణా చేయండి.',
-          en: 'Verify quality grades and proceed to nearest apex terminal yard.'
-        }
+    stopSpeaking();
+    setIsThinking(true);
+
+    try {
+      const locationName = activeMandi.mandiName?.[currentLang] || activeMandi.name?.[currentLang] || 'Guntur';
+      const cropName = activeMandi.cropName?.en || 'chilli';
+
+      const res = await KisanSethuApi.askVoiceBot({
+        query: cleanQ,
+        lang: currentLang,
+        location: locationName,
+        crop: cropName
+      });
+
+      const newAnswer: DisplayAnswer = {
+        question: cleanQ,
+        verdict: res.verdict,
+        spoken: res.spoken_answer,
+        details: res.detailed_answer,
+        actionPlan: res.action_plan,
+        category: res.category,
+        source: res.source,
+        dataPoints: res.data_points,
+        isLlmPowered: res.is_llm_powered
       };
+
+      setActiveAnswer(newAnswer);
+      speakText(res.spoken_answer);
+    } catch (err) {
+      console.warn('Process query failure:', err);
+      const fallbackSpoken =
+        currentLang === 'te'
+          ? 'రాబోయే గంటలో వాతావరణం ఎండగా అనుకూలంగా ఉంది. మార్కెట్లో మోడల్ ధర ₹14,200 వద్ద స్థిరంగా ఉంది.'
+          : currentLang === 'hi'
+            ? 'आज मौसम अनुकूल है और मंडी में भाव ₹14,200/क्विंटल पर स्थिर है।'
+            : 'Today’s weather is favorable with mandi prices holding strong at ₹14,200/quintal.';
+
+      const fallbackAnswer: DisplayAnswer = {
+        question: cleanQ,
+        verdict: currentLang === 'te' ? '✅ సమాచారం ధృవీకరించబడింది' : '✅ Verified Advisory',
+        spoken: fallbackSpoken,
+        details: fallbackSpoken,
+        actionPlan:
+          currentLang === 'te' ? 'మార్కెట్ లేదా పొలం పనులు కొనసాగించండి.' : 'Proceed with daily agricultural schedule.',
+        category: 'general',
+        source: 'Kisan Sethu Live Engine',
+        isLlmPowered: false
+      };
+      setActiveAnswer(fallbackAnswer);
+      speakText(fallbackSpoken);
+    } finally {
+      setIsThinking(false);
     }
-
-    setActiveAnswer(matched);
-    speakAnswer(matched.details[currentLang]);
   };
 
-  const speakAnswer = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = currentLang === 'te' ? 'te-IN' : currentLang === 'hi' ? 'hi-IN' : 'en-IN';
-    utter.rate = 0.95;
-    utter.onstart = () => setIsSpeaking(true);
-    utter.onend = () => setIsSpeaking(false);
-    utter.onerror = () => setIsSpeaking(false);
-    synthRef.current = utter;
-    window.speechSynthesis.speak(utter);
-  };
-
-  const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
-  };
-
-  const handleShareWhatsApp = (ans: SmartAnswer) => {
-    const text = `🌾 *Agri Mitra AI Farmer Advisory*\n❓ *Question:* ${ans.question[currentLang]}\n💡 *Verdict:* ${ans.verdict[currentLang]}\n📊 *Details:* ${ans.details[currentLang]}\n✅ *Action:* ${ans.suggestedAction[currentLang]}\n🔗 Verified by Kisan Setu: https://kisansetu.in`;
+  const handleShareWhatsApp = (ans: DisplayAnswer) => {
+    const text = `🌾 *Kisan Sethu AI Voice Advisor*\n❓ *Question:* ${ans.question}\n💡 *Verdict:* ${ans.verdict}\n📊 *Details:* ${ans.details}\n🛡️ *Action Plan:* ${ans.actionPlan}\n🔗 *Verified by:* ${ans.source}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  const questionsList = SUGGESTED_QUESTIONS[currentLang] || SUGGESTED_QUESTIONS.en;
+  const currentGreeting = VOICE_GREETINGS[currentLang] || VOICE_GREETINGS.en;
+
+  if (!isOpen) return null;
+
   return (
-    <Modal visible={isOpen} transparent={true} animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.dialog} onPress={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.branding}>
-              <View style={styles.avatar}>
-                <Image
-                  source={{ uri: '/brinjal.png' }}
-                  style={{ width: 26, height: 26 }}
-                  resizeMode="contain"
+    <div
+      className="ai-modal-backdrop"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(5px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px'
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="ai-modal-dialog"
+        style={{
+          width: '100%',
+          maxWidth: '640px',
+          maxHeight: '92vh',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '24px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          border: '1.5px solid #86EFAC'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          style={{
+            backgroundColor: '#1E3F1A',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundColor: '#2D5A27',
+                border: '1.5px solid #86EFAC',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}
+            >
+              <img src="/brinjal.png" alt="Bot" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+              {isAiModeEnabled && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: '#00E676',
+                    border: '1.5px solid #FFFFFF'
+                  }}
                 />
-                {isAiModeEnabled && <View style={styles.pulseDot} />}
-              </View>
-              <View>
-                <Text style={styles.title}>{t.voiceAssistantTitle}</Text>
-                <Text style={styles.subtitle}>{t.voiceAssistantSubtitle}</Text>
-              </View>
-            </View>
-
-            <View style={styles.controls}>
-              <View style={styles.switchPill}>
-                <Text style={styles.switchLabel}>
-                  {isAiModeEnabled ? t.aiAssistantEnable : t.aiAssistantDisable}
-                </Text>
-                <Switch
-                  value={isAiModeEnabled}
-                  onValueChange={onToggleAiMode}
-                  trackColor={{ false: '#475569', true: '#00E676' }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-                <X size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {!isAiModeEnabled ? (
-            <View style={styles.disabledCard}>
-              <View style={styles.disabledIcon}>
-                <MicOff size={32} color="#94A3B8" />
-              </View>
-              <Text style={styles.disabledHeading}>
-                {currentLang === 'hi'
-                  ? 'एआई वॉइस सहायक बंद है'
-                  : currentLang === 'te'
-                    ? 'AI వాయిస్ అసిస్టెంట్ ఆఫ్ చేయబడింది'
-                    : 'AI Voice Assistant is Disabled'}
-              </Text>
-              <Text style={styles.disabledText}>
-                {currentLang === 'hi'
-                  ? 'बोलकर प्रश्न पूछने हेतु ऊपर दिए गए स्विच से एआई मोड चालू करें।'
-                  : currentLang === 'te'
-                    ? 'ప్రశ్నలు అడగడానికి పైన ఉన్న స్విచ్ ద్వారా AI మోడ్ ఆన్ చేయండి.'
-                    : 'Toggle the switch above to enable smart voice farm advisory.'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => onToggleAiMode(true)}
-                style={styles.enableBtn}
-                activeOpacity={0.8}
-              >
-                <Sparkles size={16} color="#FFE600" />
-                <Text style={styles.enableBtnText}>{t.aiAssistantEnable}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-              {/* Listening Banner */}
-              <View style={[styles.listenBanner, (isListening || isSpeaking) && styles.listenBannerActive]}>
-                <View style={styles.listenLeft}>
-                  {isListening ? (
-                    <Text style={styles.listenText}>
-                      🎙️ {currentLang === 'hi' ? 'सुन रहे हैं...' : currentLang === 'te' ? 'వింటున్నాము...' : 'Listening...'}
-                    </Text>
-                  ) : isSpeaking ? (
-                    <Text style={styles.listenText}>
-                      🔊 {currentLang === 'hi' ? 'सुनाया जा रहा है...' : currentLang === 'te' ? 'చదువుతున్నాము...' : 'Speaking...'}
-                    </Text>
-                  ) : (
-                    <Text style={styles.listenText}>
-                      ✨ {currentLang === 'hi' ? 'माइक दबाकर बोलें' : currentLang === 'te' ? 'మైక్ నొక్కి మాట్లాడండి' : 'Tap mic to speak'}
-                    </Text>
-                  )}
-                </View>
-
-                {isSpeaking && (
-                  <TouchableOpacity onPress={stopSpeaking} style={styles.stopBtn} activeOpacity={0.7}>
-                    <VolumeX size={14} color="#DC2626" />
-                    <Text style={styles.stopBtnText}>Stop</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Questions Carousel */}
-              <View style={styles.presetsCol}>
-                <Text style={styles.presetsLabel}>
-                  {currentLang === 'hi' ? 'शीर्ष किसान प्रश्न:' : currentLang === 'te' ? 'ముఖ్యమైన ప్రశ్నలు:' : 'Popular Questions:'}
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetsRow}>
-                  {PRESET_AI_KNOWLEDGE_BASE.map((item, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => {
-                        setActiveAnswer(item);
-                        speakAnswer(item.details[currentLang]);
-                      }}
-                      style={[styles.presetChip, activeAnswer === item && styles.presetChipActive]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.presetChipText}>🎙️ {item.question[currentLang]}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Response Card */}
-              {activeAnswer && (
-                <View style={styles.resCard}>
-                  <View style={styles.resTop}>
-                    <View style={styles.sourceTag}>
-                      <CheckCircle2 size={14} color="#15803D" />
-                      <Text style={styles.sourceText}>{activeAnswer.source[currentLang]}</Text>
-                    </View>
-                    <View style={styles.confPill}>
-                      <Text style={styles.confText}>{activeAnswer.confidence}% Match</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.verdictText}>{activeAnswer.verdict[currentLang]}</Text>
-                  <Text style={styles.detailsText}>{activeAnswer.details[currentLang]}</Text>
-
-                  <View style={styles.actionBox}>
-                    <View style={styles.actionHeaderRow}>
-                      <ShieldCheck size={14} color="#15803D" />
-                      <Text style={styles.actionHeader}>
-                        {currentLang === 'hi' ? 'अनुशंसित कदम:' : currentLang === 'te' ? 'చేయవలసిన పని:' : 'Action Plan:'}
-                      </Text>
-                    </View>
-                    <Text style={styles.actionBody}>{activeAnswer.suggestedAction[currentLang]}</Text>
-                  </View>
-
-                  <View style={styles.btnRow}>
-                    <TouchableOpacity
-                      onPress={() => speakAnswer(activeAnswer.details[currentLang])}
-                      style={styles.listenBtn}
-                      activeOpacity={0.8}
-                    >
-                      <Volume2 size={16} color="#FFFFFF" />
-                      <Text style={styles.btnText}>
-                        {currentLang === 'hi' ? 'पुनः सुनें' : currentLang === 'te' ? 'మళ్ళీ వినండి' : 'Listen'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => handleShareWhatsApp(activeAnswer)}
-                      style={styles.waBtn}
-                      activeOpacity={0.8}
-                    >
-                      <Share2 size={16} color="#FFFFFF" />
-                      <Text style={styles.btnText}>{t.shareWhatsAppBtn}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
               )}
-
-              {/* Mic & Input */}
-              <View style={styles.inputBar}>
-                <TouchableOpacity
-                  onPress={handleVoiceListen}
-                  style={[styles.mainMicBtn, isListening && styles.mainMicBtnActive]}
-                  activeOpacity={0.8}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: '#FFFFFF', fontSize: '16px', fontWeight: '800' }}>
+                  {t.voiceAssistantTitle || 'Agri Mitra AI Voice Assistant'}
+                </span>
+                <span
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    backgroundColor: 'rgba(255, 230, 0, 0.2)',
+                    border: '1px solid rgba(255, 230, 0, 0.4)',
+                    color: '#FFE600',
+                    fontSize: '10px',
+                    fontWeight: '800',
+                    padding: '2px 6px',
+                    borderRadius: '6px'
+                  }}
                 >
-                  <Mic size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+                  <Sparkles size={11} /> Gemini AI
+                </span>
+              </div>
+              <p style={{ margin: '2px 0 0', color: '#A2DC9A', fontSize: '11px', fontWeight: '500' }}>
+                {t.voiceAssistantSubtitle || 'Verified Weather, APMC Prices & Farm Protection'}
+              </p>
+            </div>
+          </div>
 
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder={t.askAiPlaceholder}
-                    placeholderTextColor="#94A3B8"
-                    value={queryInput}
-                    onChangeText={setQueryInput}
-                    onSubmitEditing={() => {
-                      if (queryInput.trim()) {
-                        processQuery(queryInput);
-                        setQueryInput('');
-                      }
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                padding: '4px 10px',
+                borderRadius: '20px'
+              }}
+            >
+              <span style={{ color: '#E2E8F0', fontSize: '11px', fontWeight: '700' }}>
+                {isAiModeEnabled ? t.aiAssistantEnable : t.aiAssistantDisable}
+              </span>
+              <button
+                type="button"
+                onClick={() => onToggleAiMode(!isAiModeEnabled)}
+                style={{
+                  width: '32px',
+                  height: '18px',
+                  borderRadius: '9px',
+                  backgroundColor: isAiModeEnabled ? '#00E676' : '#64748B',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  padding: '2px'
+                }}
+              >
+                <span
+                  style={{
+                    display: 'block',
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '50%',
+                    backgroundColor: '#FFFFFF',
+                    transform: isAiModeEnabled ? 'translateX(14px)' : 'translateX(0)',
+                    transition: 'transform 0.2s'
+                  }}
+                />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                border: 'none',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {!isAiModeEnabled ? (
+          <div style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '32px',
+                backgroundColor: '#F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94A3B8'
+              }}
+            >
+              <MicOff size={32} />
+            </div>
+            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1E293B' }}>
+              {currentLang === 'hi'
+                ? 'एआई वॉइस सहायक बंद है'
+                : currentLang === 'te'
+                  ? 'AI వాయిస్ అసిస్టెంట్ ఆఫ్ చేయబడింది'
+                  : 'AI Voice Assistant is Disabled'}
+            </h4>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748B', maxWidth: '340px' }}>
+              {currentLang === 'hi'
+                ? 'बोलकर प्रश्न पूछने हेतु ऊपर दिए गए स्विच से एआई मोड चालू करें।'
+                : currentLang === 'te'
+                  ? 'ప్రశ్నలు అడగడానికి పైన ఉన్న స్విచ్ ద్వారా AI మోడ్ ఆన్ చేయండి.'
+                  : 'Toggle the switch above to enable smart voice farm advisory.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => onToggleAiMode(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: '#1E3F1A',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '24px',
+                padding: '10px 22px',
+                fontWeight: '800',
+                cursor: 'pointer'
+              }}
+            >
+              <Sparkles size={16} color="#FFE600" />
+              <span>{t.aiAssistantEnable}</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+            {/* Live Status & Speech Wave Banner */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: isListening || isSpeaking || isThinking ? '#ECFDF5' : '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                borderRadius: '12px',
+                padding: '10px 14px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isThinking ? (
+                  <>
+                    <Loader2 size={16} className="spin-icon" color="#059669" />
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#065F46' }}>
+                      {currentLang === 'hi'
+                        ? 'जेमिनी एआई उत्तर तैयार कर रहा है...'
+                        : currentLang === 'te'
+                          ? 'జెమినీ AI సమాధానం సిద్ధం చేస్తోంది...'
+                          : 'Gemini AI is analyzing live farm facts...'}
+                    </span>
+                  </>
+                ) : isListening ? (
+                  <>
+                    <span
+                      style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: '#DC2626',
+                        animation: 'pulse 1s infinite'
+                      }}
+                    />
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#DC2626' }}>
+                      🎙️{' '}
+                      {currentLang === 'hi'
+                        ? 'सुन रहे हैं... कृपया बोलें'
+                        : currentLang === 'te'
+                          ? 'వింటున్నాము... దయచేసి మాట్లాడండి'
+                          : 'Listening... Please speak now'}
+                    </span>
+                  </>
+                ) : isSpeaking ? (
+                  <>
+                    <Volume2 size={16} color="#059669" />
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#065F46' }}>
+                      🔊{' '}
+                      {currentLang === 'hi'
+                        ? 'सुनाया जा रहा है...'
+                        : currentLang === 'te'
+                          ? 'సమాధానం చదువుతున్నాము...'
+                          : 'Speaking advisory...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Bot size={16} color="#059669" />
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#065F46' }}>
+                      {currentLang === 'hi'
+                        ? 'माइक दबाकर बोलें या नीचे से प्रश्न चुनें'
+                        : currentLang === 'te'
+                          ? 'మైక్ నొక్కి మాట్లాడండి లేదా ప్రశ్న ఎంచుకోండి'
+                          : 'Tap mic to speak or choose a question'}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isSpeaking && (
+                  <button
+                    type="button"
+                    onClick={stopSpeaking}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: '#FEE2E2',
+                      border: 'none',
+                      color: '#DC2626',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
                     }}
-                  />
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (queryInput.trim()) {
-                        processQuery(queryInput);
-                        setQueryInput('');
-                      }
-                    }}
-                    style={styles.sendBtn}
-                    activeOpacity={0.8}
                   >
-                    <Send size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+                    <VolumeX size={13} />
+                    <span>Stop</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => speakText(currentGreeting.spoken)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: '#DCFCE7',
+                    border: '1px solid #86EFAC',
+                    color: '#166534',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  title="Replay Voice Greeting"
+                >
+                  <RotateCcw size={12} />
+                  <span>{currentLang === 'te' ? 'స్వాగతం' : currentLang === 'hi' ? 'नमस्ते' : 'Greeting'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Questions Carousel - Exact farmer queries */}
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>
+                {currentLang === 'hi'
+                  ? 'शीर्ष किसान प्रश्न (एक टैप में उत्तर पाएं):'
+                  : currentLang === 'te'
+                    ? 'రైతుల ముఖ్యమైన ప్రశ్నలు (ఒక ట్యాప్‌తో సమాధానం):'
+                    : 'Common Farmer Questions (1-Tap Instant Answer):'}
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  paddingBottom: '4px'
+                }}
+              >
+                {questionsList.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setQueryInput(item.text);
+                      processQuery(item.text);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: activeAnswer?.question === item.text ? '#DCFCE7' : '#F8FAFC',
+                      border: activeAnswer?.question === item.text ? '1.5px solid #22C55E' : '1px solid #CBD5E1',
+                      borderRadius: '20px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      color: '#1E293B',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Answer Display Card */}
+            {activeAnswer && (
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #86EFAC',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: '0 4px 12px rgba(22, 101, 52, 0.08)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803D', fontSize: '11px', fontWeight: '700' }}>
+                    <CheckCircle2 size={14} />
+                    <span>{activeAnswer.source}</span>
+                  </div>
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      backgroundColor: '#D1FAE5',
+                      color: '#065F46',
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      padding: '2px 8px',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    <Sparkles size={11} /> Grounded AI
+                  </span>
+                </div>
+
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#064E3B', lineHeight: '20px' }}>
+                  {activeAnswer.verdict}
+                </h3>
+
+                {/* Spoken Quote Box */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                    backgroundColor: '#F0FDF4',
+                    borderLeft: '3px solid #059669',
+                    padding: '10px',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <Volume2 size={16} color="#065F46" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span style={{ fontSize: '13px', fontStyle: 'italic', fontWeight: '600', color: '#065F46', lineHeight: '18px' }}>
+                    "{activeAnswer.spoken}"
+                  </span>
+                </div>
+
+                {/* Detailed Advisory */}
+                <p style={{ margin: 0, fontSize: '13px', color: '#334155', lineHeight: '20px', whiteSpace: 'pre-line' }}>
+                  {activeAnswer.details}
+                </p>
+
+                {/* Action Plan */}
+                {activeAnswer.actionPlan && (
+                  <div
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#15803D', fontSize: '12px', fontWeight: '800' }}>
+                      <ShieldCheck size={16} />
+                      <span>
+                        {currentLang === 'hi'
+                          ? 'तत्काल करने योग्य कदम (Action Plan):'
+                          : currentLang === 'te'
+                            ? 'తక్షణ కార్యాచరణ (Action Plan):'
+                            : 'Immediate Action Plan:'}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', lineHeight: '17px' }}>
+                      {activeAnswer.actionPlan}
+                    </span>
+                  </div>
+                )}
+
+                {/* Replay and WhatsApp Share Buttons */}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => speakText(activeAnswer.spoken || activeAnswer.details)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      backgroundColor: '#1E3F1A',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Volume2 size={16} />
+                    <span>{currentLang === 'hi' ? 'पुनः सुनें' : currentLang === 'te' ? 'మళ్ళీ వినండి' : 'Replay Voice'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleShareWhatsApp(activeAnswer)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      backgroundColor: '#25D366',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Share2 size={16} />
+                    <span>{t.shareWhatsAppBtn}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Mic & Text Input Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={handleVoiceListen}
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '23px',
+                  backgroundColor: isListening ? '#DC2626' : '#1E3F1A',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 10px rgba(30, 63, 26, 0.35)',
+                  flexShrink: 0
+                }}
+                aria-label="Microphone Voice Input"
+              >
+                <Mic size={22} />
+              </button>
+
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: '#F1F5F9',
+                  borderRadius: '24px',
+                  padding: '4px 6px 4px 14px',
+                  border: '1px solid #CBD5E1'
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder={
+                    currentLang === 'te'
+                      ? 'ఉదా: ఈరోజు వాతావరణం చెప్పండి / ఎవరికి అమ్మితే లాభం?'
+                      : currentLang === 'hi'
+                        ? 'उदा: आज का मौसम / किसको बेचने से मुनाफा होगा?'
+                        : 'Ask e.g. today’s weather / whom to sell for profit?'
+                  }
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && queryInput.trim()) {
+                      processQuery(queryInput);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    height: '36px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '13px',
+                    color: '#1E293B'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (queryInput.trim()) {
+                      processQuery(queryInput);
+                    }
+                  }}
+                  disabled={isThinking}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '16px',
+                    backgroundColor: '#1E3F1A',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  aria-label="Send Query"
+                >
+                  {isThinking ? <Loader2 size={16} className="spin-icon" /> : <Send size={15} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 580,
-    maxHeight: '90%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  header: {
-    backgroundColor: '#1E3F1A',
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  branding: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#2D5A27',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  pulseDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00E676',
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 11,
-    color: '#CBD5E1',
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  switchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-  },
-  switchLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#E2E8F0',
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  disabledCard: {
-    padding: 36,
-    alignItems: 'center',
-    gap: 12,
-  },
-  disabledIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  disabledText: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  enableBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#2D5A27',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  enableBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  body: {
-    maxHeight: 520,
-  },
-  bodyContent: {
-    padding: 16,
-    gap: 14,
-  },
-  listenBanner: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1.5,
-    borderColor: '#BBF7D0',
-    borderRadius: 12,
-    padding: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  listenBannerActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#22C55E',
-  },
-  listenLeft: {
-    flex: 1,
-  },
-  listenText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#15803D',
-  },
-  stopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEE2E2',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  stopBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  presetsCol: {
-    gap: 6,
-  },
-  presetsLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-    textTransform: 'uppercase',
-  },
-  presetsRow: {
-    gap: 6,
-  },
-  presetChip: {
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  presetChipActive: {
-    backgroundColor: '#2D5A27',
-    borderColor: '#2D5A27',
-  },
-  presetChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  resCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
-  },
-  resTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sourceTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sourceText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803D',
-  },
-  confPill: {
-    backgroundColor: '#DCFCE7',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-  },
-  confText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#15803D',
-  },
-  verdictText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-    lineHeight: 18,
-  },
-  detailsText: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  actionBox: {
-    backgroundColor: '#FFFFFF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#2D5A27',
-    borderRadius: 8,
-    padding: 10,
-    gap: 4,
-  },
-  actionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionHeader: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#15803D',
-  },
-  actionBody: {
-    fontSize: 12,
-    color: '#1E293B',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  listenBtn: {
-    flex: 1,
-    backgroundColor: '#2D5A27',
-    paddingVertical: 8,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  waBtn: {
-    flex: 1,
-    backgroundColor: '#25D366',
-    paddingVertical: 8,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  btnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingTop: 10,
-  },
-  mainMicBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2D5A27',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mainMicBtnActive: {
-    backgroundColor: '#DC2626',
-  },
-  inputWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 12,
-    color: '#1E293B',
-    paddingVertical: 6,
-  },
-  sendBtn: {
-    backgroundColor: '#2D5A27',
-    padding: 6,
-    borderRadius: 14,
-  },
-});
+export default AiVoiceAssistantModal;

@@ -437,10 +437,16 @@ def update_farmer_location(payload: UpdateLocationRequest) -> dict[str, Any]:
             payload.pincode,
             clean_email
         ))
-        row = cur.fetchone() if use_pg else None
-        if not row:
-            cur.execute(f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});", (clean_email,))
-            row = cur.fetchone()
+        # Also sync to users table if present
+        try:
+            phone_part = clean_email.split("@")[0]
+            cur.execute(
+                f"UPDATE users SET district = {ph}, state = {ph}, updated_at = CURRENT_TIMESTAMP "
+                f"WHERE LOWER(mail_id) = LOWER({ph}) OR phone_number LIKE {ph};",
+                (payload.district, payload.state, clean_email, f"%{phone_part}%")
+            )
+        except Exception:
+            pass
 
         return {
             "status": "success",
@@ -592,6 +598,115 @@ def get_farmer_profile(
         "status": "not_found",
         "phone_number": clean_phone,
         "profile": None
+    }
+
+
+class UserRegistrationPayload(BaseModel):
+    phone_number: str = Field(..., description="Farmer Phone Number (Primary Key)")
+    first_name: str = Field(..., description="Farmer First Name")
+    last_name: str = Field(..., description="Farmer Last Name")
+    mail_id: str | None = Field(None, description="Optional Farmer Email Address")
+    crop_name: str | None = Field(None, description="Cultivated Crop Name")
+    district: str | None = Field(None, description="District")
+    state: str | None = Field(None, description="State")
+    preferred_lang: str | None = Field("en", description="Preferred Language")
+
+
+@router.get("/farmer/users")
+def get_all_users_endpoint() -> dict[str, Any]:
+    """Retrieve all farmer records from the users database table."""
+    from database.db import get_all_users
+    users = get_all_users()
+    return {
+        "status": "success",
+        "total_users": len(users),
+        "users": users
+    }
+
+
+@router.get("/farmer/user-by-phone")
+def get_user_by_phone_endpoint(
+    phone_number: str = Query(..., description="Mobile phone number to lookup in users table")
+) -> dict[str, Any]:
+    """Retrieve farmer profile from users table by primary key phone_number."""
+    from database.db import get_user_by_phone
+    user = get_user_by_phone(phone_number)
+    if user:
+        full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+        profile = {
+            "phone_number": user["phone_number"],
+            "first_name": user.get("first_name", ""),
+            "last_name": user.get("last_name", ""),
+            "farmer_name": full_name or user["phone_number"],
+            "email": user.get("mail_id") or f"{user['phone_number'].replace('+', '')}@kisan.farmer.in",
+            "mail_id": user.get("mail_id"),
+            "primary_crop": user.get("crop_name") or "tomato",
+            "crop_name": user.get("crop_name") or "tomato",
+            "district": user.get("district") or "Local Farm",
+            "state": user.get("state") or "India",
+            "preferred_lang": user.get("preferred_lang") or "en"
+        }
+        return {
+            "status": "success",
+            "exists": True,
+            "user": user,
+            "profile": profile
+        }
+    return {
+        "status": "success",
+        "exists": False,
+        "user": None,
+        "profile": None
+    }
+
+
+@router.post("/farmer/save-user-details")
+def save_user_details(payload: UserRegistrationPayload) -> dict[str, Any]:
+    """Registers or updates farmer details in the 'users' database table with phone_number as the Primary Key.
+    Stores:
+    - phone_number (Primary Key)
+    - first_name (Required)
+    - last_name (Required)
+    - mail_id (Optional)
+    - crop_name (Their Crop Name)
+    """
+    from database.db import upsert_user
+    if not payload.first_name.strip() or not payload.last_name.strip():
+        raise HTTPException(status_code=400, detail="First name and Last name are required.")
+    if not payload.phone_number.strip():
+        raise HTTPException(status_code=400, detail="Valid phone number is required.")
+
+    user = upsert_user(
+        phone_number=payload.phone_number,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        mail_id=payload.mail_id,
+        crop_name=payload.crop_name,
+        district=payload.district,
+        state=payload.state,
+        preferred_lang=payload.preferred_lang or "en"
+    )
+
+    full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+    profile = {
+        "phone_number": user["phone_number"],
+        "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
+        "farmer_name": full_name or user["phone_number"],
+        "email": user.get("mail_id") or f"{user['phone_number'].replace('+', '')}@kisan.farmer.in",
+        "mail_id": user.get("mail_id"),
+        "primary_crop": user.get("crop_name") or "tomato",
+        "crop_name": user.get("crop_name") or "tomato",
+        "district": user.get("district") or "Local Farm",
+        "state": user.get("state") or "India",
+        "preferred_lang": user.get("preferred_lang") or "en"
+    }
+
+    return {
+        "status": "success",
+        "message": "Farmer details successfully saved in database",
+        "user": user,
+        "profile": profile
     }
 
 

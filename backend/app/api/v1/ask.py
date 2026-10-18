@@ -202,3 +202,34 @@ async def ask_mandi_mitra(payload: AskRequest) -> AskResponse:
         cache=CacheInfo(status="HIT", llm_calls=1),
         disclaimer_key="advice_disclaimer",
     )
+
+
+class VoiceBotRequest(BaseModel):
+    """Payload for multilingual Voice Bot assistant."""
+
+    query: str | None = Field(default=None, description="Farmer natural language query")
+    question: str | None = Field(default=None, description="Alias for query")
+    lang: str = Field(default="te", description="Language code ('te', 'hi', 'en')")
+    language: str | None = Field(default=None, description="Alias for lang")
+    location: str | None = Field(default="Guntur", description="Farmer location or city")
+    crop: str | None = Field(default="chilli", description="Crop identifier")
+
+
+@router.post("/voice-bot/ask")
+async def voice_bot_ask(payload: VoiceBotRequest) -> dict[str, Any]:
+    """Voice Bot endpoint supporting Telugu, Hindi, and English queries with Gemini grounding."""
+    from app.domain.voice_bot_service import voice_bot_service
+
+    q_text = (payload.query or payload.question or "ఈరోజు వాతావరణం ఎలా ఉంది?").strip()
+    target_lang = (payload.language or payload.lang or "te").strip().lower()
+    loc = (payload.location or "Guntur").strip()
+    target_crop = (payload.crop or "chilli").strip().lower()
+
+    resp = await voice_bot_service.answer_farmer_query(
+        query=q_text,
+        lang=target_lang,
+        location=loc,
+        crop=target_crop
+    )
+    return resp.model_dump()
+

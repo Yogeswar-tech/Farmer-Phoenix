@@ -273,6 +273,25 @@ CREATE INDEX IF NOT EXISTS idx_farmer_profiles_email ON farmer_profiles (email);
 CREATE INDEX IF NOT EXISTS idx_farmer_profiles_phone ON farmer_profiles (phone_number);
 
 -- ------------------------------------------------------------------------------
+-- 12. Users Table (Farmer Identification by Primary Phone Number)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    phone_number VARCHAR(20) PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    mail_id VARCHAR(150),
+    crop_name VARCHAR(100),
+    district VARCHAR(100),
+    state VARCHAR(100),
+    preferred_lang VARCHAR(10) DEFAULT 'en',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users (phone_number);
+CREATE INDEX IF NOT EXISTS idx_users_mail_id ON users (mail_id);
+
+-- ------------------------------------------------------------------------------
 -- 12. CIBRC Statutory Pesticide, Fungicide, Herbicide, & PGR Registry
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cibrc_pesticide_registry (

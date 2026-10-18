@@ -239,7 +239,107 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_trend_commodity_date ON price_trends (commodity, record_date);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_weather_loc_date ON weather_advisories (location_id, forecast_date);")
 
+    # Users Table with phone_number as PRIMARY KEY
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        phone_number TEXT PRIMARY KEY,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        mail_id TEXT,
+        crop_name TEXT,
+        district TEXT,
+        state TEXT,
+        preferred_lang TEXT DEFAULT 'en',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    _ensure_column(cursor, "users", "first_name", "TEXT")
+    _ensure_column(cursor, "users", "last_name", "TEXT")
+    _ensure_column(cursor, "users", "mail_id", "TEXT")
+    _ensure_column(cursor, "users", "crop_name", "TEXT")
+    _ensure_column(cursor, "users", "district", "TEXT")
+    _ensure_column(cursor, "users", "state", "TEXT")
+    _ensure_column(cursor, "users", "preferred_lang", "TEXT")
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users (phone_number);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_mail_id ON users (mail_id);")
+
     conn.close()
+
+
+def get_all_users() -> list[dict[str, Any]]:
+    """Retrieve all user records from the users database table."""
+    return execute_query("SELECT * FROM users ORDER BY created_at DESC;")
+
+
+def get_user_by_phone(phone_number: str) -> dict[str, Any] | None:
+    """Retrieve user record by primary phone number from PostgreSQL or SQLite."""
+    clean_phone = phone_number.strip()
+    digits = "".join(filter(str.isdigit, clean_phone))
+    rows = execute_query(
+        "SELECT * FROM users WHERE phone_number = %s OR phone_number = %s LIMIT 1;",
+        (clean_phone, f"+91{digits[-10:]}" if len(digits) >= 10 else clean_phone)
+    )
+    return rows[0] if rows else None
+
+
+def upsert_user(
+    phone_number: str,
+    first_name: str,
+    last_name: str,
+    mail_id: str | None = None,
+    crop_name: str | None = None,
+    district: str | None = None,
+    state: str | None = None,
+    preferred_lang: str = "en"
+) -> dict[str, Any]:
+    """Insert or update user record in users table with phone_number as primary key."""
+    clean_phone = phone_number.strip()
+    clean_first = first_name.strip()
+    clean_last = last_name.strip()
+    clean_mail = (mail_id.strip() if mail_id and mail_id.strip() else None)
+    clean_crop = (crop_name.strip() if crop_name and crop_name.strip() else None)
+
+    existing = get_user_by_phone(clean_phone)
+    if existing:
+        execute_mutation(
+            """
+            UPDATE users
+            SET first_name = %s,
+                last_name = %s,
+                mail_id = %s,
+                crop_name = %s,
+                district = COALESCE(%s, district),
+                state = COALESCE(%s, state),
+                preferred_lang = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE phone_number = %s;
+            """,
+            (clean_first, clean_last, clean_mail, clean_crop, district, state, preferred_lang, existing["phone_number"])
+        )
+        saved = get_user_by_phone(existing["phone_number"])
+        return saved or {}
+
+    execute_mutation(
+        """
+        INSERT INTO users (phone_number, first_name, last_name, mail_id, crop_name, district, state, preferred_lang, created_at, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        """,
+        (clean_phone, clean_first, clean_last, clean_mail, clean_crop, district, state, preferred_lang)
+    )
+    saved = get_user_by_phone(clean_phone)
+    return saved or {
+        "phone_number": clean_phone,
+        "first_name": clean_first,
+        "last_name": clean_last,
+        "mail_id": clean_mail,
+        "crop_name": clean_crop,
+        "district": district,
+        "state": state,
+        "preferred_lang": preferred_lang
+    }
 
 
 def init_database() -> None:

@@ -39,7 +39,7 @@ if (target === 'dev') {
   child = spawn(nodeExecutable, ['--experimental-strip-types', '--test', 'src/tests/farmerLogic.test.ts', ...extraArgs], { stdio: 'inherit', env });
 } else {
   const bin = path.join(__dirname, 'node_modules', '.bin', target);
-  child = spawn(bin, extraArgs, { stdio: 'inherit', env, shell: true });
+  child = spawn(`"${bin}"`, extraArgs, { stdio: 'inherit', env, shell: true });
 }
 
 child.on('exit', (code) => {

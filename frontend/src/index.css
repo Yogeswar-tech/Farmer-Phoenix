@@ -8454,3 +8454,516 @@ button:active,
   color: #94A3B8;
   font-size: 12.5px;
 }
+
+/* Auto GPS / Manual Tabs */
+.clean-loc-tab-bar {
+  display: flex;
+  background: #F1F5F9;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 14px;
+  gap: 4px;
+}
+
+.clean-loc-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.clean-loc-tab:hover {
+  color: #0F172A;
+}
+
+.clean-loc-tab.active {
+  background: #FFFFFF;
+  color: #15803D;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Auto GPS Card View */
+.clean-gps-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 16px 14px;
+  background: linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%);
+  border: 1px solid #DCFCE7;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+
+.clean-gps-radar-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.clean-gps-radar-pulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(22, 163, 74, 0.18);
+  animation: gpsPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.clean-gps-radar-core {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #15803D;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.35);
+}
+
+@keyframes gpsPulse {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 0.2; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.clean-gps-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 6px;
+}
+
+.clean-gps-card-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  max-width: 380px;
+}
+
+.clean-gps-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #15803D;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 22px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 3px 8px rgba(21, 128, 61, 0.25);
+  width: 100%;
+  max-width: 320px;
+}
+
+.clean-gps-trigger-btn:hover {
+  background: #166534;
+  transform: translateY(-1px);
+}
+
+.clean-gps-trigger-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.clean-gps-manual-alt-btn {
+  margin-top: 10px;
+  background: transparent;
+  border: none;
+  color: #2563EB;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s ease;
+}
+
+.clean-gps-manual-alt-btn:hover {
+  background: #EFF6FF;
+  text-decoration: underline;
+}
+
+/* GPS Alert / Fallback Notice */
+.clean-loc-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #991B1B;
+  line-height: 1.45;
+}
+
+.clean-loc-alert-banner.warning {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #92400E;
+}
+
+.clean-loc-alert-btn {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFFFFF;
+  border: 1px solid #FCD34D;
+  color: #78350F;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.clean-loc-alert-btn:hover {
+  background: #FEF3C7;
+}
+
+/* Structured Location Details Card (NO MAP VIEW) */
+.clean-details-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+  animation: cleanModalFadeIn 0.15s ease-out;
+}
+
+.clean-details-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clean-details-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803D;
+  background: #DCFCE7;
+  padding: 3px 9px;
+  border-radius: 12px;
+}
+
+.clean-details-source-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748B;
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.clean-details-hero {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clean-details-hero-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.2px;
+}
+
+.clean-details-hero-sub {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.clean-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .clean-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clean-details-cell {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 9px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.clean-details-cell-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #F1F5F9;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.clean-details-cell-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.clean-details-cell-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.clean-details-cell-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Confirm Location & Enter Manually Action Buttons */
+.clean-details-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.clean-gps-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 6px;
+}
+
+.clean-confirm-loc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #15803D;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.28);
+  width: 100%;
+}
+
+.clean-confirm-loc-btn:hover {
+  background: #166534;
+  transform: translateY(-1px);
+}
+
+.clean-change-loc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #F8FAFC;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  width: 100%;
+}
+
+.clean-change-loc-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+}
+
+/* PIN Code Calibration in Location Details */
+.clean-pin-calibration-box {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.clean-pin-calibration-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clean-pin-calibration-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.clean-pin-quick-edit-btn {
+  background: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #86EFAC;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.clean-pin-quick-edit-btn:hover {
+  background: #BBF7D0;
+  color: #14532D;
+}
+
+.clean-pin-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clean-pin-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.clean-pin-code-input {
+  width: 120px;
+  padding: 7px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+  background: #FFFFFF;
+  border: 1.5px solid #16A34A;
+  border-radius: 7px;
+  letter-spacing: 1.5px;
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.clean-pin-code-input:focus {
+  border-color: #15803D;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.clean-pin-apply-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #16A34A;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.clean-pin-apply-btn:hover:not(:disabled) {
+  background: #15803D;
+}
+
+.clean-pin-apply-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clean-pin-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.clean-pin-cancel-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.clean-pin-error-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #DC2626;
+}
+
+.clean-pin-hint-text {
+  font-size: 11px;
+  color: #15803D;
+  line-height: 1.35;
+}
+
+.clean-pin-success-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #15803D;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+

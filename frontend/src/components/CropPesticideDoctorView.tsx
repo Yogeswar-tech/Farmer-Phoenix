@@ -1121,9 +1121,9 @@ export const CropPesticideDoctorView: FC<CropPesticideDoctorViewProps> = ({
           <button
             type="button"
             onClick={() => {
-              const defaultQ = `Give comprehensive dosage and safety advisory for ${selectedCropKey} and ${selectedSymptomKey}.`;
-              setChatInput(defaultQ);
-              executeRagQuery(defaultQ);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('open-ai-voice-bot'));
+              }
             }}
             style={{
               background: '#064E3B',

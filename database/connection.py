@@ -18,7 +18,7 @@ logger = logging.getLogger("KisanSethuDB")
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
-LOCAL_DB_PATH = ":memory:"
+LOCAL_DB_PATH = CURRENT_DIR / "kisan_sethu.db"
 
 try:
     from dotenv import load_dotenv

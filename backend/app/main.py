@@ -14,7 +14,14 @@ logger = logging.getLogger("KisanSethuMain")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan manager: Starts automated 6-hour scraper & pruning daemon in background."""
+    """Lifespan manager: Initializes database schema and starts automated 6-hour scraper & pruning daemon in background."""
+    try:
+        from database.connection import init_database
+        init_database()
+        logger.info("Database schemas and fallback SQLite tables initialized.")
+    except Exception as exc:
+        logger.warning("Database schema initialization notice: %s", exc)
+
     def background_scraper_daemon():
         import time
         # Allow initial server startup to complete

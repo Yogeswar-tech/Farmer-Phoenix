@@ -104,6 +104,16 @@ export const AGRICULTURAL_LOCATIONS: LocationOption[] = [
     district: { hi: 'नागपुर जिला', te: 'నాగ్‌పూర్ జిల్లా', en: 'Nagpur District' },
     mandiName: { hi: 'नागपुर संतरा व कपास मंडी', te: 'నాగ్‌పూర్ పత్తి మార్కెట్', en: 'Nagpur Cotton & Citrus Market' },
     pincode: '440001'
+  },
+  {
+    id: 'bengaluru-560037',
+    name: { hi: 'बेंगलुरु (मराठहल्ली)', te: 'బెంగళూరు (మారతహళ్లి)', en: 'Bengaluru (Marathahalli)' },
+    state: { hi: 'कर्नाटक', te: 'కర్ణాటక', en: 'Karnataka' },
+    district: { hi: 'बेंगलुरु शहरी', te: 'బెంగళూరు అర్బన్', en: 'Bengaluru Urban' },
+    mandiName: { hi: 'बेंगलुरु एपीएमसी मंडी (यशवंतपुर)', te: 'బెంగళూరు ఏపీఎంసీ మార్కెట్ (యశ్వంతపూర్)', en: 'Bengaluru APMC Yard (Yeshwanthpur)' },
+    pincode: '560037',
+    lat: 12.9597,
+    lng: 77.6991
   }
 ];
 

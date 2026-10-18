@@ -1,12 +1,18 @@
-import { useState, useEffect, type FC, type FormEvent } from 'react';
+import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
-import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, Sparkles, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle } from 'lucide-react';
+import { PhoneOtpSignIn } from './PhoneOtpSignIn';
 
 export interface FarmerProfile {
   email: string;
   farmer_name: string;
   preferred_lang?: Language;
+  phone_number?: string;
+  first_name?: string;
+  last_name?: string;
+  mail_id?: string;
+  crop_name?: string;
   location_id?: string;
   location_name?: string;
   district?: string;
@@ -36,55 +42,112 @@ export const LoginModal: FC<LoginModalProps> = ({
   currentUserProfile,
   lockedFeatureName
 }) => {
+  const [modalView, setModalView] = useState<'auth' | 'farmer_details'>('auth');
+  const [pendingPhone, setPendingPhone] = useState<string>('');
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
+  const [mailId, setMailId] = useState<string>('');
+  const [cropName, setCropName] = useState<string>('Chilli');
+
   const [email, setEmail] = useState('');
   const [farmerName, setFarmerName] = useState('');
+  const [authMethod, setAuthMethod] = useState<'phone' | 'gmail'>('phone');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [demoAccounts, setDemoAccounts] = useState<any[]>([]);
 
-  // Fetch pre-seeded isolated personas from backend database
-  useEffect(() => {
-    if (isOpen) {
-      KisanSethuApi.getDemoAccounts()
-        .then((accounts) => {
-          if (accounts && accounts.length > 0) {
-            setDemoAccounts(accounts);
-          }
-        })
-        .catch(() => {
-          // Fallback static demo accounts
-          setDemoAccounts([
-            {
-              email: 'chittoor.farmer@gmail.com',
-              farmer_name: 'Venkat Ramanathan',
-              location_name: 'Chittoor (Madanapalle Mandi)',
-              district: 'Chittoor',
-              state: 'Andhra Pradesh',
-              primary_crop: 'tomato',
-              preferred_lang: 'te'
-            },
-            {
-              email: 'hyderabad.grower@gmail.com',
-              farmer_name: 'Kishore Reddy',
-              location_name: 'Hyderabad (Bowenpally Mandi)',
-              district: 'Hyderabad',
-              state: 'Telangana',
-              primary_crop: 'chilli',
-              preferred_lang: 'te'
-            },
-            {
-              email: 'punjab.wheat@gmail.com',
-              farmer_name: 'Harpreet Singh',
-              location_name: 'Jalandhar (Doaba Mandi)',
-              district: 'Jalandhar',
-              state: 'Punjab',
-              primary_crop: 'potato',
-              preferred_lang: 'hi'
-            }
-          ]);
-        });
+  const handlePhoneLoginSuccess = async (_userCredential: any, phone: string) => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      // 1. Check if user already exists in users DB table with phone_number as Primary Key
+      const userLookup = await KisanSethuApi.getUserByPhone(phone);
+      if (userLookup && userLookup.status === 'success' && userLookup.exists && userLookup.user) {
+        const u = userLookup.user;
+        if (u.first_name && u.first_name.trim()) {
+          // Existing registered user with details in Users table
+          const profile: FarmerProfile = userLookup.profile || {
+            phone_number: u.phone_number,
+            first_name: u.first_name,
+            last_name: u.last_name,
+            farmer_name: `${u.first_name} ${u.last_name}`.trim(),
+            email: u.mail_id || `${phone.replace(/\D/g, '')}@kisan.farmer.in`,
+            mail_id: u.mail_id,
+            primary_crop: u.crop_name || 'tomato',
+            crop_name: u.crop_name || 'tomato',
+            preferred_lang: u.preferred_lang || currentLang,
+            district: u.district || 'Local Farm',
+            state: u.state || 'India'
+          };
+          onLoginSuccess(profile);
+          onClose();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[Phone Login] User lookup error:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [isOpen]);
+
+    // 2. New user or missing profile details: ask farmer details
+    setPendingPhone(phone);
+    setFirstName('');
+    setLastName('');
+    setMailId('');
+    setCropName('Chilli');
+    setModalView('farmer_details');
+  };
+
+  const handleSaveFarmerDetails = async (e: FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!firstName.trim()) {
+      setErrorMessage(
+        currentLang === 'hi'
+          ? 'कृपया किसान का पहला नाम दर्ज करें।'
+          : currentLang === 'te'
+          ? 'దయచేసి మొదటి పేరు నమోదు చేయండి.'
+          : 'Please enter Farmer First Name.'
+      );
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setErrorMessage(
+        currentLang === 'hi'
+          ? 'कृपया किसान का उपनाम (अंतिम नाम) दर्ज करें।'
+          : currentLang === 'te'
+          ? 'దయచేసి చివరి పేరు నమోదు చేయండి.'
+          : 'Please enter Farmer Last Name.'
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await KisanSethuApi.saveUserDetails({
+        phoneNumber: pendingPhone,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        mailId: mailId.trim() || undefined,
+        cropName: cropName.trim() || 'Chilli',
+        preferredLang: currentLang
+      });
+
+      if (res && res.status === 'success' && res.profile) {
+        onLoginSuccess(res.profile);
+        onClose();
+      } else {
+        throw new Error(res?.detail || 'Failed to save details');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Could not save farmer profile to database.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -147,53 +210,35 @@ export const LoginModal: FC<LoginModalProps> = ({
     }
   };
 
-  const handleQuickLogin = async (acc: any) => {
-    setErrorMessage(null);
-    setLoading(true);
-    try {
-      const res = await KisanSethuApi.loginWithGmail({
-        email: acc.email,
-        farmerName: acc.farmer_name,
-        locationId: acc.location_id,
-        locationName: acc.location_name,
-        district: acc.district,
-        state: acc.state,
-        latitude: acc.latitude,
-        longitude: acc.longitude,
-        pincode: acc.pincode,
-        primaryCrop: acc.primary_crop,
-        preferredLang: acc.preferred_lang || currentLang
-      });
-
-      if (res && res.status === 'success' && res.profile) {
-        onLoginSuccess(res.profile);
-        onClose();
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Quick login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const titleText = lockedFeatureName
+  const titleText = modalView === 'farmer_details'
+    ? currentLang === 'hi'
+      ? 'किसान विवरण दर्ज करें'
+      : currentLang === 'te'
+      ? 'రైతు వివరాలు నమోదు చేయండి'
+      : 'Complete Farmer Details'
+    : lockedFeatureName
     ? currentLang === 'hi'
       ? `🔒 ${lockedFeatureName} अनलॉक करें`
       : currentLang === 'te'
       ? `🔒 ${lockedFeatureName} కొరకు లాగిన్ అవ్వండి`
       : `🔒 Log in to access ${lockedFeatureName}`
     : currentLang === 'hi'
-    ? '🌾 किसान सेतु Gmail लॉगिन'
+    ? 'किसान सेतु लॉगिन'
     : currentLang === 'te'
-    ? '🌾 కిసాన్ సేతు Gmail లాగిన్'
-    : '🌾 Kisan Setu Gmail Sign-In';
+    ? 'కిసాన్ సేతు లాగిన్'
+    : 'Kisan Setu Login';
 
-  const subtitleText =
-    currentLang === 'hi'
-      ? 'आपका खेत स्थान, फसल एवं मिट्टी स्वास्थ्य डेटाबेस में सुरक्षित रहेगा'
+  const subtitleText = modalView === 'farmer_details'
+    ? currentLang === 'hi'
+      ? 'अपनी जानकारी दर्ज करें। फ़ोन नंबर आपका प्राथमिक पहचानकर्ता (Primary Key) है।'
       : currentLang === 'te'
-      ? 'మీ పొలం లొకేషన్, పంట వివరాలు మరియు డేటాబేస్ ప్రొఫైల్ సురక్షితంగా ఉంటాయి'
-      : 'Sign in with your Gmail to sync your personal farm GPS, crop records, and DB profile across all pages';
+      ? 'మీ వివరాలు నమోదు చేయండి. ఫోన్ నంబర్ మీ ప్రాథమిక కీ (Primary Key).'
+      : 'Enter your details below. Phone number serves as your unique primary identifier.'
+    : currentLang === 'hi'
+    ? 'अपने मोबाइल नंबर (OTP) या ईमेल से सुरक्षित लॉगिन करें'
+    : currentLang === 'te'
+    ? 'మీ మొబైల్ నంబర్ (OTP) లేదా ఇమెయిల్‌తో సురక్షితంగా లాగిన్ అవ్వండి'
+    : 'Sign in securely with Phone Number (OTP) or Email to sync your farm profile and data';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -204,25 +249,23 @@ export const LoginModal: FC<LoginModalProps> = ({
 
         {/* Header */}
         <div className="gmail-login-header">
-          <div className="google-icon-circle">
-            <svg width="24" height="24" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
+          <div
+            className="login-icon-badge"
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: '#F0FDF4',
+              border: '1px solid #BBF7D0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 22,
+              flexShrink: 0,
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            {modalView === 'farmer_details' ? '👨‍🌾' : '🌾'}
           </div>
           <div className="gmail-login-title-col">
             <h3 className="gmail-login-title">{titleText}</h3>
@@ -231,7 +274,7 @@ export const LoginModal: FC<LoginModalProps> = ({
         </div>
 
         {/* If user is already authenticated */}
-        {currentUserProfile && currentUserProfile.email ? (
+        {currentUserProfile && currentUserProfile.email && modalView !== 'farmer_details' ? (
           <div className="active-user-session-card">
             <div className="user-session-top">
               <div className="user-avatar-badge">
@@ -239,11 +282,13 @@ export const LoginModal: FC<LoginModalProps> = ({
               </div>
               <div className="user-session-info">
                 <span className="user-session-name">{currentUserProfile.farmer_name || 'Respected Farmer'}</span>
-                <span className="user-session-email">{currentUserProfile.email}</span>
+                <span className="user-session-email">
+                  {currentUserProfile.phone_number ? `📱 ${currentUserProfile.phone_number}` : currentUserProfile.email}
+                </span>
               </div>
               <span className="user-verified-pill">
                 <CheckCircle2 size={12} />
-                <span>DB Synced</span>
+                <span>{currentLang === 'hi' ? 'सक्रिय' : currentLang === 'te' ? 'యాక్టివ్' : 'Active'}</span>
               </span>
             </div>
 
@@ -257,7 +302,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               <div className="session-meta-chip">
                 <Sprout size={13} color="#16A34A" />
                 <span style={{ textTransform: 'capitalize' }}>
-                  {currentUserProfile.primary_crop || 'Tomato'} Cultivator
+                  {currentUserProfile.primary_crop || currentUserProfile.crop_name || 'Tomato'} Cultivator
                 </span>
               </div>
             </div>
@@ -279,6 +324,7 @@ export const LoginModal: FC<LoginModalProps> = ({
                     onLogout();
                     setEmail('');
                     setFarmerName('');
+                    setModalView('auth');
                   }}
                   className="btn-signout-session"
                 >
@@ -288,9 +334,48 @@ export const LoginModal: FC<LoginModalProps> = ({
               )}
             </div>
           </div>
-        ) : (
-          /* Form for Gmail-only login */
-          <form onSubmit={handleLoginSubmit} className="gmail-auth-form">
+        ) : modalView === 'farmer_details' ? (
+          /* Step: Farmer Details Form (First Name, Last Name, Phone Number, optional Mail ID, Crop Name) */
+          <form onSubmit={handleSaveFarmerDetails} className="farmer-details-form">
+            {/* Verified Phone Banner (Primary Key) */}
+            <div style={{
+              background: '#ECFDF5',
+              border: '1.5px solid #A7F3D0',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📱</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#065F46' }}>
+                    {pendingPhone}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#047857', fontWeight: '700' }}>
+                    {currentLang === 'hi'
+                      ? 'प्राथमिक कुंजी (Primary Key): सत्यापित मोबाइल'
+                      : currentLang === 'te'
+                      ? 'ప్రైమరీ కీ (Primary Key): ధృవీకరించిన మొబైల్'
+                      : 'Primary Key: Verified Mobile Number'}
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                background: '#10B981',
+                color: '#FFFFFF',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '4px 10px',
+                borderRadius: '12px'
+              }}>
+                ✓ Verified
+              </span>
+            </div>
+
             {errorMessage && (
               <div className="auth-error-box">
                 <AlertCircle size={16} color="#DC2626" />
@@ -298,148 +383,341 @@ export const LoginModal: FC<LoginModalProps> = ({
               </div>
             )}
 
-            <div className="form-group">
-              <label className="form-label">
-                {currentLang === 'hi'
-                  ? 'अपना Gmail पता दर्ज करें (@gmail.com):'
-                  : currentLang === 'te'
-                  ? 'మీ Gmail చిరునామా నమోదు చేయండి (@gmail.com):'
-                  : 'Enter Your Gmail Address (@gmail.com):'}
-              </label>
-              <div className="gmail-input-container">
-                <span className="gmail-icon-at">✉️</span>
+            {/* Row: First Name & Last Name */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', marginBottom: '6px', display: 'block' }}>
+                  {currentLang === 'hi' ? 'पहला नाम (First Name) *' : currentLang === 'te' ? 'మొదటి పేరు *' : 'First Name *'}
+                </label>
                 <input
-                  type="email"
-                  placeholder="e.g. yourname@gmail.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  className="form-input gmail-input"
+                  type="text"
                   required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder={currentLang === 'hi' ? 'उदा: रमेश' : currentLang === 'te' ? 'ఉదా: రమేష్' : 'e.g. Ramesh'}
+                  className="form-input"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', marginBottom: '6px', display: 'block' }}>
+                  {currentLang === 'hi' ? 'उपनाम (Last Name) *' : currentLang === 'te' ? 'చివరి పేరు *' : 'Last Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder={currentLang === 'hi' ? 'उदा: पटेल' : currentLang === 'te' ? 'ఉదా: రెడ్డి' : 'e.g. Patel'}
+                  className="form-input"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                {currentLang === 'hi'
-                  ? 'किसान का नाम (वैकल्पिक):'
-                  : currentLang === 'te'
-                  ? 'రైతు పేరు (ఐచ్ఛికం):'
-                  : 'Farmer Name (Optional):'}
-              </label>
+            {/* Mail ID (Optional) */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', margin: 0 }}>
+                  {currentLang === 'hi' ? 'ईमेल आईडी' : currentLang === 'te' ? 'ఇమెయిల్ ఐడీ' : 'Mail ID'}
+                </label>
+                <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
+                  {currentLang === 'hi' ? 'वैकल्पिक (Optional)' : currentLang === 'te' ? 'ఐచ్ఛికం (Optional)' : 'Optional'}
+                </span>
+              </div>
               <input
-                type="text"
-                placeholder={
-                  currentLang === 'hi'
-                    ? 'उदा: राजेश पटेल'
-                    : currentLang === 'te'
-                    ? 'ఉదా: శివకుమార్ రెడ్డి'
-                    : 'e.g. Venkat Ramanathan'
-                }
-                value={farmerName}
-                onChange={(e) => setFarmerName(e.target.value)}
+                type="email"
+                value={mailId}
+                onChange={(e) => setMailId(e.target.value)}
+                placeholder={currentLang === 'hi' ? 'उदा: name@gmail.com (वैकल्पिक)' : 'e.g. name@gmail.com (Optional)'}
                 className="form-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </div>
 
+            {/* Their Crop Name */}
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', marginBottom: '6px', display: 'block' }}>
+                {currentLang === 'hi' ? 'उनकी फसल का नाम (Crop Name) *' : currentLang === 'te' ? 'పంట పేరు (Crop Name) *' : 'Their Crop Name *'}
+              </label>
+
+              {/* Quick Select Crop Chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {[
+                  { key: 'Chilli', icon: '🌶️', hi: 'मिर्च', te: 'మిరప' },
+                  { key: 'Tomato', icon: '🍅', hi: 'टमाटर', te: 'టమోటా' },
+                  { key: 'Cotton', icon: '🌱', hi: 'कपास', te: 'పత్తి' },
+                  { key: 'Onion', icon: '🧅', hi: 'प्याज', te: 'ఉల్లిపాయ' },
+                  { key: 'Wheat', icon: '🌾', hi: 'गेहूं', te: 'గోధుమ' },
+                  { key: 'Paddy', icon: '🌾', hi: 'धान', te: 'వరి' },
+                  { key: 'Potato', icon: '🥔', hi: 'आलू', te: 'బంగాళాదుంప' }
+                ].map((c) => {
+                  const isSelected = cropName.toLowerCase() === c.key.toLowerCase();
+                  const label = currentLang === 'hi' ? c.hi : currentLang === 'te' ? c.te : c.key;
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setCropName(c.key)}
+                      style={{
+                        background: isSelected ? '#15803D' : '#F8FAFC',
+                        color: isSelected ? '#FFFFFF' : '#334155',
+                        border: isSelected ? '1px solid #15803D' : '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        padding: '6px 10px',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? '800' : '600',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <span>{c.icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <input
+                type="text"
+                required
+                value={cropName}
+                onChange={(e) => setCropName(e.target.value)}
+                placeholder={currentLang === 'hi' ? 'फसल का नाम (उदा: मिर्च, टमाटर, कपास)' : 'Crop name (e.g. Chilli, Tomato, Cotton)'}
+                className="form-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {/* Save Button */}
             <button
               type="submit"
               disabled={loading}
-              className="google-signin-primary-btn"
+              style={{
+                width: '100%',
+                background: '#15803D',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '12px 18px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(21, 128, 61, 0.25)'
+              }}
             >
               {loading ? (
                 <>
                   <Loader2 size={18} className="spin-icon" />
-                  <span>Connecting to Database...</span>
+                  <span>{currentLang === 'hi' ? 'डेटाबेस में सहेजा जा रहा है...' : 'Saving to Users DB Table...'}</span>
                 </>
               ) : (
                 <>
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
+                  <span>💾</span>
                   <span>
                     {currentLang === 'hi'
-                      ? 'Gmail से लॉगिन करें (Google Sign-In)'
+                      ? 'विवरण सहेजें और लॉगिन पूरा करें ✓'
                       : currentLang === 'te'
-                      ? 'Gmail తో లాగిన్ అవ్వండి (Google Sign-In)'
-                      : 'Sign in with Gmail (Google)'}
+                      ? 'వివరాలు సేవ్ చేసి లాగిన్ పూర్తి చేయండి ✓'
+                      : 'Save Details & Complete Login ✓'}
                   </span>
                 </>
               )}
             </button>
-          </form>
-        )}
 
-        {/* Multi-User Isolation & Demo Persona Accounts Section */}
-        <div className="demo-accounts-section">
-          <div className="demo-section-header">
-            <Sparkles size={14} color="#D97706" />
-            <span className="demo-section-title">
-              {currentLang === 'hi'
-                ? 'अलग-अलग किसानों के डेटा का परीक्षण करें (One-Click DB Personas):'
-                : currentLang === 'te'
-                ? 'వివిధ రైతుల ప్రొఫైల్స్ పరిశీలించండి (One-Click DB Personas):'
-                : 'Test Per-User Isolated Sessions (One-Click DB Personas):'}
-            </span>
-          </div>
-          <p className="demo-section-desc">
-            {currentLang === 'hi'
-              ? 'प्रत्येक खाते का अपना विशिष्ट जिला (चित्तूर vs हैदराबाद) और फसल डेटाबेस में पृथक रहता है।'
-              : currentLang === 'te'
-              ? 'ఒక్కొక్క ఖాతాకు వారి సొంత జిల్లా (చిత్తూరు vs హైదరాబాద్) మరియు పంట వివరాలు వేరుగా ఉంటాయి.'
-              : 'Each account loads its own distinct location (Chittoor vs Hyderabad vs Punjab) and crop without cross-session conflict.'}
-          </p>
-
-          <div className="demo-chips-grid">
-            {demoAccounts.map((acc) => (
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
               <button
-                key={acc.email}
                 type="button"
-                onClick={() => handleQuickLogin(acc)}
-                disabled={loading}
-                className="demo-persona-card"
+                onClick={() => setModalView('auth')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#64748B',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
               >
-                <div className="persona-top-row">
-                  <span className="persona-avatar">
-                    {acc.primary_crop === 'tomato' ? '🍅' : acc.primary_crop === 'chilli' ? '🌶️' : '🥔'}
-                  </span>
-                  <div className="persona-info-col">
-                    <strong className="persona-name">{acc.farmer_name}</strong>
-                    <span className="persona-email">{acc.email}</span>
+                {currentLang === 'hi' ? '← फ़ोन नंबर बदलें' : currentLang === 'te' ? '← ఫోన్ నంబర్ మార్చండి' : '← Change Phone Number'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div>
+            {/* Method Switcher Tabs */}
+            <div style={{
+              display: 'flex',
+              background: '#F1F5F9',
+              borderRadius: '12px',
+              padding: '4px',
+              marginBottom: '18px',
+              gap: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setAuthMethod('phone')}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: authMethod === 'phone' ? '#059669' : 'transparent',
+                  color: authMethod === 'phone' ? '#FFFFFF' : '#475569',
+                  fontWeight: '800',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: authMethod === 'phone' ? '0 2px 6px rgba(5, 150, 105, 0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📱</span>
+                <span>{currentLang === 'hi' ? 'मोबाइल नंबर (OTP)' : currentLang === 'te' ? 'మొబైల్ నంబర్ (OTP)' : 'Phone Number (OTP)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMethod('gmail')}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: authMethod === 'gmail' ? '#059669' : 'transparent',
+                  color: authMethod === 'gmail' ? '#FFFFFF' : '#475569',
+                  fontWeight: '800',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: authMethod === 'gmail' ? '0 2px 6px rgba(5, 150, 105, 0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>✉️</span>
+                <span>{currentLang === 'hi' ? 'Google / Gmail' : currentLang === 'te' ? 'Google / Gmail' : 'Google / Gmail'}</span>
+              </button>
+            </div>
+
+            {authMethod === 'phone' ? (
+              <PhoneOtpSignIn
+                currentLang={currentLang}
+                onLoginSuccess={handlePhoneLoginSuccess}
+                onCancel={onClose}
+              />
+            ) : (
+              /* Form for Gmail-only login */
+              <form onSubmit={handleLoginSubmit} className="gmail-auth-form">
+                {errorMessage && (
+                  <div className="auth-error-box">
+                    <AlertCircle size={16} color="#DC2626" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">
+                    {currentLang === 'hi'
+                      ? 'अपना Gmail पता दर्ज करें (@gmail.com):'
+                      : currentLang === 'te'
+                      ? 'మీ Gmail చిరునామా నమోదు చేయండి (@gmail.com):'
+                      : 'Enter Your Gmail Address (@gmail.com):'}
+                  </label>
+                  <div className="gmail-input-container">
+                    <span className="gmail-icon-at">✉️</span>
+                    <input
+                      type="email"
+                      placeholder="e.g. yourname@gmail.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      className="form-input gmail-input"
+                      required
+                    />
                   </div>
                 </div>
-                <div className="persona-bottom-row">
-                  <span className="persona-badge-loc">📍 {acc.district || acc.location_name}</span>
-                  <span className="persona-badge-crop">🌱 {acc.primary_crop || 'Crops'}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* Security / DB Isolation Guarantee Footer */}
-        <div className="auth-db-security-footer">
-          <ShieldCheck size={14} color="#059669" />
-          <span>PostgreSQL & SQLite User Isolation Active • End-to-End Profile Protection</span>
-        </div>
+                <div className="form-group">
+                  <label className="form-label">
+                    {currentLang === 'hi'
+                      ? 'किसान का नाम (वैकल्पिक):'
+                      : currentLang === 'te'
+                      ? 'రైతు పేరు (ఐచ్ఛికం):'
+                      : 'Farmer Name (Optional):'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={
+                      currentLang === 'hi'
+                        ? 'उदा: राजेश पटेल'
+                        : currentLang === 'te'
+                        ? 'ఉదా: శివకుమార్ రెడ్డి'
+                        : 'e.g. Venkat Ramanathan'
+                    }
+                    value={farmerName}
+                    onChange={(e) => setFarmerName(e.target.value)}
+                    className="form-input"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="google-signin-primary-btn"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={18} className="spin-icon" />
+                      <span>Connecting to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>
+                        {currentLang === 'hi'
+                          ? 'Gmail से लॉगिन करें (Google Sign-In)'
+                          : currentLang === 'te'
+                          ? 'Gmail తో లాగిన్ అవ్వండి (Google Sign-In)'
+                          : 'Sign in with Gmail (Google)'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

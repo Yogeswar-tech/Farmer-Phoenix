@@ -203,6 +203,23 @@ export function App() {
   };
 
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isLocationPostLogin, setIsLocationPostLogin] = useState(false);
+
+  // If a logged-in user returns with an unconfigured "Local Farm" location, prompt Auto GPS
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedUser = localStorage.getItem('ks_auth_profile');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (!u.district || u.district.toLowerCase() === 'local farm' || u.location_name?.toLowerCase() === 'local farm') {
+          setIsLocationPostLogin(true);
+          setIsLocationModalOpen(true);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -219,6 +236,12 @@ export function App() {
   const [liveWeatherRecord, setLiveWeatherRecord] = useState<any | null>(null);
   const [_isLiveFromBackend, setIsLiveFromBackend] = useState<boolean>(false);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  useEffect(() => {
+    const handleOpenAiModal = () => setIsAiModalOpen(true);
+    window.addEventListener('open-ai-voice-bot', handleOpenAiModal);
+    return () => window.removeEventListener('open-ai-voice-bot', handleOpenAiModal);
+  }, []);
 
   const t = translations[currentLang];
 
@@ -285,7 +308,7 @@ export function App() {
           te: liveMarket
         },
         variety: liveMandiRecord.variety || base.variety,
-        lastUpdated: `${liveDate} (Agmarknet Live • DB Synced)`,
+        lastUpdated: `${liveDate} (Agmarknet Live)`,
         isLive: true,
         grades: base.grades.map(g => {
           if (g.gradeCode === 'MODAL') {
@@ -420,6 +443,10 @@ export function App() {
     }
 
     setRefreshTrigger((prev) => prev + 1);
+
+    // Auto GPS Location Pop-Up once users login
+    setIsLocationPostLogin(true);
+    setIsLocationModalOpen(true);
   };
 
   const handleLogout = () => {
@@ -464,9 +491,6 @@ export function App() {
         <Header
           currentLang={currentLang}
           onLanguageChange={handleLanguageChange}
-          isAiModeEnabled={isAiModeEnabled}
-          onToggleAiMode={setIsAiModeEnabled}
-          onOpenAiAssistant={() => setIsAiModalOpen(true)}
           onOpenLogin={() => handleOpenLogin()}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -507,7 +531,6 @@ export function App() {
                     </Text>
                     <Text style={styles.locationTag}>
                       📍 {currentLocation.name[currentLang] || currentLocation.name.en} ({currentLocation.district[currentLang] || currentLocation.district.en})
-                      {currentUserProfile?.email ? ` • ✉️ ${currentUserProfile.email} (DB Synced)` : ''}
                     </Text>
                   </View>
 
@@ -643,30 +666,17 @@ export function App() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Login / Profile Strip */}
-                <TouchableOpacity
-                  onPress={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
-                  style={[styles.dashedLoginStrip, isLoggedIn && { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' }]}
-                  activeOpacity={0.8}
-                >
-                  {isLoggedIn ? (
-                    <>
-                      <Sparkles size={15} color="#16A34A" />
-                      <Text style={[styles.loginStripText, { color: '#15803D', fontWeight: '700' }]}>
-                        {currentLang === 'hi'
-                          ? `✅ प्रमाणित किसान: ${currentUserProfile?.email || userName} • डेटाबेस सिंक सक्रिय (प्रोफाइल बदलें)`
-                          : currentLang === 'te'
-                          ? `✅ ధృవీకరించిన రైతు: ${currentUserProfile?.email || userName} • డేటాబేస్ ప్రొఫైల్ యాక్టివ్ (మార్చండి)`
-                          : `✅ Verified Farm Profile: ${currentUserProfile?.email || userName} • Database Sync Active (Switch/Edit)`}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Lock size={15} color="#475569" />
-                      <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {/* Login Strip (only shown when not logged in) */}
+                {!isLoggedIn && (
+                  <TouchableOpacity
+                    onPress={() => handleOpenLogin('180-Day Forecast & Doctor Booking')}
+                    style={styles.dashedLoginStrip}
+                    activeOpacity={0.8}
+                  >
+                    <Lock size={15} color="#475569" />
+                    <Text style={styles.loginStripText}>{t.loginForecastStrip}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -772,26 +782,43 @@ export function App() {
 
         {/* Floating AI Voice Assistant Button (Instant Click Response) */}
         {isAiModeEnabled && (
-          <TouchableOpacity
-            onPress={() => setIsAiModalOpen(true)}
-            {...({
-              onClick: (e: any) => {
-                e.stopPropagation();
-                setIsAiModalOpen(true);
-              }
-            } as any)}
-            style={styles.floatingFab}
-            activeOpacity={0.6}
+          <button
+            type="button"
+            id="floating-ask-ai-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[KisanSethu] Ask AI Floating Button Clicked!');
+              setIsAiModalOpen(true);
+            }}
+            style={{
+              position: 'fixed',
+              bottom: '76px',
+              right: '20px',
+              backgroundColor: '#1E3F1A',
+              borderRadius: '999px',
+              padding: '10px 18px',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 16px rgba(30, 63, 26, 0.45)',
+              border: '2px solid #86EFAC',
+              zIndex: 99999,
+              cursor: 'pointer',
+              outline: 'none',
+              pointerEvents: 'auto'
+            }}
           >
-            <Image
-              source={{ uri: '/brinjal.png' }}
-              style={styles.fabBrinjalIcon}
-              resizeMode="contain"
+            <img
+              src="/brinjal.png"
+              alt="Ask AI"
+              style={{ width: '28px', height: '28px', objectFit: 'contain', pointerEvents: 'none' }}
             />
-            <Text style={styles.fabText}>
-              {currentLang === 'hi' ? 'बोलकर पूछें' : currentLang === 'te' ? 'మాట్లాడండి' : 'Ask AI'}
-            </Text>
-          </TouchableOpacity>
+            <span style={{ color: '#FFFFFF', fontSize: '14px', fontWeight: '800', letterSpacing: '0.2px', pointerEvents: 'none' }}>
+              Ask AI
+            </span>
+          </button>
         )}
 
         {/* Modals */}
@@ -824,10 +851,14 @@ export function App() {
 
         <LocationModal
           isOpen={isLocationModalOpen}
-          onClose={() => setIsLocationModalOpen(false)}
+          onClose={() => {
+            setIsLocationModalOpen(false);
+            setIsLocationPostLogin(false);
+          }}
           currentLocation={currentLocation}
           onSelectLocation={handleLocationChange}
           currentLang={currentLang}
+          isPostLoginPrompt={isLocationPostLogin}
         />
       </View>
     </SafeAreaView>
@@ -1030,29 +1061,31 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 74,
     right: 20,
-    backgroundColor: '#2D5A27',
-    borderRadius: 30,
+    backgroundColor: '#1E3F1A',
+    borderRadius: 999,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    shadowColor: '#2D5A27',
+    gap: 10,
+    shadowColor: '#1E3F1A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.4,
     shadowRadius: 10,
     borderWidth: 2,
-    borderColor: '#A2DC9A',
+    borderColor: '#86EFAC',
     zIndex: 900,
+    cursor: 'pointer',
   },
   fabBrinjalIcon: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
   },
   fabText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });
 

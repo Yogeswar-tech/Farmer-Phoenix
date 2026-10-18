@@ -6,8 +6,8 @@ class Settings(BaseSettings):
 
     env: str = "local"
     gemini_api_key: str = ""
-    model_fast: str = "gemini-2.5-flash"
-    model_strong: str = "gemini-2.5-pro"
+    model_fast: str = "gemini-3.8-flash"
+    model_strong: str = "gemini-3.8-flash"
 
     # Database (PostgreSQL 16+ Primary, fallback SQLite)
     database_url: str = "postgresql://postgres:postgres@localhost:5432/kisan_sethu"

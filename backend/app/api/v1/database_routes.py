@@ -487,6 +487,90 @@ def get_unified_climate_prediction(
     )
 
 
+class WeatherAdvisoryRequest(BaseModel):
+    weather_payload: dict[str, Any]
+    location_name: Any
+    lang: str = "en"
+    crop: str | None = None
+    growth_stage: str | None = None
+
+
+@router.post("/climate-advisory")
+async def generate_weather_llm_advisory_post(
+    req: WeatherAdvisoryRequest = Body(...)
+) -> dict[str, Any]:
+    """Generates an LLM-powered agro-weather advisory from a provided weather payload.
+    Decoupled from weather data fetch — fails silently with status='fallback' or 'none' if unavailable.
+    """
+    from app.domain.weather_advisory_service import weather_advisory_service
+    loc_str = req.location_name
+    if isinstance(loc_str, dict):
+        loc_str = loc_str.get(req.lang) or loc_str.get("en") or str(loc_str)
+    else:
+        loc_str = str(loc_str)
+
+    advisory = await weather_advisory_service.get_advisory(
+        weather_payload=req.weather_payload,
+        location_name=loc_str,
+        lang=req.lang,
+        crop=req.crop,
+        growth_stage=req.growth_stage,
+    )
+    if advisory:
+        return {
+            "status": "success",
+            "advisory": advisory.model_dump(),
+        }
+    return {
+        "status": "unavailable",
+        "advisory": None,
+    }
+
+
+@router.get("/climate-advisory")
+async def generate_weather_llm_advisory_get(
+    query: str | None = Query(None),
+    location_id: str = Query("guntur"),
+    district: str | None = Query(None),
+    lat: float | None = Query(None),
+    lng: float | None = Query(None),
+    lang: str = Query("en"),
+    crop: str | None = Query(None),
+    growth_stage: str | None = Query(None),
+) -> dict[str, Any]:
+    """Generates an LLM-powered agro-weather advisory for a given location and crop context.
+    Decoupled from weather data fetch — fails silently with status='fallback' or 'none' if unavailable.
+    """
+    from app.domain.climate_service import climate_engine
+    from app.domain.weather_advisory_service import weather_advisory_service
+
+    weather_payload = climate_engine.get_unified_prediction(
+        query=query,
+        location_id=location_id,
+        district=district,
+        lat=lat,
+        lon=lng,
+        days=5,
+        lang=lang,
+    )
+    loc_name = weather_payload.get("location", {}).get("name", query or location_id)
+    advisory = await weather_advisory_service.get_advisory(
+        weather_payload=weather_payload,
+        location_name=loc_name,
+        lang=lang,
+        crop=crop,
+        growth_stage=growth_stage,
+    )
+    if advisory:
+        return {
+            "status": "success",
+            "advisory": advisory.model_dump(),
+        }
+    return {
+        "status": "unavailable",
+        "advisory": None,
+    }
+
 @router.get("/climate-locations")
 def search_climate_locations(
     q: str = Query(..., min_length=2, description="Search query across all 28 Indian states, UTs, districts, tehsils, mandals, and PIN codes")
@@ -750,23 +834,30 @@ async def test_climate_api_key() -> dict[str, Any]:
             "satellite_provider": "IMD & Open-Meteo High-Resolution Satellite Sensor (Operational)"
         }
 
-    # Test Google Air Quality / Weather API endpoint
-    test_url = f"https://airquality.googleapis.com/v1/currentConditions:lookup?key={active_key}"
+    # Test Google Weather API endpoint
+    weather_url = (
+        f"https://weather.googleapis.com/v1/currentConditions:lookup"
+        f"?key={active_key}&location.latitude=16.3067&location.longitude=80.4365&unitsSystem=METRIC"
+    )
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(
-                test_url,
-                json={"location": {"latitude": 16.3067, "longitude": 80.4365}}
-            )
+            resp = await client.get(weather_url)
             data = resp.json()
 
         if resp.status_code == 200:
+            temp_deg = data.get("temperature", {}).get("degrees", "N/A")
+            humidity = data.get("relativeHumidity", "N/A")
+            desc = data.get("weatherCondition", {}).get("description", {}).get("text", "Clear")
             return {
                 "status": "verified_active",
-                "provider": "Google Environmental / Air Quality & Climate API",
+                "provider": "Google Maps Platform Weather API (Operational)",
                 "masked_key": f"{active_key[:6]}...{active_key[-4:]}",
-                "sample_aqi": data.get("indexes", [{}])[0].get("aqiDisplay", "N/A"),
-                "message": "Google Climate/Environmental API key is verified and operational!"
+                "sample_conditions": {
+                    "temperatureC": temp_deg,
+                    "relativeHumidity": humidity,
+                    "condition": desc
+                },
+                "message": "Google Weather API key is verified and operational! Real-time weather active in Climate tab."
             }
         else:
             return {
@@ -775,7 +866,7 @@ async def test_climate_api_key() -> dict[str, Any]:
                 "masked_key": f"{active_key[:6]}...{active_key[-4:]}",
                 "google_response": data,
                 "satellite_fallback_active": True,
-                "note": "API key received. Satellite engine will maintain uninterrupted weather & spray analysis."
+                "note": "API key tested. Satellite engine maintains uninterrupted high-resolution weather & spray analysis."
             }
     except Exception as exc:
         return {
@@ -1014,6 +1105,20 @@ def subscribe_price_alert_endpoint(
     )
 
     with get_db_cursor() as cur:
+        if not use_pg:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS price_alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    phone_number TEXT NOT NULL,
+                    crop_key TEXT NOT NULL,
+                    crop_name TEXT NOT NULL,
+                    target_price REAL NOT NULL,
+                    channel TEXT NOT NULL,
+                    mandi_name TEXT NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
         cur.execute(query, (
             payload.phone_number,
             payload.crop_key,

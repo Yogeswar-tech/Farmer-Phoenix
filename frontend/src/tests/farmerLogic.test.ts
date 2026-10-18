@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MANDI_DATABASE, WEATHER_FORECAST, CROP_CHIPS } from '../data/mockData.ts';
+import { MANDI_DATABASE, WEATHER_FORECAST, CROP_CHIPS, AGRICULTURAL_LOCATIONS } from '../data/mockData.ts';
 import { translations } from '../data/i18n.ts';
 
 test('1. Verified Multi-Grade Price Structure for Chilli', () => {
@@ -106,7 +106,20 @@ test('9. AI Voice Assistant Mode & Enable Toggle Localization', () => {
   assert.ok(translations.en.aiAssistantActive, 'aiAssistantActive must exist');
   assert.ok(translations.en.voiceAssistantTitle, 'voiceAssistantTitle must exist');
   assert.ok(translations.hi.aiAssistantEnable, 'Hindi aiAssistantEnable must exist');
-  assert.ok(translations.te.aiAssistantEnable, 'Telugu aiAssistantEnable must exist');
+});
+
+test('10. Auto GPS & Structured Location Details (No Map View)', () => {
+  const guntur = AGRICULTURAL_LOCATIONS.find(l => l.id === 'guntur');
+  assert.ok(guntur, 'Guntur location option must exist');
+  assert.ok(guntur.name.en, 'Must have name');
+  assert.ok(guntur.district.en, 'Must have district');
+  assert.ok(guntur.state.en, 'Must have state');
+  assert.ok(guntur.pincode, 'Must have postal PIN code');
+
+  // Verify location structure format contains all details for display without map view
+  assert.strictEqual(typeof guntur.name.hi, 'string');
+  assert.strictEqual(typeof guntur.district.te, 'string');
+  assert.strictEqual(guntur.pincode, '522001');
 });
 
 

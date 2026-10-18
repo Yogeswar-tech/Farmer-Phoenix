@@ -23,8 +23,8 @@ class LLMGateway:
         self.api_key = api_key or settings.gemini_api_key
         self.project_id = project_id or settings.gcp_project_id
         self.location = location or settings.gcp_location
-        self.model_fast = settings.model_fast or "gemini-2.5-flash"
-        self.model_strong = settings.model_strong or "gemini-2.5-pro"
+        self.model_fast = settings.model_fast or "gemini-3.8-flash"
+        self.model_strong = settings.model_strong or "gemini-3.8-flash"
         self._client: genai.Client | None = None
 
     def _get_client(self) -> genai.Client | None:
@@ -71,7 +71,9 @@ class LLMGateway:
         if client is None:
             # Offline deterministic fallback for local testing without credentials
             logger.info("Using offline deterministic fallback for LLM response generation.")
-            return self._generate_offline_fallback(prompt)
+            if "price" in prompt.lower() or "mandi" in prompt.lower():
+                return self._generate_offline_fallback(prompt)
+            return ""
 
         try:
             config: dict[str, Any] = {"temperature": 0.2}
@@ -87,7 +89,9 @@ class LLMGateway:
 
         except Exception as exc:
             logger.error("LLM generation call failed: %s; falling back to offline generator.", exc)
-            return self._generate_offline_fallback(prompt)
+            if "price" in prompt.lower() or "mandi" in prompt.lower():
+                return self._generate_offline_fallback(prompt)
+            return ""
 
     async def generate_vision_response(
         self,

@@ -28,7 +28,9 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Tractor
+  Tractor,
+  Sparkles,
+  Thermometer
 } from 'lucide-react';
 
 interface ClimatePredictionViewProps {
@@ -71,6 +73,78 @@ const initialForecastDays = WEATHER_FORECAST.map((d: any) => ({
   dryingWindow: 'Optimal Sun-Drying 9 AM - 4 PM',
   irrigationAdvice: 'Normal irrigation recommended'
 }));
+
+export const calculateSunriseSunset = (lat: number = 16.3, lon: number = 80.4, date: Date = new Date()) => {
+  const startOfYear = new Date(date.getFullYear(), 0, 0);
+  const diff = (date.getTime() - startOfYear.getTime()) + ((startOfYear.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  const dec = 23.45 * Math.sin((Math.PI / 180) * ((360 / 365) * (284 + dayOfYear)));
+  const latR = (Math.PI / 180) * (lat || 16.3);
+  const decR = (Math.PI / 180) * dec;
+  let cosW = -Math.tan(latR) * Math.tan(decR);
+  cosW = Math.max(-1.0, Math.min(1.0, cosW));
+  const w = (180 / Math.PI) * Math.acos(cosW);
+
+  const B = (Math.PI / 180) * ((360 / 365) * (dayOfYear - 81));
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const lonCorr = 4 * (82.5 - (lon || 80.4));
+  const solarNoon = 12.0 - (eot - lonCorr) / 60.0;
+  const sunriseH = (solarNoon - (w / 15.0) + 24) % 24;
+  const sunsetH = (solarNoon + (w / 15.0) + 24) % 24;
+
+  const formatH = (h: number) => {
+    let hr = Math.floor(h);
+    let mn = Math.round((h - hr) * 60);
+    if (mn === 60) { hr = (hr + 1) % 24; mn = 0; }
+    const period = hr < 12 ? 'AM' : 'PM';
+    const hr12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+    return `${String(hr12).padStart(2, '0')}:${String(mn).padStart(2, '0')} ${period}`;
+  };
+
+  return {
+    sunrise: formatH(sunriseH),
+    sunset: formatH(sunsetH)
+  };
+};
+
+export interface WeatherLlmAdvisory {
+  summary: string;
+  action_badge: 'spray_recommended' | 'spray_not_recommended' | 'irrigate_recommended' | 'irrigate_not_recommended' | 'harvest_recommended' | 'wait' | 'none';
+  reason: string;
+  alert: string | null;
+}
+
+const getActionBadgeStyle = (badge: string): React.CSSProperties => {
+  switch (badge) {
+    case 'spray_recommended':
+      return { background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+    case 'spray_not_recommended':
+      return { background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+    case 'irrigate_recommended':
+      return { background: '#E0F2FE', color: '#0369A1', border: '1px solid #7DD3FC', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+    case 'irrigate_not_recommended':
+      return { background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+    case 'harvest_recommended':
+      return { background: '#FEF9C3', color: '#854D0E', border: '1px solid #FDE047', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+    default:
+      return { background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' };
+  }
+};
+
+const getActionBadgeLabel = (badge: string, lang: string): string => {
+  const map: Record<string, { en: string; hi: string; te: string }> = {
+    spray_recommended: { en: '✓ Spray Recommended', hi: '✓ छिड़काव अनुशंसित', te: '✓ పిచికారీ చేయవచ్చు' },
+    spray_not_recommended: { en: '✕ Spray Paused', hi: '✕ छिड़काव रोकें', te: '✕ పిచికారీ నిలిపివేయండి' },
+    irrigate_recommended: { en: '💧 Irrigate Today', hi: '💧 सिंचाई करें', te: '💧 తడి పెట్టండి' },
+    irrigate_not_recommended: { en: '✋ Hold Irrigation', hi: '✋ सिंचाई टालें', te: '✋ తడి పెట్టవద్దు' },
+    harvest_recommended: { en: '🌾 Harvest Favorable', hi: '🌾 फसल कटाई अनुकूल', te: '🌾 కోతకు అనుకూలం' },
+    wait: { en: '⏳ Wait & Observe', hi: '⏳ प्रतीक्षा करें', te: '⏳ వేచి చూడండి' },
+    none: { en: 'General Outlook', hi: 'सामान्य मौसम', te: 'సాధారణ సూచన' }
+  };
+  const item = map[badge] || map['none'];
+  return lang === 'hi' ? item.hi : lang === 'te' ? item.te : item.en;
+};
 
 export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   currentLang,
@@ -120,6 +194,15 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   const [selectedDatePreset, setSelectedDatePreset] = useState<'today' | 'tomorrow' | '3days' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState<string>(todayStr);
   const [customEndDate, setCustomEndDate] = useState<string>(todayStr);
+
+  // Decoupled LLM Weather Advisory State
+  const [llmAdvisory, setLlmAdvisory] = useState<WeatherLlmAdvisory | null>(null);
+  const [isAdvisoryLoading, setIsAdvisoryLoading] = useState<boolean>(false);
+
+  // Unified Agro-Weather Scope State (Today's Weather vs Date Range)
+  const [selectedScopeMode, setSelectedScopeMode] = useState<'today' | 'range'>('today');
+  const [scopeRangeStart, setScopeRangeStart] = useState<string>(todayStr);
+  const [scopeRangeEnd, setScopeRangeEnd] = useState<string>(todayStr);
 
   // Pictorial Agricultural Map Wizard State
   const [showMapWizard, setShowMapWizard] = useState<boolean>(false);
@@ -199,12 +282,48 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
 
         setIsLiveSynced(true);
         setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+        // Decoupled LLM Weather Advisory (silent fallback, strictly non-blocking)
+        const resolvedName = getLocText(res.location?.name, currentLang) || getLocText(loc.name, currentLang) || 'Local Farm';
+        fetchLlmAdvisory(res, resolvedName, currentLang);
       }
     } catch (err) {
       console.warn('[Climate View] Backend fetch error:', err);
       setIsLiveSynced(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Decoupled LLM Weather Advisory Fetcher (Strict Schema, Silent Fail)
+  const fetchLlmAdvisory = async (weatherData: any, locName: string, lang: Language) => {
+    setIsAdvisoryLoading(true);
+    try {
+      const rawWeatherPayload = {
+        current_conditions: weatherData.current_conditions || {},
+        forecast_days: (weatherData.forecast_days || weatherData.forecast_7days || []).slice(0, 5),
+        has_severe_alert: Boolean(weatherData.alert_risk?.hasAlert || weatherData.has_alert || false),
+        severe_alert_description: weatherData.alert_risk?.riskTitle || null
+      };
+
+      const advisory = await KisanSethuApi.getWeatherLlmAdvisory({
+        weatherPayload: rawWeatherPayload,
+        locationName: typeof locName === 'string' && locName ? locName : 'Local Farm',
+        lang,
+        crop: null,
+        growthStage: null
+      });
+
+      if (advisory && advisory.summary && advisory.action_badge) {
+        setLlmAdvisory(advisory);
+      } else {
+        setLlmAdvisory(null);
+      }
+    } catch (err) {
+      console.warn('[Climate View] LLM Advisory silent failure:', err);
+      setLlmAdvisory(null);
+    } finally {
+      setIsAdvisoryLoading(false);
     }
   };
 
@@ -403,110 +522,123 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   const activeSeasonal = unifiedData?.seasonal_outlook || SEASONAL_CLIMATE;
   const activeZone = getLocText(activeLocation.zone || `${getLocText(activeLocation.name, currentLang)} Agro-Climatic Zone`, currentLang);
 
+  // Universal Date Utilities for Scope Filtering
+  const getDayIsoDate = (d: any, index: number): string => {
+    if (d?.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) {
+      return d.date;
+    }
+    const dObj = new Date();
+    dObj.setDate(dObj.getDate() + index);
+    return dObj.toISOString().split('T')[0];
+  };
+
+  const getIsoDatePlus = (offsetDays: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().split('T')[0];
+  };
+
+  const minScopeDate = todayStr;
+  const maxScopeDate = forecastDays && forecastDays.length > 0
+    ? getDayIsoDate(forecastDays[forecastDays.length - 1], forecastDays.length - 1)
+    : getIsoDatePlus(15);
+
+  const formatShortDate = (isoStr: string): string => {
+    if (!isoStr) return '';
+    try {
+      const parts = isoStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return d.toLocaleDateString(currentLang === 'hi' ? 'hi-IN' : currentLang === 'te' ? 'te-IN' : 'en-US', { day: 'numeric', month: 'short' });
+      }
+      return isoStr;
+    } catch {
+      return isoStr;
+    }
+  };
+
+  // Extract selected days based on user-picked scope mode (Today's Weather vs Date Range)
+  const isRangeMode = selectedScopeMode === 'range';
+  const effectiveScopeDays = isRangeMode
+    ? forecastDays.filter((d, idx) => {
+        const iso = getDayIsoDate(d, idx);
+        return iso >= scopeRangeStart && iso <= scopeRangeEnd;
+      })
+    : [forecastDays[0] || {}];
+
+  const activeScopeDays = effectiveScopeDays.length > 0 ? effectiveScopeDays : [forecastDays[0] || {}];
+  const day0Forecast = forecastDays && forecastDays.length > 0 ? forecastDays[0] : null;
+
+  // 1. Temperature Calculation
+  const currentTemp = currentConditions?.temperatureC ?? (day0Forecast?.tempMax ?? 31);
+  const minTempScope = Math.round(Math.min(...activeScopeDays.map((d: any) => d.tempMin ?? (currentTemp - 6))));
+  const maxTempScope = Math.round(Math.max(...activeScopeDays.map((d: any) => d.tempMax ?? (currentTemp + 2))));
+  const avgTempScope = Math.round(
+    activeScopeDays.reduce((acc: number, d: any) => acc + (((d.tempMax ?? 32) + (d.tempMin ?? 22)) / 2), 0) / activeScopeDays.length
+  );
+
+  // 2. Rain — The Big One Calculation
+  const rainChanceScope = isRangeMode
+    ? Math.max(...activeScopeDays.map((d: any) => d.rainChance ?? d.rainProbability ?? 0))
+    : (day0Forecast?.rainChance ?? day0Forecast?.rainProbability ?? (currentConditions?.precipitationMm ? 85 : 10));
+  const precipMmScope = isRangeMode
+    ? Number(activeScopeDays.reduce((acc: number, d: any) => acc + (d.precipMm || 0), 0).toFixed(1))
+    : (currentConditions?.precipitationMm ?? day0Forecast?.precipMm ?? 0);
+
+  // 3. Wind Speed Calculation
+  const windSpeedScope = isRangeMode
+    ? Number((activeScopeDays.reduce((acc: number, d: any) => acc + (d.windSpeedKmh || 8.6), 0) / activeScopeDays.length).toFixed(1))
+    : (currentConditions?.windSpeedKmh ?? day0Forecast?.windSpeedKmh ?? 8.6);
+  const maxWindSpeedScope = isRangeMode
+    ? Number(Math.max(...activeScopeDays.map((d: any) => d.windSpeedKmh || 8.6)).toFixed(1))
+    : windSpeedScope;
+
+  // 4. Humidity Calculation
+  const humidityScope = isRangeMode
+    ? Math.round(activeScopeDays.reduce((acc: number, d: any) => acc + (d.humidityPct ?? 78), 0) / activeScopeDays.length)
+    : (currentConditions?.humidityPct ?? 80);
+
+  // 5. Sunrise / Sunset Calculation
+  const midDateForSolar = isRangeMode && scopeRangeStart ? new Date(scopeRangeStart) : new Date();
+  const calculatedSunTimes = calculateSunriseSunset(
+    activeLocation?.lat || 16.3,
+    activeLocation?.lon || 80.4,
+    midDateForSolar
+  );
+  const sunriseScope = (!isRangeMode && currentConditions?.sunrise) || calculatedSunTimes.sunrise;
+  const sunsetScope = (!isRangeMode && currentConditions?.sunset) || calculatedSunTimes.sunset;
+
+  // Dynamic Actionable Advisory for Selected Scope
+  const rangeDateLabel = `${formatShortDate(scopeRangeStart)} – ${formatShortDate(scopeRangeEnd)}`;
+  const rangeActionBadge = rainChanceScope >= 50
+    ? 'spray_not_recommended'
+    : (rainChanceScope < 30 && maxWindSpeedScope < 15 ? 'spray_recommended' : 'wait');
+
+  const rangeSummary = isRangeMode
+    ? (rainChanceScope >= 50
+        ? (currentLang === 'hi' ? `${rangeDateLabel} के दौरान छिड़काव रोकें — बारिश का खतरा` : currentLang === 'te' ? `${rangeDateLabel} వ్యవధిలో స్ప్రే వద్దు — వర్ష సూచన` : `Pause foliar spraying across ${rangeDateLabel} — rain expected`)
+        : (rainChanceScope < 30 && maxWindSpeedScope < 15
+            ? (currentLang === 'hi' ? `${activeScopeDays.length}-दिवसीय अनुकूल खिड़की: छिड़काव एवं सुखाई हेतु उत्तम` : currentLang === 'te' ? `${activeScopeDays.length} రోజుల అనుకూల సమయం: పిచికారీ మరియు ఎండబెట్టడానికి మంచిది` : `Favorable ${activeScopeDays.length}-day operational window for spraying and crop drying`)
+            : (currentLang === 'hi' ? `${activeScopeDays.length} दिनों में मिश्रित मौसम — केवल सुबह कार्य करें` : currentLang === 'te' ? `${activeScopeDays.length} రోజులలో మిశ్రమ వాతావరణం — ఉదయం వేళల్లో స్ప్రే చేయండి` : `Mixed operational conditions across ${activeScopeDays.length} days — plan morning spraying`)))
+    : (llmAdvisory?.summary || (rainChanceScope >= 50
+        ? (currentLang === 'hi' ? 'आज कीटनाशक छिड़काव रोकें — बारिश की संभावना है' : currentLang === 'te' ? 'నేడు పురుగుमందుల పిచికారీ నిలిపివేయండి — వర్ష సూచన ఉంది' : 'Pause foliar spraying today — rain expected')
+        : (currentLang === 'hi' ? 'खेती के कार्यों एवं छिड़काव के लिए आज अनुकूल मौसम' : currentLang === 'te' ? 'నేడు వ్యవసాయ పనులకు మరియు పిచికారీకి అనుకూలమైన వాతావరణం' : 'Favorable weather window for field operations and spraying')));
+
+  const rangeReason = isRangeMode
+    ? (rainChanceScope >= 50
+        ? (currentLang === 'hi' ? `इस अवधि में अधिकतम वर्षा संभावना ${rainChanceScope}% (${precipMmScope} मिमी कुल) है। दवा बहने से बचाने के लिए छिड़काव टालें।` : currentLang === 'te' ? `ఈ కాలంలో గరిష్ట వర్ష సూచన ${rainChanceScope}% (మొత్తం ${precipMmScope} మిమీ). స్ప్రే వాయిదా వేయండి.` : `Precipitation probability peaks at ${rainChanceScope}% (${precipMmScope} mm total). Delay spraying to avoid chemical wash-off and runoff.`)
+        : (rainChanceScope < 30 && maxWindSpeedScope < 15
+            ? (currentLang === 'hi' ? `मौसम शुष्क (<${rainChanceScope}% वर्षा) और हवा शांत (<${maxWindSpeedScope} किमी/घंटा) बनी रहेगी। सभी कृषि कार्य सुरक्षित हैं।` : currentLang === 'te' ? `పొడి వాతావరణం (<${rainChanceScope}%) మరియు శాంతమైన గాలి (<${maxWindSpeedScope} కి.మీ). వ్యవసాయ పనులు సురక్షితం.` : `Sustained dry conditions (rain <${rainChanceScope}%) and gentle breeze (<${maxWindSpeedScope} km/h). Safe for foliar treatment.`)
+            : (currentLang === 'hi' ? `बारिश की संभावना ${rainChanceScope}% और हवा ${maxWindSpeedScope} किमी/घंटा है। हवा तेज होने से पहले सुबह जल्दी छिड़काव करें।` : currentLang === 'te' ? `వర్ష సూచన ${rainChanceScope}%, గాలి ${maxWindSpeedScope} కి.మీ. ఉదయాన్నే స్ప్రే పూర్తి చేయండి.` : `Rain probability peaks at ${rainChanceScope}% with gusts up to ${maxWindSpeedScope} km/h. Complete spraying in early morning.`)))
+    : (llmAdvisory?.reason || (rainChanceScope >= 50
+        ? (currentLang === 'hi' ? `आज ${rainChanceScope}% बारिश की संभावना है। दवा बहने से बचाने के लिए छिड़काव टालें।` : currentLang === 'te' ? `నేడు ${rainChanceScope}% వర్ష సూచన ఉంది. పిచికారీ ఆపండి.` : `Precipitation probability is ${rainChanceScope}% today. Delay spraying to prevent chemical wash-off and runoff.`)
+        : (currentLang === 'hi' ? `मौसम साफ है और हवा ${windSpeedScope} किमी/घंटा शांत है। सुबह के समय छिड़काव सुरक्षित रहेगा।` : currentLang === 'te' ? `వాతావరణం నిర్మలంగా ఉంది, గాలి వేగం ${windSpeedScope} కి.మీ. ఉదయం వేళల్లో స్ప్రే చేయడం సురక్షితం.` : `Clear conditions with gentle wind (${windSpeedScope} km/h). Optimal morning window for foliar treatment.`)));
+
+  const activeBadgeCode = isRangeMode ? rangeActionBadge : (llmAdvisory?.action_badge || (rainChanceScope >= 50 ? 'spray_not_recommended' : 'spray_recommended'));
+
   return (
     <div className="climate-prediction-view-container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px' }}>
-      {/* 1. Header Banner & Engine Telemetry Strip */}
-      <div className="view-header-strip" style={{
-        background: 'linear-gradient(135deg, #064E3B 0%, #065F46 60%, #047857 100%)',
-        color: '#FFFFFF',
-        borderRadius: '16px',
-        padding: '24px',
-        boxShadow: '0 10px 25px -5px rgba(6, 78, 59, 0.25)',
-        position: 'relative',
-        overflow: 'hidden',
-        marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.18)', padding: '10px', borderRadius: '12px', display: 'flex' }}>
-                <CloudSun size={28} style={{ color: '#FDE047' }} />
-              </div>
-              <div>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-                  {currentLang === 'hi' ? 'अखिल भारतीय कृषि जलवायु एवं मौसम पूर्वानुमान' : currentLang === 'te' ? 'భారతదేశ వ్యవసాయ వాతావరణ అంచనా' : 'All-India Agricultural Climate & Weather Intelligence'}
-                </h2>
-                <div style={{ fontSize: '13px', color: '#A7F3D0', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                  <span>📍 {getLocText(activeLocation.name, currentLang)}, {getLocText(activeLocation.district, currentLang)} ({getLocText(activeLocation.state, currentLang)})</span>
-                  <span>•</span>
-                  <span>🌾 {activeZone}</span>
-                </div>
-              </div>
-            </div>
-            <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#D1FAE5', maxWidth: '780px', lineHeight: '1.5' }}>
-              {currentLang === 'hi'
-                ? 'उपग्रह एवं भारतीय मौसम विभाग (IMD) रडार द्वारा 16-दिवसीय सटीक मौसम, कीटनाशक छिड़काव खिड़की, स्मार्ट सिंचाई सलाह एवं फसल सुरक्षा।'
-                : currentLang === 'te'
-                  ? 'శాటిలైట్ మరియు IMD రాడార్ ద్వారా 16 రోజుల ఖచ్చితమైన వాతావరణం, స్ప్రే సమయాలు, స్మార్ట్ నీటి యాజమాన్యం మరియు పంట రక్షణ.'
-                  : 'High-resolution satellite feeds & IMD radar predicting 16-day operational weather, safe spray windows, smart irrigation schedules, and crop disease prevention.'}
-            </p>
-          </div>
-
-          {/* Telemetry / Live Sync Status & Voice Button */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => handlePlayAudioAdvice()}
-                className="audio-voice-btn"
-                style={{
-                  background: isSpeaking ? '#DC2626' : '#F59E0B',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '999px',
-                  padding: '8px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {isSpeaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                <span>
-                  {isSpeaking
-                    ? (currentLang === 'hi' ? 'सलाह रोकें' : 'Stop Audio')
-                    : (currentLang === 'hi' ? '🔊 किसान सलाह सुनें' : currentLang === 'te' ? '🔊 వాతావరణం వినండి' : '🔊 Listen Audio Advisory')}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fetchUnifiedClimate(activeLocation, horizonDays)}
-                disabled={isLoading}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  color: '#FFFFFF',
-                  borderRadius: '999px',
-                  padding: '8px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                <RefreshCw size={14} className={isLoading ? 'spin-icon' : ''} />
-                <span>{isLoading ? 'Syncing...' : `Sync (${latencyMs}ms)`}</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#A7F3D0' }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: isLiveSynced ? '#34D399' : '#FBBF24' }}></span>
-              <span>{isLiveSynced ? '🟢 IMD & Satellite Feed Live' : '🟡 Resilient Cache Mode'}</span>
-              <span>•</span>
-              <span>Updated: {lastSyncTime}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. All-India Universal Search Bar & GPS Detector */}
+      {/* Universal Search Bar & Farm Selector */}
       <div style={{
         background: '#FFFFFF',
         borderRadius: '16px',
@@ -705,57 +837,6 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
           )}
         </div>
 
-        {/* Quick Regional Agricultural Belts (Pan-India) */}
-        <div style={{ marginTop: '14px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Layers size={14} style={{ color: '#059669' }} />
-            <span>{currentLang === 'hi' ? 'प्रमुख भारतीय कृषि क्षेत्र (1-क्लिक चयन):' : currentLang === 'te' ? 'భారతదేశ వ్యవసాయ ప్రాంతాలు:' : 'Major Indian Agricultural Belts (1-Click Switch):'}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {ALL_INDIA_AGRI_BELTS.map((belt) => {
-              const locNameStr = getLocText(activeLocation.name, currentLang).toLowerCase();
-              const locDistStr = getLocText(activeLocation.district, currentLang).toLowerCase();
-              const queryFirst = belt.query.split(' ')[0].toLowerCase();
-              const isSelected = locNameStr.includes(queryFirst) || locDistStr.includes(queryFirst);
-              return (
-                <button
-                  key={belt.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveLocation({
-                      name: belt.query.split(' ')[0],
-                      district: belt.query.split(' ')[0],
-                      state: belt.state,
-                      pincode: belt.pin,
-                      lat: belt.lat,
-                      lon: belt.lon,
-                      zone: `${belt.state} Agricultural Belt`,
-                      id: belt.id
-                    });
-                    setSearchInput(belt.query.split(' ')[0]);
-                  }}
-                  style={{
-                    background: isSelected ? '#065F46' : '#F1F5F9',
-                    color: isSelected ? '#FFFFFF' : '#334155',
-                    border: isSelected ? '1px solid #065F46' : '1px solid #E2E8F0',
-                    borderRadius: '999px',
-                    padding: '6px 14px',
-                    fontSize: '12px',
-                    fontWeight: isSelected ? '700' : '500',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <span>{getLocText(belt.name, currentLang)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Current Active Location Microclimate Strip */}
         {currentConditions && (
           <div style={{
@@ -816,6 +897,536 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
         )}
       </div>
 
+      {/* Decoupled LLM Weather Alert Banner (Only if severe alert detected) */}
+      {llmAdvisory?.alert && (
+        <div style={{
+          background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+          border: '2px solid #EF4444',
+          borderLeft: '6px solid #DC2626',
+          borderRadius: '14px',
+          padding: '16px 20px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.12)'
+        }}>
+          <div style={{
+            background: '#DC2626',
+            color: '#FFFFFF',
+            padding: '8px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <AlertTriangle size={22} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ⚠️ {currentLang === 'hi' ? 'उच्च प्राथमिकता मौसम चेतावनी' : currentLang === 'te' ? 'అత్యవసర వాతావరణ హెచ్చరిక' : 'High Priority Weather Alert'}
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#7F1D1D', marginTop: '2px' }}>
+              {llmAdvisory.alert}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Controls Displayed Beside Each Other: Today's Weather & Date Range */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        marginBottom: '14px',
+        background: '#FFFFFF',
+        borderRadius: '16px',
+        border: '1px solid #E2E8F0',
+        padding: '12px 18px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+      }}>
+        {/* Left Field: Today's Weather Button (Vibrant Green Pill matching screenshot) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedScopeMode('today');
+            setScopeRangeStart(todayStr);
+            setScopeRangeEnd(todayStr);
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: selectedScopeMode === 'today' ? '#00875A' : '#F8FAFC',
+            color: selectedScopeMode === 'today' ? '#FFFFFF' : '#334155',
+            border: selectedScopeMode === 'today' ? 'none' : '1px solid #CBD5E1',
+            borderRadius: '24px',
+            padding: '10px 22px',
+            fontSize: '14px',
+            fontWeight: '800',
+            cursor: 'pointer',
+            boxShadow: selectedScopeMode === 'today' ? '0 4px 14px rgba(0, 135, 90, 0.3)' : 'none',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>⚡</span>
+          <span>
+            {currentLang === 'hi'
+              ? "Today's Weather (आज का मौसम)"
+              : currentLang === 'te'
+                ? "Today's Weather (నేటి వాతావరణం)"
+                : "Today's Weather"}
+          </span>
+        </button>
+
+        {/* Right Field: Date Range Selector (Beside Today's Weather) */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '10px',
+          background: selectedScopeMode === 'range' ? '#ECFDF5' : '#F8FAFC',
+          border: `1.5px solid ${selectedScopeMode === 'range' ? '#059669' : '#CBD5E1'}`,
+          borderRadius: '24px',
+          padding: '6px 14px',
+          boxShadow: selectedScopeMode === 'range' ? '0 2px 10px rgba(5, 150, 105, 0.12)' : 'none',
+          transition: 'all 0.15s ease',
+          flexWrap: 'wrap'
+        }}>
+          <button
+            type="button"
+            onClick={() => setSelectedScopeMode('range')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              fontSize: '13px',
+              fontWeight: '800',
+              color: selectedScopeMode === 'range' ? '#065F46' : '#475569',
+              cursor: 'pointer'
+            }}
+          >
+            <Calendar size={16} style={{ color: selectedScopeMode === 'range' ? '#059669' : '#64748B' }} />
+            <span>
+              {currentLang === 'hi' ? 'दिनांक सीमा (Date Range):' : currentLang === 'te' ? 'తేదీ పరిధి (Date Range):' : 'Date Range:'}
+            </span>
+          </button>
+
+          {/* Start Date */}
+          <input
+            type="date"
+            value={scopeRangeStart}
+            min={minScopeDate}
+            max={maxScopeDate}
+            onChange={(e) => {
+              const val = e.target.value;
+              setScopeRangeStart(val);
+              if (val > scopeRangeEnd) {
+                setScopeRangeEnd(val);
+              }
+              setSelectedScopeMode('range');
+            }}
+            style={{
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              color: '#0F172A',
+              background: '#FFFFFF',
+              cursor: 'pointer'
+            }}
+          />
+
+          <span style={{ color: '#94A3B8', fontWeight: '800', fontSize: '13px' }}>➔</span>
+
+          {/* End Date */}
+          <input
+            type="date"
+            value={scopeRangeEnd}
+            min={scopeRangeStart || minScopeDate}
+            max={maxScopeDate}
+            onChange={(e) => {
+              const val = e.target.value;
+              setScopeRangeEnd(val);
+              setSelectedScopeMode('range');
+            }}
+            style={{
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              color: '#0F172A',
+              background: '#FFFFFF',
+              cursor: 'pointer'
+            }}
+          />
+
+          {/* Quick preset buttons */}
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedScopeMode('range');
+                setScopeRangeStart(todayStr);
+                setScopeRangeEnd(getIsoDatePlus(2));
+              }}
+              style={{
+                background: selectedScopeMode === 'range' && scopeRangeEnd === getIsoDatePlus(2) ? '#059669' : '#E2E8F0',
+                color: selectedScopeMode === 'range' && scopeRangeEnd === getIsoDatePlus(2) ? '#FFFFFF' : '#334155',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+              title="Next 3 Days"
+            >
+              +3D
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedScopeMode('range');
+                setScopeRangeStart(todayStr);
+                setScopeRangeEnd(getIsoDatePlus(6));
+              }}
+              style={{
+                background: selectedScopeMode === 'range' && scopeRangeEnd === getIsoDatePlus(6) ? '#059669' : '#E2E8F0',
+                color: selectedScopeMode === 'range' && scopeRangeEnd === getIsoDatePlus(6) ? '#FFFFFF' : '#334155',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+              title="Next 7 Days"
+            >
+              +7D
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Agro-Weather Intelligence & Actionable Advisory Results Box (Displayed Below) */}
+      <div style={{
+        background: '#FFFFFF',
+        border: '2px solid #86EFAC',
+        borderRadius: '16px',
+        padding: '20px 22px',
+        marginBottom: '20px',
+        boxShadow: '0 4px 18px rgba(16, 185, 129, 0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        {/* TOP SECTION: Actionable Advisory (The LLM's Real Value-Add) */}
+        <div>
+          {/* Header Row: Tip Badge + Scope Chip + Action Chip + Read Aloud Voice Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#047857',
+                color: '#FFFFFF',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                letterSpacing: '0.4px',
+                textTransform: 'uppercase'
+              }}>
+                <Sparkles size={12} />
+                {currentLang === 'hi' ? 'एआई फसल निर्णय सलाह' : currentLang === 'te' ? 'ఏఐ వ్యవసాయ నిర్ణయ సలహా' : 'AI Farm Advisory Tip'}
+              </span>
+
+              {/* Scope Chip Indicator (Today vs Date Range) */}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: isRangeMode ? '#EFF6FF' : '#F0FDF4',
+                color: isRangeMode ? '#1D4ED8' : '#15803D',
+                border: `1px solid ${isRangeMode ? '#BFDBFE' : '#BBF7D0'}`,
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '3px 8px',
+                borderRadius: '12px'
+              }}>
+                {isRangeMode ? `📅 ${rangeDateLabel} (${activeScopeDays.length}D)` : `⚡ ${currentLang === 'hi' ? 'आज' : currentLang === 'te' ? 'నేడు' : 'Today'}`}
+              </span>
+
+              {/* Action Badge colored chip */}
+              <span style={getActionBadgeStyle(activeBadgeCode)}>
+                {getActionBadgeLabel(activeBadgeCode, currentLang)}
+              </span>
+            </div>
+
+            {/* Read Aloud Voice Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const advText = `${rangeSummary}. ${rangeReason}`;
+                handlePlayAudioAdvice(advText);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: isSpeaking ? '#DC2626' : '#EFF6FF',
+                color: isSpeaking ? '#FFFFFF' : '#1D4ED8',
+                border: `1px solid ${isSpeaking ? '#DC2626' : '#BFDBFE'}`,
+                borderRadius: '20px',
+                padding: '4px 12px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title={currentLang === 'hi' ? 'सलाह बोलकर सुनें' : 'Read aloud in farmer language'}
+            >
+              {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              <span>
+                {isSpeaking
+                  ? (currentLang === 'hi' ? 'रोकें' : 'Stop')
+                  : (currentLang === 'hi' ? 'बोलकर सुनें' : currentLang === 'te' ? 'వినండి' : 'Read Aloud')}
+              </span>
+            </button>
+          </div>
+
+          {/* Advisory Content */}
+          {isAdvisoryLoading && !llmAdvisory && !isRangeMode ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#059669', fontSize: '13.5px', fontWeight: '600', padding: '6px 0' }}>
+              <Loader2 size={18} className="spin-icon" />
+              <span>
+                {currentLang === 'hi'
+                  ? 'एआई मौसम निर्णय सलाह लोड हो रही है...'
+                  : currentLang === 'te'
+                    ? 'ఏఐ వాతావరణ నిర్ణయ సలహా లోడ్ అవుతోంది...'
+                    : 'Loading AI agro-weather advisory tip...'}
+              </span>
+            </div>
+          ) : (
+            <div>
+              {/* Summary (Bold / Larger text) */}
+              <div style={{
+                fontSize: '17px',
+                fontWeight: '800',
+                color: '#0F172A',
+                lineHeight: '1.4'
+              }}>
+                {rangeSummary}
+              </div>
+
+              {/* Reason (Smaller supporting text) */}
+              <div style={{
+                fontSize: '13.5px',
+                fontWeight: '500',
+                color: '#475569',
+                marginTop: '4px',
+                lineHeight: '1.5'
+              }}>
+                {rangeReason}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SECTION DIVIDER */}
+        <div style={{ borderTop: '1px solid #E2E8F0' }} />
+
+        {/* BOTTOM SECTION: 5-Metric Weather Essentials Grid (Including Temperature) */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gap: '12px'
+        }}>
+          {/* 1. Temperature (New Field requested alongside the 4 fields) */}
+          <div style={{
+            background: 'linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)',
+            border: '1.5px solid #FDBA74',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.08)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#9A3412', textTransform: 'uppercase' }}>
+                  {currentLang === 'hi' ? '🌡️ तापमान' : currentLang === 'te' ? '🌡️ ఉష్ణోగ్రత' : '🌡️ Temperature'}
+                </span>
+                <Thermometer size={18} style={{ color: '#EA580C' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '24px', fontWeight: '800', color: '#7C2D12' }}>
+                  {isRangeMode ? `${minTempScope}° – ${maxTempScope}°C` : `${Math.round(currentTemp)}°C`}
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#C2410C' }}>
+                  {isRangeMode ? `(Avg: ${avgTempScope}°C)` : `(H: ${maxTempScope}° L: ${minTempScope}°)`}
+                </span>
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: maxTempScope >= 38 ? '#DC2626' : minTempScope <= 14 ? '#D97706' : '#15803D', marginTop: '6px' }}>
+              {maxTempScope >= 38
+                ? (currentLang === 'hi' ? '⚠️ उच्च तापमान / गर्मी तनाव' : currentLang === 'te' ? '⚠️ అధిక ఉష్ణోగ్రత / వడగాల్పులు' : '⚠️ High Heat Stress Watch')
+                : minTempScope <= 14
+                  ? (currentLang === 'hi' ? '⚠️ कम तापमान / ओस चेतावनी' : currentLang === 'te' ? '⚠️ చలి & మంచు ప్రభావం' : '⚠️ Cold Dew Watch')
+                  : (currentLang === 'hi' ? '✓ फसल वृद्धि हेतु अनुकूल तापमान' : currentLang === 'te' ? '✓ పంట ఎదుగుదలకు అనుకూల ఉష్ణోగ్రత' : '✓ Optimal Thermal Window')}
+            </div>
+          </div>
+
+          {/* 2. Rain — The Big One (Prominently Highlighted) */}
+          <div style={{
+            background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+            border: '2px solid #3B82F6',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.12)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  color: '#1E40AF',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                  background: '#BFDBFE',
+                  padding: '2px 8px',
+                  borderRadius: '10px'
+                }}>
+                  {currentLang === 'hi' ? '🌧️ बारिश — मुख्य सूचक' : currentLang === 'te' ? '🌧️ వర్షం — ప్రధానం' : '🌧️ Rain — The Big One'}
+                </span>
+                <CloudRain size={20} style={{ color: '#2563EB' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '26px', fontWeight: '900', color: '#1E3A8A', letterSpacing: '-0.5px' }}>
+                  {isRangeMode ? `Max ${rainChanceScope}%` : `${rainChanceScope}%`}
+                </span>
+                {precipMmScope > 0 && (
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#2563EB' }}>
+                    ({precipMmScope} mm{isRangeMode ? ' tot' : ''})
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: rainChanceScope >= 50 ? '#DC2626' : '#059669', marginTop: '6px' }}>
+              {rainChanceScope >= 50
+                ? (currentLang === 'hi' ? '⚠️ उच्च वर्षा खतरा — छिड़काव रोकें' : currentLang === 'te' ? '⚠️ భారీ వర్ష సూచన — స్ప్రే వద్దు' : '⚠️ High Rain Risk — Hold Spray')
+                : (currentLang === 'hi' ? '✓ शुष्क / छिड़काव व सुखाई अनुकूल' : currentLang === 'te' ? '✓ పొడి వాతావరణం అనుకూలం' : '✓ Dry & Favorable Window')}
+            </div>
+          </div>
+
+          {/* 3. Wind */}
+          <div style={{
+            background: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                  {currentLang === 'hi' ? '💨 हवा की गति' : currentLang === 'te' ? '💨 గాలి వేగం' : '💨 Wind Speed'}
+                </span>
+                <Wind size={18} style={{ color: '#0284C7' }} />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A' }}>
+                {windSpeedScope} <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748B' }}>km/h</span>
+                {isRangeMode && (
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B', marginLeft: '4px' }}>
+                    (Peak {maxWindSpeedScope})
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: maxWindSpeedScope < 15 ? '#166534' : '#B45309', marginTop: '6px' }}>
+              {maxWindSpeedScope < 15
+                ? (currentLang === 'hi' ? '✓ सुरक्षित छिड़काव सीमा (<15 किमी)' : currentLang === 'te' ? '✓ సురక్షిత గాలి వేగం (<15 కి.మీ)' : '✓ Safe spray drift (< 15 km/h)')
+                : (currentLang === 'hi' ? '⚠️ तेज बहाव / दवा बहने का जोखिम' : currentLang === 'te' ? '⚠️ తీవ్ర గాలి — స్ప్రే నష్టం' : '⚠️ Gusty / High chemical drift')}
+            </div>
+          </div>
+
+          {/* 4. Humidity */}
+          <div style={{
+            background: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>
+                  {currentLang === 'hi' ? '💧 नमी / आर्द्रता' : currentLang === 'te' ? '💧 తేమ శాతం' : '💧 Humidity'}
+                </span>
+                <Droplets size={18} style={{ color: '#059669' }} />
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A' }}>
+                {humidityScope}%
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: humidityScope > 75 ? '#B45309' : '#166534', marginTop: '6px' }}>
+              {humidityScope > 75
+                ? (currentLang === 'hi' ? 'ओस व फफूंद का ध्यान रखें' : currentLang === 'te' ? 'మంచు మరియు తెగులు ప్రభావం' : 'High dew / fungal watch')
+                : (currentLang === 'hi' ? 'सामान्य नमी संतुलन' : currentLang === 'te' ? 'సహజ తేమ స్థిరత' : 'Normal moisture balance')}
+            </div>
+          </div>
+
+          {/* 5. Sunrise & Sunset */}
+          <div style={{
+            background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+            border: '1px solid #FCD34D',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#92400E', textTransform: 'uppercase' }}>
+                  {currentLang === 'hi' ? '🌅 सूर्योदय / सूर्यास्त' : currentLang === 'te' ? '🌅 సూర్యోదయం / సూర్యాస్తమయం' : '🌅 Sunrise / Sunset'}
+                </span>
+                <Sun size={18} style={{ color: '#D97706' }} />
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#78350F' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🌅 {sunriseScope}</span>
+                  <span style={{ color: '#B45309' }}>•</span>
+                  <span>🌇 {sunsetScope}</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#92400E', marginTop: '6px' }}>
+              {isRangeMode
+                ? (currentLang === 'hi' ? `${activeScopeDays.length} दिन का परिचालन समय` : currentLang === 'te' ? `${activeScopeDays.length} రోజుల పని సమయం` : `${activeScopeDays.length} Days Operational Horizon`)
+                : (currentLang === 'hi' ? 'दिन का प्रकाश कार्य समय' : currentLang === 'te' ? 'పగటి వేళ వ్యవసాయ సమయం' : 'Daylight Field Operations')}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 3. Dynamic Weather Risk Banner (Squall / Heavy Rain / Frost) */}
       {activeAlert && activeAlert.hasAlert ? (
         <div style={{
@@ -861,869 +1472,6 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
           </div>
         </div>
       )}
-
-      {/* 4. Horizon Control, Interactive Calendar Button, & Day-Type Filters */}
-      <div style={{
-        background: '#FFFFFF',
-        borderRadius: '16px',
-        border: '1px solid #E2E8F0',
-        padding: '20px',
-        marginBottom: '20px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-      }}>
-        {/* Horizon Tabs & Calendar Toggle */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px', borderBottom: '1px solid #F1F5F9', paddingBottom: '16px' }}>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calendar size={20} style={{ color: '#059669' }} />
-              <span>{currentLang === 'hi' ? 'दैनिक कृषि मौसम एवं कार्ययोजना (Multi-Day Farm Outlook)' : 'Operational Farm Weather Outlook'}</span>
-            </h3>
-            <span style={{ fontSize: '12px', color: '#64748B' }}>
-              {currentLang === 'hi'
-                ? 'कैलेंडर बटन दबाकर किसी भी दिन का मौसम चुनें या दिन के प्रकार अनुसार छांटें'
-                : 'Select any day from the calendar or filter by specific farming task'}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {/* 1. Today & Tomorrow */}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDatePreset('today');
-                setHorizonDays(2);
-                setShowMapWizard(false);
-                setActiveViewMode('cards');
-              }}
-              style={{
-                background: selectedDatePreset === 'today' && !showMapWizard ? '#059669' : '#F1F5F9',
-                color: selectedDatePreset === 'today' && !showMapWizard ? '#FFFFFF' : '#334155',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              ⚡ {t.weatherToday || 'Today & Tomorrow'}
-            </button>
-
-            {/* 2. Next 3 Days Spray Planning */}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDatePreset('3days');
-                setHorizonDays(3);
-                setShowMapWizard(false);
-                setActiveViewMode('cards');
-              }}
-              style={{
-                background: selectedDatePreset === '3days' && !showMapWizard ? '#059669' : '#F1F5F9',
-                color: selectedDatePreset === '3days' && !showMapWizard ? '#FFFFFF' : '#334155',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              🚜 {t.weatherNext3Days || 'Next 3 Days (Spray Planning)'}
-            </button>
-
-            {/* 3. Custom Date or Range Calendar */}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDatePreset('custom');
-                setShowMapWizard(false);
-                setActiveViewMode('calendar');
-              }}
-              style={{
-                background: selectedDatePreset === 'custom' && !showMapWizard ? '#D97706' : '#FEF3C7',
-                color: selectedDatePreset === 'custom' && !showMapWizard ? '#FFFFFF' : '#92400E',
-                border: '1px solid #FCD34D',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>🗓️ {t.weatherCustomDatePicker || 'Pick Date / Range (Calendar)'}</span>
-            </button>
-
-            {/* 4. Pictorial Map Wizard Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowMapWizard(!showMapWizard);
-              }}
-              style={{
-                background: showMapWizard ? '#4338CA' : '#EEF2FF',
-                color: showMapWizard ? '#FFFFFF' : '#3730A3',
-                border: '1px solid #C7D2FE',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '12px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>🗺️ {t.weatherMapWizardTitle || 'Agri Map Wizard'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Custom Date Range Inputs (When Custom Range is Selected) */}
-        {selectedDatePreset === 'custom' && !showMapWizard && (
-          <div style={{
-            background: '#FFFBEB',
-            borderRadius: '12px',
-            border: '1px solid #FDE68A',
-            padding: '14px 18px',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calendar size={18} style={{ color: '#D97706' }} />
-              <div>
-                <strong style={{ fontSize: '13px', color: '#92400E' }}>
-                  {currentLang === 'hi' ? 'अपनी इच्छित तारीख या समयावधि चुनें:' : 'Search Specific Date or Range for Farm Planning:'}
-                </strong>
-                <span style={{ fontSize: '11px', color: '#B45309', display: 'block' }}>
-                  {currentLang === 'hi' ? 'छिड़काव व फसल कटाई हेतु उस दिन की मौसम अनुकूलता देखें' : 'Select target date to verify spray & harvesting conditions'}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#78350F', display: 'block', marginBottom: '2px' }}>
-                  {currentLang === 'hi' ? 'प्रारंभिक तिथि:' : 'Start Date:'}
-                </label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    background: '#FFFFFF'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#78350F', display: 'block', marginBottom: '2px' }}>
-                  {currentLang === 'hi' ? 'समाप्ति तिथि:' : 'End Date:'}
-                </label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    background: '#FFFFFF'
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pictorial Agricultural Map Wizard Component */}
-        {showMapWizard && (
-          <div style={{
-            background: '#F8FAFC',
-            borderRadius: '16px',
-            border: '1.5px solid #CBD5E1',
-            padding: '20px',
-            marginBottom: '20px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
-          }}>
-            {/* Map Header & Layer Selector */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px' }}>
-              <div>
-                <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🗺️ {t.weatherMapWizardTitle || 'Farm Scenario & Land Conditions Map Wizard'}</span>
-                </h4>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748B' }}>
-                  {currentLang === 'hi'
-                    ? 'चित्रमय मानचित्र: आपके क्षेत्र की वर्षा, मृदा नमी, भूमि तापमान एवं कृषि परिस्थितियों का त्वरित दृश्य।'
-                    : 'Visual Land Conditions Map: Pictorial representation of regional rain, soil moisture, and land scenarios.'}
-                </p>
-              </div>
-
-              {/* Map Layer Switcher */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setMapWizardLayer('radar')}
-                  style={{
-                    background: mapWizardLayer === 'radar' ? '#0284C7' : '#FFFFFF',
-                    color: mapWizardLayer === 'radar' ? '#FFFFFF' : '#334155',
-                    border: '1px solid #BAE6FD',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🌧️ {t.mapRadarRain || 'Rain Radar'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMapWizardLayer('soil_moisture')}
-                  style={{
-                    background: mapWizardLayer === 'soil_moisture' ? '#059669' : '#FFFFFF',
-                    color: mapWizardLayer === 'soil_moisture' ? '#FFFFFF' : '#334155',
-                    border: '1px solid #A7F3D0',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  💧 {t.mapSoilMoisture || 'Soil Moisture'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMapWizardLayer('temperature')}
-                  style={{
-                    background: mapWizardLayer === 'temperature' ? '#D97706' : '#FFFFFF',
-                    color: mapWizardLayer === 'temperature' ? '#FFFFFF' : '#334155',
-                    border: '1px solid #FDE68A',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ☀️ {t.mapTemperature || 'Heat Stress'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMapWizardLayer('agro_scenario')}
-                  style={{
-                    background: mapWizardLayer === 'agro_scenario' ? '#4F46E5' : '#FFFFFF',
-                    color: mapWizardLayer === 'agro_scenario' ? '#FFFFFF' : '#334155',
-                    border: '1px solid #C7D2FE',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🌾 {t.mapZoneScenarios || 'Agro Scenarios'}
-                </button>
-              </div>
-            </div>
-
-            {/* Visual Pictorial Grid Map Display */}
-            <div style={{
-              background: '#0F172A',
-              borderRadius: '14px',
-              padding: '20px',
-              color: '#FFFFFF',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: '700' }}>
-                  📍 {getLocText(activeLocation.name, currentLang)} Sector • {getLocText(activeLocation.district, currentLang)}
-                </span>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  background: 'rgba(255,255,255,0.15)',
-                  color: '#34D399'
-                }}>
-                  ● LIVE SATELLITE RADAR OVERLAY
-                </span>
-              </div>
-
-              {/* Pictorial Visual Map Cells */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                gap: '12px',
-                marginBottom: '16px'
-              }}>
-                {[
-                  {
-                    zone: currentLang === 'hi' ? 'उत्तर क्षेत्र (खेत)' : 'North Fields',
-                    rain: '0.0 mm',
-                    rainColor: '#10B981',
-                    moisture: '42% (Optimal)',
-                    moistureColor: '#10B981',
-                    temp: '29°C',
-                    tempColor: '#10B981',
-                    terrain: currentLang === 'hi' ? 'काली चिकनी मिट्टी' : 'Black Clay Soil',
-                    status: 'SAFE'
-                  },
-                  {
-                    zone: currentLang === 'hi' ? 'पूर्व क्षेत्र (मंडी)' : 'East Sector',
-                    rain: '1.5 mm',
-                    rainColor: '#38BDF8',
-                    moisture: '48% (Good)',
-                    moistureColor: '#10B981',
-                    temp: '31°C',
-                    tempColor: '#F59E0B',
-                    terrain: currentLang === 'hi' ? 'दोमट उपजाऊ' : 'Loamy Plain',
-                    status: 'OPTIMAL'
-                  },
-                  {
-                    zone: currentLang === 'hi' ? 'दक्षिण क्षेत्र (नदी तट)' : 'South Basin',
-                    rain: '8.2 mm',
-                    rainColor: '#6366F1',
-                    moisture: '68% (High)',
-                    moistureColor: '#38BDF8',
-                    temp: '27°C',
-                    tempColor: '#10B981',
-                    terrain: currentLang === 'hi' ? 'जलोढ़ मिट्टी' : 'River Alluvial',
-                    status: 'WET'
-                  },
-                  {
-                    zone: currentLang === 'hi' ? 'पश्चिम क्षेत्र (पहाड़ी)' : 'West Upland',
-                    rain: '0.0 mm',
-                    rainColor: '#10B981',
-                    moisture: '22% (Dry)',
-                    moistureColor: '#F59E0B',
-                    temp: '33°C',
-                    tempColor: '#F59E0B',
-                    terrain: currentLang === 'hi' ? 'लाल रेतीली मिट्टी' : 'Red Sandy Loam',
-                    status: 'DRY'
-                  }
-                ].map((zoneItem, zIdx) => {
-                  let primaryVal = zoneItem.rain;
-                  let primaryColor = zoneItem.rainColor;
-                  let label = currentLang === 'hi' ? 'अनुमानित वर्षा' : 'Precipitation';
-
-                  if (mapWizardLayer === 'soil_moisture') {
-                    primaryVal = zoneItem.moisture;
-                    primaryColor = zoneItem.moistureColor;
-                    label = currentLang === 'hi' ? 'मृदा नमी' : 'Soil Moisture';
-                  } else if (mapWizardLayer === 'temperature') {
-                    primaryVal = zoneItem.temp;
-                    primaryColor = zoneItem.tempColor;
-                    label = currentLang === 'hi' ? 'भूमि तापमान' : 'Surface Temp';
-                  } else if (mapWizardLayer === 'agro_scenario') {
-                    primaryVal = zoneItem.terrain;
-                    primaryColor = '#A5B4FC';
-                    label = currentLang === 'hi' ? 'मृदा प्रकार' : 'Terrain Type';
-                  }
-
-                  return (
-                    <div
-                      key={zIdx}
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: `1.5px solid ${primaryColor}`,
-                        borderRadius: '12px',
-                        padding: '14px',
-                        textAlign: 'center'
-                      }}
-                    >
-                      <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', display: 'block' }}>
-                        {zoneItem.zone}
-                      </span>
-                      <strong style={{ fontSize: '18px', color: primaryColor, display: 'block', margin: '6px 0 2px' }}>
-                        {primaryVal}
-                      </strong>
-                      <span style={{ fontSize: '10px', color: '#CBD5E1' }}>
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Map Legend */}
-              <div style={{
-                background: 'rgba(0,0,0,0.3)',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '10px',
-                fontSize: '11px'
-              }}>
-                <span style={{ color: '#E2E8F0', fontWeight: '700' }}>
-                  🎨 {currentLang === 'hi' ? 'संकेत व्याख्या:' : 'Pictorial Legend:'}
-                </span>
-                <span style={{ color: '#34D399' }}>🟢 {currentLang === 'hi' ? 'अनुकूल / सुरक्षित' : 'Optimal / Safe'}</span>
-                <span style={{ color: '#38BDF8' }}>🔵 {currentLang === 'hi' ? 'वर्षा / अधिक नमी' : 'Rain / Moisture'}</span>
-                <span style={{ color: '#FBBF24' }}>🟡 {currentLang === 'hi' ? 'शुष्क / सतर्कता' : 'Dry / Caution'}</span>
-                <span style={{ color: '#F87171' }}>🔴 {currentLang === 'hi' ? 'उच्च जोखिम / गर्मी' : 'High Heat / Danger'}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Day-Type Filter Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Filter size={14} />
-            <span>{currentLang === 'hi' ? 'दिन का प्रकार (काम अनुसार):' : 'Farm Activity Type:'}</span>
-          </span>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('all')}
-            style={{
-              background: selectedDayType === 'all' ? '#0F172A' : '#F8FAFC',
-              color: selectedDayType === 'all' ? '#FFFFFF' : '#475569',
-              border: '1px solid #CBD5E1',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            📋 {currentLang === 'hi' ? `सभी ${forecastDays.length} दिन` : `All ${forecastDays.length} Days`}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('safe_spray')}
-            style={{
-              background: selectedDayType === 'safe_spray' ? '#16A34A' : '#F0FDF4',
-              color: selectedDayType === 'safe_spray' ? '#FFFFFF' : '#166534',
-              border: '1px solid #86EFAC',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            🚜 {currentLang === 'hi' ? 'सुरक्षित छिड़काव (Safe Spray)' : 'Safe Spray Windows'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('rain_alert')}
-            style={{
-              background: selectedDayType === 'rain_alert' ? '#0284C7' : '#F0F9FF',
-              color: selectedDayType === 'rain_alert' ? '#FFFFFF' : '#075985',
-              border: '1px solid #BAE6FD',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            🌧️ {currentLang === 'hi' ? 'बारिश अलर्ट (सिंचाई रोकें)' : 'Rain Days (Hold Irrigation)'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('harvest_drying')}
-            style={{
-              background: selectedDayType === 'harvest_drying' ? '#D97706' : '#FEF3C7',
-              color: selectedDayType === 'harvest_drying' ? '#FFFFFF' : '#92400E',
-              border: '1px solid #FDE68A',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            ☀️ {currentLang === 'hi' ? 'फसल सुखाई (Sun-Drying)' : 'Produce Sun-Drying'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('sowing_ready')}
-            style={{
-              background: selectedDayType === 'sowing_ready' ? '#4F46E5' : '#EEF2FF',
-              color: selectedDayType === 'sowing_ready' ? '#FFFFFF' : '#3730A3',
-              border: '1px solid #C7D2FE',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            🌱 {currentLang === 'hi' ? 'बुवाई व जुताई (Sowing)' : 'Sowing & Tillage'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDayType('high_risk')}
-            style={{
-              background: selectedDayType === 'high_risk' ? '#DC2626' : '#FEF2F2',
-              color: selectedDayType === 'high_risk' ? '#FFFFFF' : '#991B1B',
-              border: '1px solid #FECDD3',
-              borderRadius: '999px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            ⚠️ {currentLang === 'hi' ? 'तेज हवा / जोखिम (High Wind)' : 'High Wind Caution'}
-          </button>
-        </div>
-
-        {/* 5. Interactive Farm Calendar Grid (When Calendar View is Active) */}
-        {activeViewMode === 'calendar' && (
-          <div style={{
-            marginTop: '20px',
-            background: '#F8FAFC',
-            borderRadius: '16px',
-            border: '1.5px solid #E2E8F0',
-            padding: '20px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div>
-                <strong style={{ fontSize: '16px', color: '#0F172A' }}>
-                  🗓️ {currentLang === 'hi' ? 'कृषि कार्य कैलेंडर - किसी भी तारीख पर क्लिक करें' : 'Farm Decision Calendar - Tap any date'}
-                </strong>
-                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
-                  {currentLang === 'hi' ? 'तारीख चुनकर उस दिन का छिड़काव, वर्षा व सिंचाई विवरण तुरंत देखें' : 'Click any date to see exact spraying window, rainfall, and irrigation advisory'}
-                </p>
-              </div>
-
-              {/* Legend */}
-              <div style={{ display: 'flex', gap: '10px', fontSize: '11px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#16A34A' }}></span>
-                  <span>{currentLang === 'hi' ? 'छिड़काव सुरक्षित' : 'Safe Spray'}</span>
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#0284C7' }}></span>
-                  <span>{currentLang === 'hi' ? 'बारिश अलर्ट' : 'Rain Alert'}</span>
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#D97706' }}></span>
-                  <span>{currentLang === 'hi' ? 'धूप सुखाई' : 'Sun Drying'}</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Calendar Matrix Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-              gap: '10px'
-            }}>
-              {(calendarDays.length > 0 ? calendarDays : forecastDays).map((cDay: any, idx: number) => {
-                const isSelected = selectedCalendarDate === cDay.date || (selectedCalendarDate === null && idx === 0);
-                const dayObj = forecastDays[idx] || cDay;
-                const isDanger = cDay.riskLevel === 'danger' || dayObj.rainChance >= 60;
-                const isSafe = cDay.sprayStatus === 'SAFE' || dayObj.riskLevel === 'safe';
-
-                return (
-                  <div
-                    key={cDay.date || idx}
-                    onClick={() => {
-                      setSelectedCalendarDate(cDay.date);
-                      setExpandedDayIndex(idx);
-                      setActiveViewMode('cards'); // Automatically focus card
-                    }}
-                    style={{
-                      background: isSelected ? '#F0FDF4' : '#FFFFFF',
-                      border: isSelected ? '2px solid #059669' : '1px solid #E2E8F0',
-                      borderRadius: '12px',
-                      padding: '12px',
-                      cursor: 'pointer',
-                      boxShadow: isSelected ? '0 4px 12px rgba(5, 150, 105, 0.15)' : 'none',
-                      transition: 'all 0.15s',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A' }}>
-                        {getLocText(cDay.dayNumber || dayObj.formattedDate || dayObj.date, currentLang)}
-                      </span>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>
-                        {getLocText(cDay.dayName || dayObj.dayName, currentLang)}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      {dayObj.condition === 'rain' ? <CloudRain size={20} style={{ color: '#0284C7' }} /> :
-                        dayObj.condition === 'cloudy' ? <Cloud size={20} style={{ color: '#64748B' }} /> :
-                          <Sun size={20} style={{ color: '#F59E0B' }} />}
-                      <span style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B' }}>
-                        {cDay.tempMax || dayObj.tempMax}°C
-                      </span>
-                    </div>
-
-                    {/* Suitability Badge on Calendar */}
-                    <div style={{
-                      fontSize: '10px',
-                      fontWeight: '800',
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      textAlign: 'center',
-                      background: isDanger ? '#FEE2E2' : isSafe ? '#DCFCE7' : '#FEF3C7',
-                      color: isDanger ? '#991B1B' : isSafe ? '#166534' : '#92400E'
-                    }}>
-                      {isDanger ? '⛔ ' + (currentLang === 'hi' ? 'बारिश' : 'Rain') :
-                        isSafe ? '✓ ' + (currentLang === 'hi' ? 'स्प्रे सुरक्षित' : 'Safe Spray') :
-                          '⚠️ ' + (currentLang === 'hi' ? 'सावधानी' : 'Caution')}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 6. Multi-Day Detailed Forecast Cards Grid */}
-        <div style={{ marginTop: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
-              {currentLang === 'hi' ? `दिखाए जा रहे हैं: ${filteredForecastDays.length} दिन` : `Showing: ${filteredForecastDays.length} Days`}
-            </span>
-            <span style={{ fontSize: '11px', color: '#64748B' }}>
-              💡 {currentLang === 'hi' ? 'किसी भी कार्ड पर क्लिक करके प्रति-घंटे का विवरण खोलें' : 'Tap any card to expand hour-by-hour farm advice'}
-            </span>
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '14px'
-          }}>
-            {filteredForecastDays.map((day: any, idx: number) => {
-              const isDanger = day.riskLevel === 'danger';
-              const isWarning = day.riskLevel === 'warning';
-              const dayName = getLocText(day.dayName, currentLang);
-              const fullDayName = getLocText(day.fullDayName || day.dayName, currentLang);
-              const conditionText = getLocText(day.conditionText, currentLang);
-              const sprayAdvice = getLocText(day.sprayingAdvice, currentLang);
-              const dryingWin = getLocText(day.dryingWindow, currentLang);
-              const irrigAdvice = day.irrigationAdvice ? getLocText(day.irrigationAdvice, currentLang) : null;
-              const thermalWarning = day.thermalStress?.warning ? getLocText(day.thermalStress.warning, currentLang) : null;
-              const soilDesc = day.soilSuitability?.description ? getLocText(day.soilSuitability.description, currentLang) : null;
-
-              const isExpanded = expandedDayIndex === idx;
-
-              return (
-                <div
-                  key={day.date || idx}
-                  style={{
-                    background: isDanger ? '#FFF5F5' : isWarning ? '#FFFBEB' : '#FFFFFF',
-                    border: isExpanded ? '2px solid #059669' : (isDanger ? '1px solid #FECDD3' : isWarning ? '1px solid #FDE68A' : '1px solid #E2E8F0'),
-                    borderRadius: '16px',
-                    padding: '16px',
-                    boxShadow: isExpanded ? '0 8px 20px rgba(5, 150, 105, 0.12)' : '0 2px 4px rgba(0, 0, 0, 0.03)',
-                    transition: 'all 0.2s',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setExpandedDayIndex(isExpanded ? null : idx)}
-                >
-                  {/* Card Header: Weekday & Date */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div>
-                      <strong style={{ fontSize: '15px', color: '#0F172A' }}>
-                        {fullDayName}
-                      </strong>
-                      <span style={{ fontSize: '12px', color: '#64748B', marginLeft: '6px' }}>
-                        {getLocText(day.formattedDate || day.date, currentLang)} {idx === 0 ? `(${currentLang === 'hi' ? 'आज' : 'Today'})` : idx === 1 ? `(${currentLang === 'hi' ? 'कल' : 'Tomorrow'})` : ''}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayAudioAdvice(`${dayName}: ${conditionText}. ${sprayAdvice}`);
-                      }}
-                      style={{
-                        background: '#F1F5F9',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: '28px',
-                        height: '28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: '#475569'
-                      }}
-                      title="Listen audio"
-                    >
-                      <Volume2 size={14} />
-                    </button>
-                  </div>
-
-                  {/* Icon, Temp, Rain, Wind */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {day.condition === 'rain' ? <CloudRain size={32} style={{ color: '#0284C7' }} /> :
-                        day.condition === 'cloudy' ? <Cloud size={32} style={{ color: '#64748B' }} /> :
-                          <Sun size={32} style={{ color: '#F59E0B' }} />}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                          <span style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A' }}>{day.tempMax}°C</span>
-                          <span style={{ fontSize: '13px', color: '#64748B' }}>/{day.tempMin}°C</span>
-                        </div>
-                        <span style={{ fontSize: '12px', color: '#475569' }}>{conditionText}</span>
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', fontSize: '12px' }}>
-                      <div style={{ color: '#0284C7', fontWeight: '700' }}>
-                        💧 {day.rainChance}% {currentLang === 'hi' ? 'बारिश' : 'Rain'}
-                      </div>
-                      <div style={{ color: '#059669', fontWeight: '600', marginTop: '2px' }}>
-                        💨 {day.windSpeedKmh} km/h
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Advisory 1: Spraying Window */}
-                  <div style={{
-                    background: isDanger ? '#FEE2E2' : isWarning ? '#FEF3C7' : '#DCFCE7',
-                    borderRadius: '10px',
-                    padding: '10px',
-                    marginBottom: '8px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: isDanger ? '#991B1B' : isWarning ? '#92400E' : '#166534', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Tractor size={13} />
-                        <span>{isDanger ? '⛔ ' + (currentLang === 'hi' ? 'छिड़काव बंद' : 'Spray Paused') :
-                          isWarning ? '⚠️ ' + (currentLang === 'hi' ? 'सावधानी से स्प्रे' : 'Caution Spray') :
-                            '✓ ' + (currentLang === 'hi' ? 'सुरक्षित स्प्रे खिड़की' : 'Safe Spray Window')}</span>
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '12px', color: isDanger ? '#7F1D1D' : isWarning ? '#78350F' : '#14532D', lineHeight: '1.4' }}>
-                      {sprayAdvice}
-                    </p>
-                  </div>
-
-                  {/* Action Advisory 2: Irrigation Guidance */}
-                  {irrigAdvice && (
-                    <div style={{
-                      background: '#F0F9FF',
-                      borderLeft: '3px solid #0284C7',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      marginBottom: '8px',
-                      fontSize: '11px',
-                      color: '#075985',
-                      lineHeight: '1.4'
-                    }}>
-                      <strong>💧 {currentLang === 'hi' ? 'सिंचाई सलाह:' : 'Irrigation Advice:'} </strong>
-                      <span>{irrigAdvice}</span>
-                    </div>
-                  )}
-
-                  {/* Action Advisory 3: Sun-Drying */}
-                  {dryingWin && (
-                    <div style={{ fontSize: '11px', color: '#B45309', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>☀️ {dryingWin}</span>
-                    </div>
-                  )}
-
-                  {/* Expand/Collapse Hourly Breakdown Indicator */}
-                  <div style={{
-                    marginTop: '8px',
-                    paddingTop: '8px',
-                    borderTop: '1px solid #E2E8F0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    color: '#059669'
-                  }}>
-                    <span>{isExpanded ? (currentLang === 'hi' ? 'घंटे-वार विवरण छुपाएं' : 'Hide hourly details') : (currentLang === 'hi' ? 'प्रति-घंटे का स्प्रे समय देखें' : 'View hourly spray timeline')}</span>
-                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </div>
-
-                  {/* Expanded Hourly Timeline & Deep Diagnostics */}
-                  {isExpanded && day.hourlyBreakdown && (
-                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #CBD5E1' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                        ⏰ {currentLang === 'hi' ? 'प्रति-घंटे हवा व स्प्रे खिड़की:' : 'Hourly Spray & Wind Slots:'}
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', textAlign: 'center' }}>
-                        {day.hourlyBreakdown.map((slot: any, sIdx: number) => (
-                          <div
-                            key={sIdx}
-                            style={{
-                              background: slot.spraySafe ? '#DCFCE7' : '#FEE2E2',
-                              borderRadius: '6px',
-                              padding: '6px 2px',
-                              fontSize: '10px'
-                            }}
-                          >
-                            <div style={{ fontWeight: '700', color: '#1E293B' }}>{slot.hour}</div>
-                            <div style={{ color: '#0284C7', marginTop: '2px' }}>{slot.rainProb}%</div>
-                            <div style={{ color: '#059669', fontWeight: '600' }}>{slot.wind}k</div>
-                            <div style={{
-                              marginTop: '2px',
-                              fontWeight: '800',
-                              color: slot.spraySafe ? '#15803D' : '#B91C1C'
-                            }}>
-                              {slot.spraySafe ? '✓ OK' : '✕ NO'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Soil & Thermal Diagnostic Box */}
-                      {soilDesc && (
-                        <div style={{ marginTop: '10px', fontSize: '11px', color: '#475569', background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px' }}>
-                          <strong>🚜 {currentLang === 'hi' ? 'जुताई व मिट्टी:' : 'Soil & Tillage:'} </strong>
-                          <span>{soilDesc}</span>
-                        </div>
-                      )}
-
-                      {thermalWarning && (
-                        <div style={{ marginTop: '6px', fontSize: '11px', color: '#6B21A8', background: '#FAF5FF', padding: '6px 8px', borderRadius: '6px' }}>
-                          <strong>🦠 {currentLang === 'hi' ? 'रोग व ओस चेतावनी:' : 'Dew & Disease:'} </strong>
-                          <span>{thermalWarning}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
 
       {/* 7. Regional Crop Suitability Section */}
       <div style={{
