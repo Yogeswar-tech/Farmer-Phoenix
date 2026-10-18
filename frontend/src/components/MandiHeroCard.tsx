@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type FC, type FormEvent } from 'react';
 import type { Language, MandiItem, LocationOption } from '../types';
-import { translations } from '../data/i18n';
+import { KISAN_CALL_CENTRE_NUMBER } from '../data/mockData';
 import { KisanSethuApi } from '../services/api';
 import {
   Volume2,
@@ -125,7 +125,7 @@ const getMandiAdaptedCropData = (m: MandiItem, loc?: LocationOption) => {
       price_qtl: om.modalPrice,
       distance: `${om.distance} km away`
     })),
-    helpdesk: '1800-180-1551'
+    helpdesk: KISAN_CALL_CENTRE_NUMBER
   };
 };
 
@@ -146,28 +146,25 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
     getMandiAdaptedCropData(mandi, currentLocation)
   );
 
+  const cropQuery = mandi.cropName?.en || mandi.cropKey || 'Commodity';
+  const syncKey = `${mandi.cropKey}-${mandi.cropName?.en}-${currentLocation?.name?.en}-${currentLocation?.state?.en}`;
+  const [prevSyncKey, setPrevSyncKey] = useState(syncKey);
+
+  if (syncKey !== prevSyncKey) {
+    setPrevSyncKey(syncKey);
+    setActiveCropData(getMandiAdaptedCropData(mandi, currentLocation));
+  }
+
   // Synchronize live today crop data whenever mandi or location changes
   useEffect(() => {
     let isMounted = true;
-    const cropQuery = mandi.cropName?.en || mandi.cropKey || 'Commodity';
     const mkt = currentLocation?.name?.en ? `${currentLocation.name.en} APMC Yard` : undefined;
     const st = currentLocation?.state?.en;
-
-    // Check if activeCropData is already showing this exact commodity (e.g. from a recent user search)
-    const currentComm = (activeCropData?.commodity || '').toLowerCase().trim();
-    const queryComm = cropQuery.toLowerCase().trim();
-    const isAlreadyMatching =
-      Boolean(currentComm && queryComm && (currentComm === queryComm || currentComm.includes(queryComm) || queryComm.includes(currentComm)));
-
-    if (!isAlreadyMatching) {
-      const fallbackData = getMandiAdaptedCropData(mandi, currentLocation);
-      setActiveCropData(fallbackData);
-    }
 
     // Call live scraper backend to get fresh real-time arrivals and prices if available
     KisanSethuApi.searchCropTodayPrice(cropQuery, mkt, st)
       .then((res) => {
-        if (isMounted && res && res.status === 'success') {
+        if (isMounted && res && (res.status === 'success' || res.status === 'no_data')) {
           setActiveCropData(res);
         }
       })
@@ -178,7 +175,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [mandi.cropKey, mandi.cropName?.en, currentLocation?.name?.en, currentLocation?.state?.en]);
+  }, [cropQuery, currentLocation?.name?.en, currentLocation?.state?.en]);
 
   // Execute search against verified APMC catalog & anti-hallucination gatekeeper
   const executeSearch = async (query: string) => {
@@ -199,6 +196,9 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
           const matchKey = res.commodity.toLowerCase().replace(/\s+/g, '_');
           onSelectCrop(matchKey);
         }
+      } else if (res && res.status === 'no_data') {
+        setNotFoundError(null);
+        setActiveCropData(res);
       } else if (res && res.status === 'not_found') {
         // Non-agricultural or unrecognized commodity -> DO NOT FABRICATE PRICES!
         setNotFoundError({
@@ -277,9 +277,10 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
   const cropKey = (activeCropData.commodity || 'crop').toLowerCase().replace(/\s+/g, '_');
   const cropEmoji = CROP_ICONS[cropKey] || '🌱';
 
-  const gradeA = activeCropData.grade_a || { min_qtl: 14910, max_qtl: 18816, min_kg: 149, max_kg: 188 };
-  const gradeB = activeCropData.grade_b || { min_qtl: 12400, max_qtl: 13200, min_kg: 124, max_kg: 132 };
-  const gradeC = activeCropData.grade_c || { min_qtl: 7500, max_qtl: 9200, min_kg: 75, max_kg: 92 };
+  const modalP = activeCropData.arrival?.modal_price || 3000;
+  const gradeA = activeCropData.grade_a || { min_qtl: Math.round(modalP * 1.05), max_qtl: Math.round(modalP * 1.15), min_kg: Math.round(modalP * 0.0105), max_kg: Math.round(modalP * 0.0115) };
+  const gradeB = activeCropData.grade_b || { min_qtl: Math.round(modalP * 0.95), max_qtl: Math.round(modalP * 1.02), min_kg: Math.round(modalP * 0.0095), max_kg: Math.round(modalP * 0.0102) };
+  const gradeC = activeCropData.grade_c || { min_qtl: Math.round(modalP * 0.70), max_qtl: Math.round(modalP * 0.85), min_kg: Math.round(modalP * 0.0070), max_kg: Math.round(modalP * 0.0085) };
 
   const marketSubtitle = useMemo(() => {
     const locName = currentLocation?.name?.[currentLang] || activeCropData.market || 'APMC Yard';
@@ -413,103 +414,193 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         <div className="ribbon-tail ribbon-tail-right" />
       </div>
 
-      {/* 4. QUALITY & PRICE GUIDE SUBTITLE */}
-      <div className="guide-subtitle-row">
-        <h3 className="guide-main-heading">
-          Quality & Price Guide ({currentLocation?.district?.en || 'Mandi'} Local)
-        </h3>
-      </div>
-
-      {/* 5. 3-TIER QUALITY & PRICE GUIDE CARDS */}
-      <div className="quality-cards-grid">
-        {/* CARD 1: BEST QUALITY (Grade A) */}
-        <div className="quality-card grade-a-card">
-          <div className="card-top-badge best-badge">
-            <span className="badge-star">⭐</span>
-            <span className="badge-title">BEST QUALITY (Grade A)</span>
-          </div>
-
-          <div className="card-price-container">
-            <div className="card-dual-graphic-row">
-              <span className="crop-illustration left">{cropEmoji}</span>
-              <div className="card-price-col">
-                <span className="card-price-numbers">
-                  ₹{Math.round(gradeA.min_qtl).toLocaleString()} - ₹{Math.round(gradeA.max_qtl).toLocaleString()}
-                </span>
-                <span className="card-price-unit">/ quintal</span>
-                <span className="card-kg-subtext">
-                  (₹{Math.round(gradeA.min_qtl / 100)} - ₹{Math.round(gradeA.max_qtl / 100)} / kg)
-                </span>
-              </div>
-              <span className="crop-illustration right">{cropEmoji}</span>
-            </div>
-          </div>
+      {/* 4. SOURCE & ARRIVAL METADATA BANNER */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 14px',
+        margin: '6px 0 14px 0',
+        background: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: '8px',
+        fontSize: '0.85rem',
+        color: '#e2e8f0',
+        gap: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontWeight: 600 }}>{activeCropData.source || 'Source: Open Mandi API'}</span>
         </div>
-
-        {/* CARD 2: MEDIUM QUALITY (Grade B) */}
-        <div className="quality-card grade-b-card">
-          <div className="card-top-badge medium-badge">
-            <span className="badge-thumb">👍</span>
-            <span className="badge-title">MEDIUM QUALITY (Grade B)</span>
-          </div>
-
-          <div className="card-price-container">
-            <div className="card-dual-graphic-row">
-              <span className="crop-illustration left dimmed">{cropEmoji}</span>
-              <div className="card-price-col">
-                <span className="card-price-numbers">
-                  ₹{Math.round(gradeB.min_qtl).toLocaleString()} - ₹{Math.round(gradeB.max_qtl).toLocaleString()}
-                </span>
-                <span className="card-price-unit">/ quintal</span>
-                <span className="card-kg-subtext">
-                  (₹{Math.round(gradeB.min_qtl / 100)} - ₹{Math.round(gradeB.max_qtl / 100)} / kg)
-                </span>
-              </div>
-              <span className="crop-illustration right dimmed">{cropEmoji}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 3: LOW QUALITY (Grade C) */}
-        <div className="quality-card grade-c-card">
-          <div className="card-top-badge low-badge">
-            <span className="badge-warn">⚠️</span>
-            <span className="badge-title">LOW QUALITY (Grade C)</span>
-          </div>
-
-          <div className="card-price-container">
-            <div className="card-dual-graphic-row">
-              <span className="crop-illustration left pale">{cropEmoji}</span>
-              <div className="card-price-col">
-                <span className="card-price-numbers">
-                  ₹{Math.round(gradeC.min_qtl).toLocaleString()} - ₹{Math.round(gradeC.max_qtl).toLocaleString()}
-                </span>
-                <span className="card-price-unit">/ quintal</span>
-                <span className="card-kg-subtext">
-                  (₹{Math.round(gradeC.min_qtl / 100)} - ₹{Math.round(gradeC.max_qtl / 100)} / kg)
-                </span>
-              </div>
-              <span className="crop-illustration right pale">{cropEmoji}</span>
-            </div>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {activeCropData.arrival_date && (
+            <span>Arrival: <b>{activeCropData.arrival_date}</b></span>
+          )}
+          {activeCropData.is_stale ? (
+            <span style={{
+              background: '#dc2626',
+              color: '#fff',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              fontWeight: 600
+            }}>
+              Data from {activeCropData.age_days || 3} days ago
+            </span>
+          ) : activeCropData.status !== 'no_data' ? (
+            <span style={{
+              background: '#16a34a',
+              color: '#fff',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              fontWeight: 600
+            }}>
+              Live APMC Report
+            </span>
+          ) : null}
         </div>
       </div>
 
-      {/* 6. SELLING ADVICE BANNER (Green) */}
-      <div className="selling-advice-pill-banner">
-        <span className="advice-check-icon">✅</span>
-        <span className="advice-text">
-          <b>SELLING ADVICE:</b> {activeCropData.selling_advice}
-        </span>
-      </div>
+      {/* 5. CONTENT: EITHER CLEAN EMPTY STATE OR 3-TIER PRICING */}
+      {activeCropData.status === 'no_data' ? (
+        <div style={{
+          padding: '36px 20px',
+          textAlign: 'center',
+          background: 'rgba(255, 255, 255, 0.04)',
+          borderRadius: '12px',
+          margin: '16px 0',
+          border: '1px solid rgba(255, 255, 255, 0.12)'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📊</div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '8px' }}>
+            Prices not available right now
+          </h3>
+          <p style={{ color: '#cbd5e1', maxWidth: '500px', margin: '0 auto 18px auto', fontSize: '0.95rem', lineHeight: '1.5' }}>
+            No current mandi prices reported for <b>{activeCropData.commodity}</b>. Prices update as APMC reports arrive.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {['Tomato', 'Onion', 'Potato', 'Red Chilli'].map((suggestedCrop) => (
+              <button
+                key={suggestedCrop}
+                type="button"
+                onClick={() => executeSearch(suggestedCrop)}
+                style={{
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  border: '1px solid rgba(34, 197, 94, 0.4)',
+                  color: '#4ade80',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.85rem'
+                }}
+              >
+                Try {suggestedCrop}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* QUALITY & PRICE GUIDE SUBTITLE */}
+          <div className="guide-subtitle-row">
+            <h3 className="guide-main-heading">
+              Quality & Price Guide ({currentLocation?.district?.en || 'Mandi'} Local)
+            </h3>
+          </div>
 
-      {/* 7. WEATHER ALERT BANNER (Amber) */}
-      <div className="weather-alert-pill-banner">
-        <span className="alert-warn-icon">⚠️</span>
-        <span className="alert-text">
-          <b>WEATHER ALERT:</b> {activeCropData.weather_alert}
-        </span>
-      </div>
+          {/* 3-TIER QUALITY & PRICE GUIDE CARDS */}
+          <div className="quality-cards-grid">
+            {/* CARD 1: BEST QUALITY (Grade A) */}
+            <div className="quality-card grade-a-card">
+              <div className="card-top-badge best-badge">
+                <span className="badge-star">⭐</span>
+                <span className="badge-title">BEST QUALITY (Grade A)</span>
+              </div>
+
+              <div className="card-price-container">
+                <div className="card-dual-graphic-row">
+                  <span className="crop-illustration left">{cropEmoji}</span>
+                  <div className="card-price-col">
+                    <span className="card-price-numbers">
+                      ₹{Math.round(gradeA.min_qtl).toLocaleString()} - ₹{Math.round(gradeA.max_qtl).toLocaleString()}
+                    </span>
+                    <span className="card-price-unit">/ quintal</span>
+                    <span className="card-kg-subtext">
+                      (₹{Math.round(gradeA.min_qtl / 100)} - ₹{Math.round(gradeA.max_qtl / 100)} / kg)
+                    </span>
+                  </div>
+                  <span className="crop-illustration right">{cropEmoji}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: MEDIUM QUALITY (Grade B) */}
+            <div className="quality-card grade-b-card">
+              <div className="card-top-badge medium-badge">
+                <span className="badge-thumb">👍</span>
+                <span className="badge-title">MEDIUM QUALITY (Grade B)</span>
+              </div>
+
+              <div className="card-price-container">
+                <div className="card-dual-graphic-row">
+                  <span className="crop-illustration left dimmed">{cropEmoji}</span>
+                  <div className="card-price-col">
+                    <span className="card-price-numbers">
+                      ₹{Math.round(gradeB.min_qtl).toLocaleString()} - ₹{Math.round(gradeB.max_qtl).toLocaleString()}
+                    </span>
+                    <span className="card-price-unit">/ quintal</span>
+                    <span className="card-kg-subtext">
+                      (₹{Math.round(gradeB.min_qtl / 100)} - ₹{Math.round(gradeB.max_qtl / 100)} / kg)
+                    </span>
+                  </div>
+                  <span className="crop-illustration right dimmed">{cropEmoji}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 3: LOW QUALITY (Grade C) */}
+            <div className="quality-card grade-c-card">
+              <div className="card-top-badge low-badge">
+                <span className="badge-warn">⚠️</span>
+                <span className="badge-title">LOW QUALITY (Grade C)</span>
+              </div>
+
+              <div className="card-price-container">
+                <div className="card-dual-graphic-row">
+                  <span className="crop-illustration left pale">{cropEmoji}</span>
+                  <div className="card-price-col">
+                    <span className="card-price-numbers">
+                      ₹{Math.round(gradeC.min_qtl).toLocaleString()} - ₹{Math.round(gradeC.max_qtl).toLocaleString()}
+                    </span>
+                    <span className="card-price-unit">/ quintal</span>
+                    <span className="card-kg-subtext">
+                      (₹{Math.round(gradeC.min_qtl / 100)} - ₹{Math.round(gradeC.max_qtl / 100)} / kg)
+                    </span>
+                  </div>
+                  <span className="crop-illustration right pale">{cropEmoji}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SELLING ADVICE BANNER (Green) */}
+          <div className="selling-advice-pill-banner">
+            <span className="advice-check-icon">✅</span>
+            <span className="advice-text">
+              <b>SELLING ADVICE:</b> {activeCropData.selling_advice}
+            </span>
+          </div>
+
+          {/* WEATHER ALERT BANNER (Amber) */}
+          <div className="weather-alert-pill-banner">
+            <span className="alert-warn-icon">⚠️</span>
+            <span className="alert-text">
+              <b>WEATHER ALERT:</b> {activeCropData.weather_alert}
+            </span>
+          </div>
+        </>
+      )}
 
       {/* 8. NEAREST MARKETS & HELPDESK FOOTER STRIP */}
       <div className="advisor-footer-ticker">
@@ -533,13 +624,13 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         <div className="ticker-right-helpdesk">
           <button
             type="button"
-            onClick={() => onOpenHelpline(activeCropData.helpdesk || '1800-123-1234')}
+            onClick={() => onOpenHelpline(activeCropData.helpdesk || KISAN_CALL_CENTRE_NUMBER)}
             className="helpdesk-link-btn"
             title="Call APMC Helpdesk"
           >
             <PhoneCall size={14} />
             <span>
-              {currentLocation?.name?.en || 'Mandi'} APMC Helpdesk: <b>{activeCropData.helpdesk || '1800-123-1234'}</b>
+              {currentLocation?.name?.en || 'Mandi'} APMC Helpdesk: <b>{activeCropData.helpdesk || KISAN_CALL_CENTRE_NUMBER}</b>
             </span>
           </button>
         </div>

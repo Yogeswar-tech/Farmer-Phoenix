@@ -77,5 +77,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=20s --timeout=5s --start-period=5s --retries=3 \
     CMD python3 -c 'import os, urllib.request; port = os.getenv("PORT", "8080"); urllib.request.urlopen(f"http://127.0.0.1:{port}/v1/health")' || exit 1
 
-# Start FastAPI application via Uvicorn listening dynamically on 0.0.0.0:$PORT
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 2"]
+# Start FastAPI application via Uvicorn listening dynamically on 0.0.0.0:$PORT (Single worker per Cloud Run container)
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

@@ -3,7 +3,7 @@ import type { Language, CropDisease, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, CROP_DISEASES } from '../data/mockData';
 import { KisanSethuApi } from '../services/api';
-import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Camera, AlertCircle, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
 
 interface CropDoctorViewProps {
   currentLang: Language;

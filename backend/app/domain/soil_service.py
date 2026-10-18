@@ -8,15 +8,14 @@ Provides:
 5. Audit logging into PostgreSQL/SQLite `soil_health_records` table.
 """
 
-import logging
 import json
+import logging
 import random
 import urllib.request
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any, cast
 
-from app.settings import settings
-from app.llm.client import LLMGateway
+from app.llm.client import LLMGateway, LLMUnavailableError
 
 logger = logging.getLogger("SoilService")
 
@@ -233,12 +232,12 @@ class SoilHealthEngine:
         self,
         crop_key: str = "chilli",
         acres: float = 1.0,
-        nitrogen_kg_ha: Optional[float] = None,
-        phosphorus_kg_ha: Optional[float] = None,
-        potassium_kg_ha: Optional[float] = None,
-        ph: Optional[float] = None,
+        nitrogen_kg_ha: float | None = None,
+        phosphorus_kg_ha: float | None = None,
+        potassium_kg_ha: float | None = None,
+        ph: float | None = None,
         location_id: str = "guntur",
-        farmer_phone: Optional[str] = None,
+        farmer_phone: str | None = None,
         lang: str = "en"
     ) -> dict[str, Any]:
         """Calculates commercial fertilizer bags (Urea, SSP, MOP) based on deficit math."""
@@ -420,38 +419,40 @@ class SoilHealthEngine:
             "}"
         )
         try:
-            if settings.gemini_api_key and not settings.gemini_api_key.startswith("your_"):
-                text_resp = await llm.generate_vision_response(
-                    image_bytes=image_bytes,
-                    mime_type=mime_type,
-                    prompt=prompt
-                )
-                if text_resp:
-                    cleaned = text_resp.strip()
-                    if cleaned.startswith("```"):
-                        cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-                    parsed = json.loads(cleaned)
+            if not llm.is_available():
+                raise LLMUnavailableError("LLM vision service is not configured")
+            text_resp = await llm.generate_vision_response(
+                image_bytes=image_bytes,
+                mime_type=mime_type,
+                prompt=prompt
+            )
+            if text_resp:
+                cleaned = text_resp.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, dict):
                     parsed["status"] = "success"
                     parsed["source"] = "Gemini 2.5 Vision AI OCR"
-                    return parsed
-        except Exception as exc:
-            logger.warning("Gemini Vision Soil parsing fallback note: %s", exc)
+                    return cast(dict[str, Any], parsed)
+        except (LLMUnavailableError, Exception) as exc:
+            logger.warning("Gemini Vision Soil parsing unavailable: %s", exc)
 
-        # Fallback realistic parsing for testing/offline without API key
+        friendly_message = (
+            "క్షమించండి, సాయిల్ హెల్త్ కార్డ్ విశ్లేషణ సేవ ప్రస్తుతం అందుబాటులో లేదు. దయచేసి సమీప కేవీకే (KVK) ల్యాబ్‌ను సంప్రదించండి."
+            if lang == "te"
+            else (
+                "क्षमा करें, मृदा स्वास्थ्य कार्ड विश्लेषण सेवा वर्तमान में अनुपलब्ध है। कृपया अपनी निकटतम केवीके प्रयोगशाला से संपर्क करें।"
+                if lang == "hi"
+                else "Soil Health Card vision analysis is temporarily unavailable. Please visit your nearest KVK soil testing lab."
+            )
+        )
         return {
-            "status": "success",
-            "is_valid_report": True,
-            "sample_id": f"SHC-SCAN-{datetime.now().strftime('%Y%m%d-%H%M')}",
-            "district": "Auto-Extracted Lab Sample",
-            "ph": 7.3,
-            "organic_carbon_pct": 0.52,
-            "nitrogen_kg_ha": 205.0,
-            "phosphorus_kg_ha": 22.0,
-            "potassium_kg_ha": 330.0,
-            "zinc_ppm": 0.55,
-            "boron_ppm": 0.42,
-            "summary": "Soil sample processed: Nitrogen Low (205 kg/ha), Phosphorus Medium (22 kg/ha), Potassium High (330 kg/ha), pH Optimal (7.3).",
-            "source": "Kisan-Sethu Intelligent Document Parser"
+            "status": "unavailable",
+            "advisory": None,
+            "is_valid_report": False,
+            "message": friendly_message,
+            "source": "None"
         }
 
     def book_kvk_soil_test(

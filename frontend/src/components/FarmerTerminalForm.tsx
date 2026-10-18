@@ -212,11 +212,13 @@ export const FarmerTerminalForm: FC = () => {
       const totalNet = Math.round(netPerQtl * quintalMultiplier);
 
       // 3. Fetch real weather data
-      const weatherList = await KisanSethuApi.getWeatherAdvisories(formData.district);
+      const weatherRes = await KisanSethuApi.getWeatherAdvisories(formData.district);
+      const weatherList = (weatherRes as any)?.data || (Array.isArray(weatherRes) ? weatherRes : []);
       const liveWeather = weatherList && weatherList.length > 0 ? weatherList[0] : null;
 
       // 4. Fetch real cold storage data
-      const storages = await KisanSethuApi.getColdStorages(formData.district);
+      const storagesRes = await KisanSethuApi.getColdStorages(formData.district);
+      const storages = (storagesRes as any)?.data || (Array.isArray(storagesRes) ? storagesRes : []);
       const topStorage = storages && storages.length > 0 ? storages[0] : null;
 
       let rec: 'sell_now' | 'hold_storage' | 'delay_harvest' = 'sell_now';

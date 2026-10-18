@@ -30,8 +30,10 @@ export const LocationModal: FC<LocationModalProps> = ({
   // Debounced Pan-India API search across 28 states & UTs
   useEffect(() => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
-      setRemoteResults([]);
-      return;
+      const timer = setTimeout(() => {
+        setRemoteResults([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const timer = setTimeout(async () => {

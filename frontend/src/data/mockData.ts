@@ -1,5 +1,8 @@
 import type { MandiItem, WeatherDay, CropDisease, GovtScheme, ColdStorageFacility, SoilReportData, SeasonalClimateOutlook, LocationOption, CropSuitability, PriceTrendDay, Language } from '../types';
 
+// Centralized verified Government of India Kisan Call Centre (KCC) config
+export { KISAN_CALL_CENTRE_NUMBER, KISAN_CALL_CENTRE_SHORTCODE } from '../config.ts';
+
 export const AGRICULTURAL_LOCATIONS: LocationOption[] = [
   {
     id: 'guntur',

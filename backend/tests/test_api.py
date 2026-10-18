@@ -36,7 +36,11 @@ def test_ask_endpoint() -> None:
     assert "sources" in data
     assert "nearby_markets" in data
     assert "as_of" in data
-    assert data["grounding_valid"] is True
+    if data.get("status") == "unavailable":
+        assert data["advisory"] is None
+        assert data["grounding_valid"] is False
+    else:
+        assert data["grounding_valid"] is True
     # Check FarmerEnvelope compatibility fields
     assert "card" in data
     assert "numbers" in data

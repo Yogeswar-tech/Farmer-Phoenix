@@ -325,6 +325,96 @@
   color: #64748b;
 }
 
+/* Top row inside card with Title + Live/Sample badge */
+.fhd-card-top-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fhd-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.fhd-badge-live {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.fhd-badge-sample {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.fhd-badge-loading {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.fhd-loading-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fhd-spinner {
+  animation: fhdSpin 1s linear infinite;
+}
+
+@keyframes fhdSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fhd-error-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.fhd-error-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.fhd-card-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fhd-attribution-text {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.fhd-attribution-text b {
+  color: #334155;
+  font-weight: 700;
+}
+
 .fhd-status-pill-green {
   display: inline-flex;
   align-items: center;
@@ -460,8 +550,90 @@
   color: #64748b;
   font-size: 12.5px;
   font-weight: 600;
+  min-height: 48px;
 }
 
 .fhd-signin-lock-link:hover {
   color: #0f172a;
+}
+
+/* Nearest Markets Full Card */
+.fhd-nearest-markets-card {
+  width: 100%;
+}
+
+.fhd-market-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fhd-market-icon {
+  font-size: 18px;
+}
+
+.fhd-market-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.02em;
+}
+
+.fhd-nearest-markets-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+.fhd-nearest-market-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+
+.fhd-nm-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fhd-nm-price {
+  font-weight: 800;
+  color: #16a34a;
+}
+
+.fhd-nm-distance {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fhd-status-pill-unavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  align-self: flex-start;
+}
+
+/* Ensure 48px tap target accessibility minimums */
+.fhd-expert-call,
+.fhd-audio-btn,
+.fhd-doctor-action-btn,
+.fhd-voice-action-btn {
+  min-height: 48px;
+  min-width: 48px;
+  box-sizing: border-box;
 }

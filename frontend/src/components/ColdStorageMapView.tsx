@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, type FC, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type FC, type FormEvent } from 'react';
 import type { Language, LocationOption } from '../types';
 import { COLD_STORAGES } from '../data/mockData';
 import { translations } from '../data/i18n';
@@ -20,7 +20,6 @@ import {
   Truck,
   RotateCcw,
   ExternalLink,
-  MapPin,
   LocateFixed,
   Award,
   Box
@@ -212,7 +211,6 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
   const [activeFacilityId, setActiveFacilityId] = useState<string>('');
   const [liveDbFacilities, setLiveDbFacilities] = useState<any[]>([]);
   const [liveMandiRates, setLiveMandiRates] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [userGpsCoords, setUserGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsActive, setGpsActive] = useState<boolean>(false);
 
@@ -249,10 +247,9 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
   }, [userGpsCoords, currentLocation?.id]);
 
   // Fetch Pan-India Cold Storages from PostgreSQL backend with GPS proximity
-  const fetchFacilities = async () => {
-    setIsLoading(true);
+  const fetchFacilities = useCallback(async () => {
     try {
-      const [storages, mandis] = await Promise.all([
+      const [storagesRes, mandisRes] = await Promise.all([
         KisanSethuApi.getColdStorages({
           lat: farmerCoords.lat,
           lng: farmerCoords.lng,
@@ -263,6 +260,9 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
         KisanSethuApi.getMandiRates()
       ]);
 
+      const storages = (storagesRes as any)?.data || (Array.isArray(storagesRes) ? storagesRes : []);
+      const mandis = (mandisRes as any)?.data || (Array.isArray(mandisRes) ? mandisRes : []);
+
       if (storages && storages.length > 0) {
         setLiveDbFacilities(storages);
       }
@@ -271,14 +271,15 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
       }
     } catch (err) {
       console.warn('Backend fetch for cold storage data fallback:', err);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [farmerCoords.lat, farmerCoords.lng, selectedRadius, selectedCommodity, mapQuery]);
 
   useEffect(() => {
-    fetchFacilities();
-  }, [farmerCoords.lat, farmerCoords.lng, selectedRadius, selectedCommodity]);
+    const run = async () => {
+      await fetchFacilities();
+    };
+    run();
+  }, [fetchFacilities]);
 
   // Master facilities collection (Cold Storages + Mandis)
   const allFacilities: GeoFacilityItem[] = useMemo(() => {
@@ -385,25 +386,17 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     });
   }, [allFacilities, filterType, selectedRadius, mapQuery, currentLang]);
 
-  // Auto-select nearest facility if activeFacilityId is not set or not in list
-  useEffect(() => {
-    if (filteredFacilities.length > 0) {
-      const exists = filteredFacilities.some((f) => f.id === activeFacilityId);
-      if (!exists) {
-        setActiveFacilityId(filteredFacilities[0].id);
-      }
-    }
-  }, [filteredFacilities, activeFacilityId]);
+  const selectedId = activeFacilityId || filteredFacilities[0]?.id || allFacilities[0]?.id;
 
   // Active facility object
   const activeFacility = useMemo(() => {
     return (
-      filteredFacilities.find((f) => f.id === activeFacilityId) ||
-      allFacilities.find((f) => f.id === activeFacilityId) ||
+      filteredFacilities.find((f) => f.id === selectedId) ||
+      allFacilities.find((f) => f.id === selectedId) ||
       filteredFacilities[0] ||
       allFacilities[0]
     );
-  }, [allFacilities, filteredFacilities, activeFacilityId]);
+  }, [allFacilities, filteredFacilities, selectedId]);
 
   // Estimated road freight: Base ₹250 + ₹22/km
   const estimatedFreight = useMemo(() => {
@@ -441,6 +434,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
         mapInstanceRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Map Tile Layer Switching
@@ -499,7 +493,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
 
     // 2. Add Pins for Facilities
     filteredFacilities.forEach((item) => {
-      const isActive = item.id === activeFacilityId;
+      const isActive = item.id === selectedId;
       const isStorage = item.type === 'storage';
 
       const pinHtml = `
@@ -573,7 +567,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
       const bounds = L.latLngBounds(latlngs);
       map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 12, duration: 0.8 });
     }
-  }, [filteredFacilities, activeFacilityId, farmerCoords, activeFacility, currentLang, currentLocation, gpsActive]);
+  }, [filteredFacilities, selectedId, farmerCoords, activeFacility, currentLang, currentLocation, gpsActive]);
 
   const handleRecenter = () => {
     if (!mapInstanceRef.current) return;
@@ -989,7 +983,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
 
             <div className="cards-scroll-container">
               {filteredFacilities.map((f) => {
-                const isSelected = f.id === activeFacilityId;
+                const isSelected = f.id === selectedId;
                 const isStorage = f.type === 'storage';
 
                 return (

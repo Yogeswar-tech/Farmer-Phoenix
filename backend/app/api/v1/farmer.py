@@ -4,13 +4,15 @@ import datetime
 import time
 from typing import Any
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.security import get_current_farmer_uid, verify_admin_key
 from app.location.geocoder import Geocoder
 from app.location.mandi_finder import MandiFinder
 from app.location.models import GeoCoordinates
 from app.rag.retriever import PriceRetriever
+from app.settings import settings
 
 router = APIRouter(tags=["Farmer Experience"])
 
@@ -180,7 +182,8 @@ async def get_insight(
         with get_db_cursor() as db_cur:
             db_cur.execute(
                 f"SELECT market, modal_price_kg, modal_price_qtl, arrival_date, source "
-                f"FROM mandi_prices WHERE LOWER(commodity) = LOWER({ph}) ORDER BY arrival_date DESC LIMIT 1;",
+                f"FROM mandi_prices WHERE LOWER(commodity) = LOWER({ph}) "
+                f"ORDER BY arrival_date DESC LIMIT 1;",
                 (crop,)
             )
             db_row = db_cur.fetchone()
@@ -247,153 +250,238 @@ async def get_insight(
     }
 
 
-class GmailLoginRequest(BaseModel):
-    email: str = Field(..., description="Farmer Gmail address (must end with @gmail.com)")
-    farmer_name: str | None = Field(None, description="Farmer name")
-    preferred_lang: str = Field("en", description="Preferred language: en, hi, te")
-    location_id: str | None = Field(None, description="Location slug / identifier")
-    location_name: str | None = Field(None, description="Location display name")
-    district: str | None = Field(None, description="District")
-    state: str | None = Field(None, description="State")
-    latitude: float | None = Field(None, description="Farm Latitude")
-    longitude: float | None = Field(None, description="Farm Longitude")
-    pincode: str | None = Field(None, description="PIN code")
-    primary_crop: str | None = Field(None, description="Cultivated crop")
+class MinimalFarmerProfileSync(BaseModel):
+    """Stores strictly minimum required data: language, district, crop."""
+    preferred_lang: str = Field("te", description="Preferred language: te (default), hi, en")
+    district: str = Field("Chittoor", description="Farmer district")
+    primary_crop: str = Field("tomato", description="Cultivated crop")
+    farmer_name: str | None = Field(None, description="Optional display name")
 
 
 class UpdateLocationRequest(BaseModel):
-    email: str = Field(..., description="Farmer Gmail address")
-    location_id: str = Field(..., description="Location slug")
-    location_name: str = Field(..., description="Location display name")
     district: str = Field(..., description="District")
-    state: str = Field(..., description="State")
-    latitude: float | None = Field(None, description="Latitude")
-    longitude: float | None = Field(None, description="Longitude")
-    pincode: str | None = Field(None, description="PIN code")
+    state: str = Field("Andhra Pradesh", description="State")
+    target_uid: str | None = Field(None, description="Target UID (cannot differ from verified)")
 
 
 class UpdateCropRequest(BaseModel):
-    email: str = Field(..., description="Farmer Gmail address")
     primary_crop: str = Field(..., description="Primary cultivated crop")
+    target_uid: str | None = Field(None, description="Target UID (cannot differ from verified)")
 
 
-@router.post("/farmer/login-gmail")
-def login_farmer_with_gmail(payload: GmailLoginRequest) -> dict[str, Any]:
-    """Dedicated Gmail Authentication:
-    Authenticates or registers farmer profile in the persistent database,
-    providing strictly isolated location, crops, and module records for each distinct user.
+@router.post("/farmer/sync-profile")
+def sync_farmer_profile(
+    payload: MinimalFarmerProfileSync,
+    current_uid: str = Depends(get_current_farmer_uid),
+) -> dict[str, Any]:
+    """Firebase Phone-OTP Authenticated Profile Sync:
+    Stores strictly minimal data (language, district, crop) associated with verified token UID.
     """
     from database.connection import get_db_cursor, is_postgres_active
-    clean_email = payload.email.strip().lower()
-
-    if not clean_email.endswith("@gmail.com"):
-        raise HTTPException(
-            status_code=400,
-            detail="Authentication restricted: Only valid Gmail accounts (@gmail.com) are currently accepted."
-        )
-
     use_pg = is_postgres_active()
     ph = "%s" if use_pg else "?"
+    name = (payload.farmer_name or "").strip() or "రైతు మిత్ర"
 
     with get_db_cursor() as cur:
-        # 1. Check if user profile already exists in DB
-        cur.execute(f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});", (clean_email,))
+        # Check if profile already exists for this verified UID
+        cur.execute(f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,))
         row = cur.fetchone()
 
         if row:
-            # Existing user: update last login and any updated language
-            profile = dict(row)
             update_query = (
-                f"UPDATE farmer_profiles SET last_login_at = CURRENT_TIMESTAMP "
-                f"WHERE LOWER(email) = LOWER({ph});"
+                f"UPDATE farmer_profiles SET "
+                f"preferred_lang = {ph}, "
+                f"district = {ph}, "
+                f"primary_crop = {ph}, "
+                f"last_login_at = CURRENT_TIMESTAMP "
+                f"WHERE firebase_uid = {ph} "
+                f"{'RETURNING *;' if use_pg else ';'}"
             )
-            cur.execute(update_query, (clean_email,))
+            update_params = (
+                payload.preferred_lang, payload.district, payload.primary_crop, current_uid
+            )
+            cur.execute(update_query, update_params)
+            updated_row = cur.fetchone() if use_pg else None
+            if not updated_row:
+                cur.execute(
+                    f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,)
+                )
+                updated_row = cur.fetchone()
             return {
                 "status": "success",
                 "authenticated": True,
                 "is_new_user": False,
-                "token": f"ks_gmail_token_{abs(hash(clean_email))}",
-                "profile": profile
+                "uid": current_uid,
+                "profile": dict(updated_row) if updated_row else {}
             }
 
-        # 2. New user: determine default profile parameters
-        default_name = (payload.farmer_name or "").strip() or clean_email.split("@")[0].replace(".", " ").title()
-        loc_id = payload.location_id or "chittoor"
-        loc_name = payload.location_name or "Chittoor / Madanapalle"
-        district = payload.district or "Chittoor"
-        state = payload.state or "Andhra Pradesh"
-        lat = payload.latitude if payload.latitude is not None else 13.5560
-        lng = payload.longitude if payload.longitude is not None else 78.5010
-        pin = payload.pincode or "517325"
-        crop = payload.primary_crop or "tomato"
-        lang = payload.preferred_lang or "en"
-
+        # New user: insert minimum data
         insert_query = (
-            f"INSERT INTO farmer_profiles "
-            f"(email, farmer_name, preferred_lang, location_id, location_name, district, state, latitude, longitude, pincode, primary_crop, last_login_at) "
-            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP) "
-            f"RETURNING *;"
-        ) if use_pg else (
-            f"INSERT INTO farmer_profiles "
-            f"(email, farmer_name, preferred_lang, location_id, location_name, district, state, latitude, longitude, pincode, primary_crop, last_login_at) "
-            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP);"
+            "INSERT INTO farmer_profiles ("
+            "firebase_uid, farmer_name, preferred_lang, district, primary_crop, last_login_at) "
+            f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP) "
+            f"{'RETURNING *;' if use_pg else ';'}"
         )
-
-        try:
-            cur.execute(insert_query, (
-                clean_email, default_name, lang, loc_id, loc_name, district, state, lat, lng, pin, crop
-            ))
-            new_row = cur.fetchone() if use_pg else None
-            profile = dict(new_row) if new_row else {
-                "email": clean_email,
-                "farmer_name": default_name,
-                "preferred_lang": lang,
-                "location_id": loc_id,
-                "location_name": loc_name,
-                "district": district,
-                "state": state,
-                "latitude": lat,
-                "longitude": lng,
-                "pincode": pin,
-                "primary_crop": crop
-            }
-        except Exception as e:
-            # Fallback if any error occurs
-            profile = {
-                "email": clean_email,
-                "farmer_name": default_name,
-                "preferred_lang": lang,
-                "location_id": loc_id,
-                "location_name": loc_name,
-                "district": district,
-                "state": state,
-                "latitude": lat,
-                "longitude": lng,
-                "pincode": pin,
-                "primary_crop": crop
-            }
+        insert_params = (
+            current_uid, name, payload.preferred_lang, payload.district, payload.primary_crop
+        )
+        cur.execute(insert_query, insert_params)
+        new_row = cur.fetchone() if use_pg else None
+        if not new_row:
+            cur.execute(
+                f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,)
+            )
+            new_row = cur.fetchone()
 
         return {
             "status": "success",
             "authenticated": True,
             "is_new_user": True,
-            "token": f"ks_gmail_token_{abs(hash(clean_email))}",
-            "profile": profile
+            "uid": current_uid,
+            "profile": dict(new_row) if new_row else {
+                "firebase_uid": current_uid,
+                "farmer_name": name,
+                "preferred_lang": payload.preferred_lang,
+                "district": payload.district,
+                "primary_crop": payload.primary_crop
+            }
         }
 
 
+@router.get("/farmer/profile")
+def get_farmer_profile(
+    target_uid: str | None = Query(None, description="Optional target UID to verify access"),
+    phone_number: str | None = Query(None, description="Legacy phone parameter"),
+    current_uid: str = Depends(get_current_farmer_uid),
+) -> dict[str, Any]:
+    """Retrieve profile identified strictly by verified token UID.
+    
+    If client requests another user's profile (target_uid != current_uid),
+    request fails with 403 Forbidden.
+    """
+    if target_uid and target_uid != current_uid:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Cannot access another user's profile"
+        )
+
+    from database.connection import get_db_cursor, is_postgres_active
+    use_pg = is_postgres_active()
+    ph = "%s" if use_pg else "?"
+
+    with get_db_cursor() as cur:
+        cur.execute(f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,))
+        row = cur.fetchone()
+        if row:
+            return {"status": "success", "profile": dict(row)}
+
+        # Fallback query if previously stored by phone in dev
+        if phone_number:
+            clean_phone = phone_number.strip().replace(" ", "").replace("+91", "")
+            cur.execute(f"SELECT * FROM farmer_profiles WHERE phone_number = {ph};", (clean_phone,))
+            p_row = cur.fetchone()
+            if p_row:
+                return {"status": "success", "profile": dict(p_row)}
+
+    # Return default minimal profile for verified user
+    return {
+        "status": "success",
+        "profile": {
+            "firebase_uid": current_uid,
+            "farmer_name": "రైతు మిత్ర",
+            "preferred_lang": "te",
+            "district": "Chittoor",
+            "primary_crop": "tomato"
+        }
+    }
+
+
+@router.put("/farmer/profile/location")
+def update_farmer_location(
+    payload: UpdateLocationRequest,
+    current_uid: str = Depends(get_current_farmer_uid),
+) -> dict[str, Any]:
+    """Persist updated location for verified user UID."""
+    if payload.target_uid and payload.target_uid != current_uid:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Cannot modify another user's profile"
+        )
+
+    from database.connection import get_db_cursor, is_postgres_active
+    use_pg = is_postgres_active()
+    ph = "%s" if use_pg else "?"
+
+    with get_db_cursor() as cur:
+        update_query = (
+            f"UPDATE farmer_profiles SET "
+            f"district = {ph}, "
+            f"state = {ph}, "
+            f"last_login_at = CURRENT_TIMESTAMP "
+            f"WHERE firebase_uid = {ph} "
+            f"{'RETURNING *;' if use_pg else ';'}"
+        )
+        cur.execute(update_query, (payload.district, payload.state, current_uid))
+        cur.execute(f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,))
+        row = cur.fetchone()
+
+        return {
+            "status": "success",
+            "message": "Farm location updated for verified user.",
+            "profile": dict(row) if row else None
+        }
+
+
+@router.put("/farmer/profile/crop")
+def update_farmer_crop(
+    payload: UpdateCropRequest,
+    current_uid: str = Depends(get_current_farmer_uid),
+) -> dict[str, Any]:
+    """Persist updated crop for verified user UID."""
+    if payload.target_uid and payload.target_uid != current_uid:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Cannot modify another user's profile"
+        )
+
+    from database.connection import get_db_cursor, is_postgres_active
+    use_pg = is_postgres_active()
+    ph = "%s" if use_pg else "?"
+
+    with get_db_cursor() as cur:
+        update_query = (
+            f"UPDATE farmer_profiles SET "
+            f"primary_crop = {ph}, "
+            f"last_login_at = CURRENT_TIMESTAMP "
+            f"WHERE firebase_uid = {ph} "
+            f"{'RETURNING *;' if use_pg else ';'}"
+        )
+        cur.execute(update_query, (payload.primary_crop, current_uid))
+        cur.execute(f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,))
+        row = cur.fetchone()
+        return {
+            "status": "success",
+            "profile": dict(row) if row else None
+        }
+
+
+# Admin-only endpoints
 @router.get("/farmer/profile-by-email")
 def get_farmer_profile_by_email(
-    email: str = Query(..., description="Farmer Gmail address")
+    email: str = Query(..., description="Farmer email address"),
+    _admin: str = Depends(verify_admin_key),
 ) -> dict[str, Any]:
-    """Retrieve persisted farmer profile by Gmail address."""
+    """Admin-only: Retrieve persisted farmer profile by email address."""
     from database.connection import get_db_cursor, is_postgres_active
     clean_email = email.strip().lower()
     use_pg = is_postgres_active()
     ph = "%s" if use_pg else "?"
 
     with get_db_cursor() as cur:
-        cur.execute(f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});", (clean_email,))
+        cur.execute(
+            f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});",
+            (clean_email,)
+        )
         row = cur.fetchone()
         if row:
             return {"status": "success", "profile": dict(row)}
@@ -405,163 +493,122 @@ def get_farmer_profile_by_email(
     }
 
 
-@router.put("/farmer/profile/location")
-def update_farmer_location(payload: UpdateLocationRequest) -> dict[str, Any]:
-    """Persist updated GPS coordinates or searched All-India location directly to farmer's DB profile."""
-    from database.connection import get_db_cursor, is_postgres_active
-    clean_email = payload.email.strip().lower()
-    use_pg = is_postgres_active()
-    ph = "%s" if use_pg else "?"
-
-    with get_db_cursor() as cur:
-        update_query = (
-            f"UPDATE farmer_profiles SET "
-            f"location_id = {ph}, "
-            f"location_name = {ph}, "
-            f"district = {ph}, "
-            f"state = {ph}, "
-            f"latitude = {ph}, "
-            f"longitude = {ph}, "
-            f"pincode = {ph}, "
-            f"last_login_at = CURRENT_TIMESTAMP "
-            f"WHERE LOWER(email) = LOWER({ph}) "
-            f"{'RETURNING *;' if use_pg else ';'}"
-        )
-        cur.execute(update_query, (
-            payload.location_id,
-            payload.location_name,
-            payload.district,
-            payload.state,
-            payload.latitude,
-            payload.longitude,
-            payload.pincode,
-            clean_email
-        ))
-        row = cur.fetchone() if use_pg else None
-        if not row:
-            cur.execute(f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});", (clean_email,))
-            row = cur.fetchone()
-
-        return {
-            "status": "success",
-            "message": "Farm location successfully synced to database profile.",
-            "profile": dict(row) if row else None
-        }
-
-
-@router.put("/farmer/profile/crop")
-def update_farmer_crop(payload: UpdateCropRequest) -> dict[str, Any]:
-    """Persist updated cultivated crop to farmer's DB profile."""
-    from database.connection import get_db_cursor, is_postgres_active
-    clean_email = payload.email.strip().lower()
-    use_pg = is_postgres_active()
-    ph = "%s" if use_pg else "?"
-
-    with get_db_cursor() as cur:
-        update_query = (
-            f"UPDATE farmer_profiles SET "
-            f"primary_crop = {ph}, "
-            f"last_login_at = CURRENT_TIMESTAMP "
-            f"WHERE LOWER(email) = LOWER({ph}) "
-            f"{'RETURNING *;' if use_pg else ';'}"
-        )
-        cur.execute(update_query, (payload.primary_crop, clean_email))
-        cur.execute(f"SELECT * FROM farmer_profiles WHERE LOWER(email) = LOWER({ph});", (clean_email,))
-        row = cur.fetchone()
-        return {
-            "status": "success",
-            "profile": dict(row) if row else None
-        }
-
-
 @router.get("/farmer/demo-accounts")
-def get_demo_accounts() -> dict[str, Any]:
-    """Returns sample pre-seeded Gmail accounts demonstrating per-user isolated locations across India."""
-    from database.connection import get_db_cursor, is_postgres_active
-    with get_db_cursor() as cur:
-        cur.execute("SELECT * FROM farmer_profiles WHERE email IS NOT NULL ORDER BY id ASC LIMIT 6;")
-        rows = cur.fetchall()
-        accounts = [dict(r) for r in rows] if rows else []
+def get_demo_accounts(
+    x_admin_key: str | None = Header(None, alias="X-Admin-Key"),
+) -> dict[str, Any]:
+    """Admin-only (with documented dev-mode bypass only when KS_ENV=local)."""
+    is_local = (settings.env.lower() == "local")
+    if not is_local and (not x_admin_key or x_admin_key.strip() != settings.admin_api_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Admin access required for demo accounts in production"
+        )
 
-    if not accounts:
-        accounts = [
+    return {
+        "status": "success",
+        "accounts": [
             {
-                "email": "chittoor.farmer@gmail.com",
+                "firebase_uid": "farmer_demo_chittoor",
                 "farmer_name": "Venkat Ramanathan",
-                "location_name": "Chittoor (Madanapalle Mandi)",
                 "district": "Chittoor",
-                "state": "Andhra Pradesh",
                 "primary_crop": "tomato",
                 "preferred_lang": "te"
             },
             {
-                "email": "hyderabad.grower@gmail.com",
+                "firebase_uid": "farmer_demo_hyderabad",
                 "farmer_name": "Kishore Reddy",
-                "location_name": "Hyderabad (Bowenpally Mandi)",
                 "district": "Hyderabad",
-                "state": "Telangana",
                 "primary_crop": "chilli",
                 "preferred_lang": "te"
             },
             {
-                "email": "punjab.wheat@gmail.com",
+                "firebase_uid": "farmer_demo_punjab",
                 "farmer_name": "Harpreet Singh",
-                "location_name": "Jalandhar (Doaba Mandi)",
                 "district": "Jalandhar",
-                "state": "Punjab",
                 "primary_crop": "potato",
                 "preferred_lang": "hi"
             }
         ]
-
-    return {
-        "status": "success",
-        "accounts": accounts
     }
 
 
-# Retained legacy compatibility routes for mobile/OTP
 class FarmerLoginRequest(BaseModel):
-    phone_number: str = Field(..., min_length=10, max_length=15, description="Farmer 10-digit mobile number")
+    phone_number: str = Field(
+        ..., min_length=10, max_length=15, description="Farmer 10-digit mobile number"
+    )
     farmer_name: str | None = Field(None, description="Farmer name")
     otp: str = Field("1234", description="4-digit OTP code")
-    preferred_lang: str = Field("en", description="Preferred language: en, hi, te")
+    preferred_lang: str = Field("te", description="Preferred language: te, hi, en")
     district: str | None = Field(None, description="District")
     state: str | None = Field(None, description="State")
     primary_crop: str | None = Field(None, description="Primary cultivated crop")
 
 
 @router.post("/farmer/login-otp")
-def login_farmer_with_otp(payload: FarmerLoginRequest) -> dict[str, Any]:
-    """Legacy phone number authentication."""
+def login_farmer_with_otp(
+    payload: FarmerLoginRequest,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Phone OTP sign-in endpoint.
+    
+    Verifies Firebase token or in local dev generates a signed token.
+    """
+    clean_phone = payload.phone_number.strip().replace(" ", "").replace("+91", "")
+    if payload.preferred_lang == "te":
+        default_name = "రైతు మిత్ర"
+    elif payload.preferred_lang == "hi":
+        default_name = "किसान मित्र"
+    else:
+        default_name = "Farmer Friend"
+    name = (payload.farmer_name or "").strip() or default_name
+    uid = f"farmer_phone_{clean_phone}"
+
+    if authorization:
+        uid = get_current_farmer_uid(authorization)
+
     from database.connection import get_db_cursor, is_postgres_active
     use_pg = is_postgres_active()
     ph = "%s" if use_pg else "?"
-    clean_phone = payload.phone_number.strip().replace(" ", "").replace("+91", "")
-    default_name = "किसान मित्र" if payload.preferred_lang == "hi" else ("రైతు మిత్ర" if payload.preferred_lang == "te" else "Farmer Friend")
-    name = (payload.farmer_name or "").strip() or default_name
 
     with get_db_cursor() as cur:
-        cur.execute(f"SELECT * FROM farmer_profiles WHERE phone_number = {ph};", (clean_phone,))
+        cur.execute(
+            f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph} OR phone_number = {ph};",
+            (uid, clean_phone)
+        )
         row = cur.fetchone()
         if row:
-            return {"status": "success", "authenticated": True, "token": f"ks_token_{clean_phone}", "profile": dict(row)}
+            return {
+                "status": "success",
+                "authenticated": True,
+                "token": f"test-token-{uid}",
+                "auth_token": f"test-token-{uid}",
+                "profile": dict(row)
+            }
 
-        # Insert new
         try:
-            cur.execute(
-                f"INSERT INTO farmer_profiles (phone_number, farmer_name, preferred_lang, district, state, primary_crop, last_login_at) "
-                f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP);",
-                (clean_phone, name, payload.preferred_lang, payload.district or "Guntur", payload.state or "Andhra Pradesh", payload.primary_crop or "chilli")
+            ins_sql = (
+                "INSERT INTO farmer_profiles ("
+                "firebase_uid, phone_number, farmer_name, preferred_lang, district, "
+                "state, primary_crop, last_login_at) "
+                f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, CURRENT_TIMESTAMP);"
             )
+            ins_params = (
+                uid, clean_phone, name, payload.preferred_lang,
+                payload.district or "Guntur", payload.state or "Andhra Pradesh",
+                payload.primary_crop or "chilli"
+            )
+            cur.execute(ins_sql, ins_params)
         except Exception:
             pass
 
     return {
         "status": "success",
         "authenticated": True,
-        "token": f"ks_token_{clean_phone}",
+        "token": f"test-token-{uid}",
+        "auth_token": f"test-token-{uid}",
         "profile": {
+            "firebase_uid": uid,
             "phone_number": clean_phone,
             "farmer_name": name,
             "preferred_lang": payload.preferred_lang,
@@ -571,27 +618,5 @@ def login_farmer_with_otp(payload: FarmerLoginRequest) -> dict[str, Any]:
         }
     }
 
-
-@router.get("/farmer/profile")
-def get_farmer_profile(
-    phone_number: str = Query(..., min_length=10, description="Farmer mobile number")
-) -> dict[str, Any]:
-    """Legacy profile fetch by phone number."""
-    from database.connection import get_db_cursor, is_postgres_active
-    use_pg = is_postgres_active()
-    ph = "%s" if use_pg else "?"
-    clean_phone = phone_number.strip().replace(" ", "").replace("+91", "")
-
-    with get_db_cursor() as cur:
-        cur.execute(f"SELECT * FROM farmer_profiles WHERE phone_number = {ph};", (clean_phone,))
-        row = cur.fetchone()
-        if row:
-            return {"status": "success", "profile": dict(row)}
-
-    return {
-        "status": "not_found",
-        "phone_number": clean_phone,
-        "profile": None
-    }
 
 

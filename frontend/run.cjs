@@ -5,7 +5,9 @@ const path = require('path');
 const target = process.argv[2] || 'dev';
 const extraArgs = process.argv.slice(3);
 
-const node22Path = 'C:\\Users\\Asus\\.local\\node-v22.12.0-win-x64\\node.exe';
+const userHome = process.env.USERPROFILE || process.env.HOME || '';
+const localNodeDir = path.join(userHome, '.local', 'node-v22.12.0-win-x64');
+const node22Path = path.join(localNodeDir, 'node.exe');
 const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
 
 let nodeExecutable = process.execPath;
@@ -15,7 +17,7 @@ if (nodeMajor < 20 && fs.existsSync(node22Path)) {
 
 const env = {
   ...process.env,
-  PATH: (fs.existsSync(node22Path) ? 'C:\\Users\\Asus\\.local\\node-v22.12.0-win-x64;' : '') + (process.env.PATH || '')
+  PATH: (fs.existsSync(localNodeDir) ? `${localNodeDir};` : '') + (process.env.PATH || '')
 };
 
 let child;

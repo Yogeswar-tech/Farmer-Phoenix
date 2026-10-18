@@ -15,15 +15,15 @@ Features:
 7. Thread-safe Redis / In-Memory caching for instant response.
 """
 
+import datetime
 import json
 import logging
-import datetime
-import urllib.request
 import urllib.parse
-from typing import Any, Optional
+import urllib.request
+from typing import Any, cast
 
-from app.settings import settings
 from app.cache.cache_service import CacheService
+from app.settings import settings
 
 logger = logging.getLogger("ClimateEngine")
 cache_service = CacheService()
@@ -154,7 +154,7 @@ REGIONAL_CROP_PROFILES: dict[str, list[dict[str, Any]]] = {
 class ClimateEngine:
     """Unified Engine for Weather, All-India Geocoding, Spray Decisions, and Farm Risk Advisories."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.google_weather_key = (
             settings.google_weather_api_key or
             settings.google_maps_api_key or
@@ -269,16 +269,19 @@ class ClimateEngine:
                 {"name": "Jaipur", "district": "Jaipur", "state": "Rajasthan", "lat": 26.9124, "lon": 75.7873, "pin": "302001"},
             ]
             for hub in known_hubs:
-                if q in hub["name"].lower() or q in hub["district"].lower() or q in hub["state"].lower():
+                h_name = str(hub["name"])
+                h_dist = str(hub["district"])
+                h_state = str(hub["state"])
+                if q in h_name.lower() or q in h_dist.lower() or q in h_state.lower():
                     results.append({
-                        "id": f"{hub['name'].lower()}-{hub['district'].lower()}",
-                        "name": hub["name"],
-                        "district": hub["district"],
-                        "state": hub["state"],
+                        "id": f"{h_name.lower()}-{h_dist.lower()}",
+                        "name": h_name,
+                        "district": h_dist,
+                        "state": h_state,
                         "latitude": hub["lat"],
                         "longitude": hub["lon"],
                         "pincode": hub["pin"],
-                        "zone": f"{hub['state']} Farm Zone",
+                        "zone": f"{h_state} Farm Zone",
                         "source": "verified_hub"
                     })
 
@@ -334,7 +337,7 @@ class ClimateEngine:
             "zone": "Indian Agro-Climatic Zone"
         }
 
-    def fetch_live_meteorology(self, lat: float, lon: float, days: int = 16) -> Optional[dict[str, Any]]:
+    def fetch_live_meteorology(self, lat: float, lon: float, days: int = 16) -> dict[str, Any] | None:
         """Fetches live multi-day meteorological parameters via satellite feed (up to 16 days)."""
         days_clamped = min(max(days, 7), 16)
         url = (
@@ -348,7 +351,8 @@ class ClimateEngine:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "KisanSethu-AgriClimateEngine/2.0"})
             with urllib.request.urlopen(req, timeout=6) as response:
-                return json.loads(response.read().decode("utf-8"))
+                data = json.loads(response.read().decode("utf-8"))
+                return cast(dict[str, Any], data) if isinstance(data, dict) else None
         except Exception as e:
             logger.warning("Satellite meteorology feed call fallback: %s", e)
             return None
@@ -514,11 +518,11 @@ class ClimateEngine:
 
     def get_unified_prediction(
         self,
-        query: Optional[str] = None,
+        query: str | None = None,
         location_id: str = "guntur",
-        district: Optional[str] = None,
-        lat: Optional[float] = None,
-        lon: Optional[float] = None,
+        district: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
         days: int = 16,
         lang: str = "en"
     ) -> dict[str, Any]:
@@ -592,14 +596,14 @@ class ClimateEngine:
         cache_key = f"climate_unified_v3:{loc_key}:{days}:{lang}"
         cached_payload = cache_service.get_json(cache_key)
         if cached_payload:
-            cached_payload["from_cache"] = True
-            return cached_payload
+            if isinstance(cached_payload, dict):
+                cached_payload["from_cache"] = True
+                return cast(dict[str, Any], cached_payload)
 
         # 2. Fetch Live Satellite Meteorology (up to 16 days)
         live_met = self.fetch_live_meteorology(resolved_lat, resolved_lon, days=days)
         daily = live_met.get("daily", {}) if live_met else {}
         current = live_met.get("current", {}) if live_met else {}
-        hourly = live_met.get("hourly", {}) if live_met else {}
 
         dates = daily.get("time", [])
         t_max_list = daily.get("temperature_2m_max", [])

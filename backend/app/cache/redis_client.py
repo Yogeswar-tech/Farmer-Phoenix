@@ -7,18 +7,18 @@ Features:
 3. Health check monitoring and connection lifecycle management.
 """
 
+import logging
 import os
 import time
-import json
-import logging
-from typing import Any, Optional
 from threading import Lock
+from typing import Any
 
 logger = logging.getLogger("KisanSethuRedis")
 
 try:
-    from dotenv import load_dotenv
     from pathlib import Path
+
+    from dotenv import load_dotenv
     _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     if _env_path.exists():
         load_dotenv(_env_path)
@@ -52,11 +52,11 @@ class InMemoryFallbackCache:
     Used when Redis is not running so backend development and offline testing work seamlessly.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: dict[str, tuple[str, float]] = {}
         self._lock = Lock()
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         with self._lock:
             item = self._store.get(key)
             if not item:
@@ -67,7 +67,7 @@ class InMemoryFallbackCache:
                 return None
             return val
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: str, ex: int | None = None) -> bool:
         with self._lock:
             expiry = time.time() + ex if ex else 0.0
             self._store[key] = (value, expiry)
@@ -87,7 +87,7 @@ class InMemoryFallbackCache:
             prefix = pattern.replace("*", "")
             now = time.time()
             valid = []
-            for k, (v, exp) in list(self._store.items()):
+            for k, (_v, exp) in list(self._store.items()):
                 if exp > 0 and now > exp:
                     del self._store[k]
                 elif k.startswith(prefix):
@@ -101,13 +101,13 @@ class InMemoryFallbackCache:
 class RedisClientWrapper:
     """Singleton wrapper providing unified access to Redis or Fallback cache."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._client: Any = None
         self._is_redis_connected: bool = False
         self._fallback: InMemoryFallbackCache = InMemoryFallbackCache()
         self._initialize()
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         try:
             import redis
             pool = redis.ConnectionPool.from_url(
@@ -134,14 +134,15 @@ class RedisClientWrapper:
     def is_connected(self) -> bool:
         return self._is_redis_connected
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         try:
-            return self._client.get(key)
+            val = self._client.get(key)
+            return str(val) if val is not None else None
         except Exception as e:
             logger.debug("Redis get error for key '%s': %s", key, e)
             return self._fallback.get(key)
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: str, ex: int | None = None) -> bool:
         try:
             return bool(self._client.set(key, value, ex=ex))
         except Exception as e:

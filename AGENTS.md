@@ -1,51 +1,50 @@
-# Kisan Sethu: project guide for coding agents
+# Kisan Sethu: Project Guide for Coding Agents
 
-Applies to the whole repo. `backend/AGENTS.md` and `frontend/AGENTS.md` add app-specific detail.
-This file and the code are the source of truth. Use judgment: when something is unclear, make the most
-sensible call, keep the change small, and mention your assumption in the commit or PR note.
+Applies to the entire repository. `backend/AGENTS.md` provides backend-specific rules.
+This file and the active code are the source of truth.
 
-## What we're building
-An informational app for farmers: regional crop prices (mandi vs retail), weather-aware tips and cautious
-crop-health guidance. Voice-first, picture-first, regional languages. No transactions or payments.
+---
 
-Shape of the system:
-- A shared regional layer (prices, weather, facts, narratives) is computed once per region, crop and day,
-  and cached. A thin personal layer answers an individual farmer by reusing those cached facts.
-- Ingestion is deterministic Python on a schedule, not an agent.
-- Backend: one FastAPI service with Google ADK agents, managed with uv. Frontend: one Expo app (expo-router)
-  for Android, iOS and web. They talk only through the HTTP API (`/v1/*`, OpenAPI is the contract).
-- The project is Kisan Sethu. Env prefix `KS_`.
+## 1. What We're Building
+An informational decision-support web application for Indian smallholder farmers: real-time APMC mandi prices, weather-aware harvest/spray advice, soil health guides, and cautious crop doctor guidance.
+- **Primary Audience**: Telugu-first farmers operating on low-bandwidth mobile networks.
+- **Deployment**: **Single Dockerfile deployed on Google Cloud Run (`asia-south1`)**. The multi-stage root `Dockerfile` compiles the Vite frontend into static assets and runs the FastAPI backend serving both the API (`/v1/*`) and static client.
+- **Core Technology Stack**:
+  - **Frontend**: Vite + React 19 + `react-native-web` (Standard React Web SPA, **NOT Expo / expo-router**).
+  - **Backend**: FastAPI (Python 3.12, managed with `uv`).
+  - **Single Network Client**: `frontend/src/services/api.ts` is the **only network client** for backend communication.
+  - **Backend API Routes**: In `backend/app/api/v1/`.
+  - **Domain Logic**: In `backend/app/domain/`.
+  - **CIBRC Database**: In `database/cibrc_isolated_db.py`.
+  - **Environment Prefix**: Secrets and configuration only via `KS_*` environment variables.
 
-## Freedom
-Design, structure and implementation are your call. Choose the simplest approach that fits the patterns
-already in the repo. Refactor within the area you're working on if it makes the result cleaner. Propose better
-ideas where you see them. The boundaries below are the only fixed points.
+---
 
-## Boundaries
-1. **Prompts live in files.** All prompt text goes in `backend/prompts/<feature>/` as versioned files
-   (e.g. `prompts/price/insight.v1.md`), with shared fragments in `prompts/_shared/`. Not inline in Python.
-   Prompts hold instructions; data arrives as injected facts. Change a prompt by adding a new version.
-2. **One LLM gateway.** Only `backend/app/llm/` touches a model SDK or knows model names (from settings).
-   Agents are thin: a prompt, tools and an output schema. Logic goes in tools or domain code. New features add
-   a prompt folder and register an agent, so existing agents and the orchestrator stay stable.
-3. **The API is the only seam.** No shared code between backend and frontend. The frontend renders what the API
-   returns and never computes prices, gaps or trends. Contract changes land backend first, additive where possible.
-4. **Secrets stay out of the repo.** Config via env vars; update `.env.example` when you add one.
-   `EXPO_PUBLIC_*` is public, so never put secrets there.
+## 2. Boundaries
+1. **Prompts live in files**: All prompt text lives in `backend/prompts/<feature>/` as versioned files (e.g. `prompts/price/insight.v1.md`), with shared policy fragments in `prompts/_shared/`. Never inline prompts in Python code.
+2. **One LLM gateway**: Only `backend/app/llm/` touches an AI model SDK or reads model names. Agents are thin wrappers around prompts, tools, and output schemas.
+3. **The API is the only seam**: No shared code between backend and frontend. The frontend renders what the API returns. Network requests flow strictly through `frontend/src/services/api.ts`.
+4. **Secrets stay out of the repo**: Configuration only via `KS_*` environment variables. Never commit `.env`.
 
-## Non-negotiables (enforced in code and tests, not just by convention)
-- Numbers shown to farmers come from structured facts, never from model output. A validator checks this.
-- No pesticide or fertiliser dosages from model knowledge; only from cited, retrieved sources.
-- Photo guidance is "possible causes and what to check", never a definite diagnosis.
-- No data means say so; never estimate. Every answer carries source and as-of time.
-- No scraping that bypasses CAPTCHAs, WAFs, logins or stated terms. Prefer official APIs.
-- Collect minimum personal data; keep raw audio and photos out of logs; farmer data never trains models.
+---
 
-## Quality bar
-- Backend: typed Python 3.12, async, Pydantic v2; `uv run ruff check . && uv run mypy app && uv run pytest`.
-  Deterministic logic is pure and unit-tested; prompt changes get an eval case in `backend/evals/`.
-- Frontend: strict TypeScript; all network calls through `src/lib/api.ts`; all user-facing strings from
-  `src/i18n/`; accessible by default (large tap targets, never colour alone, speaker button on answers);
-  `npx tsc --noEmit && npx expo lint`. Use `npx expo install` for Expo packages and stay on SDK 57.
-  (Note for agents: `npx` may not be available in the sandbox subshell; do not waste effort trying to execute it from the sandbox—ask the user to run it in their terminal).
-- Small, scoped commits (`type(scope): summary`). No dead code, no placeholder files, no committed secrets.
+## 3. Non-Negotiables (Enforced in Code and Tests)
+- **Never return mock or fallback data without a visible 'sample data' flag in the API response and UI.** Silent fallback to synthetic numbers is strictly forbidden.
+- **Numbers shown to farmers come from structured data, never model output.** A validator checks all responses against factual data.
+- **Pesticide and fertilizer dosages only from retrieved CIBRC records.** No dosages from LLM hallucinations; CIBRC data is isolated in `database/cibrc_isolated_db.py`.
+- **Photo guidance is advisory only**: Provides possible causes and check points, never a definitive statutory diagnosis.
+- **No data means say so**: If data is unavailable, state it clearly along with source attribution and as-of timestamp.
+- **Telugu-first accessibility**: Large touch targets, high-contrast layouts, Web Speech Synthesis audio assistance, and complete i18n coverage.
+
+---
+
+## 4. Verification Workflow
+Work in small, testable steps. Before editing, write a plan and list files you will change. After editing, verify:
+```bash
+# Backend checks
+cd backend && uv run pytest && uv run ruff check .
+
+# Frontend checks
+cd frontend && npx tsc -p tsconfig.app.json --noEmit && npm test
+```
+*Note: Do not touch `uv.lock` unless a dependency was explicitly changed.*

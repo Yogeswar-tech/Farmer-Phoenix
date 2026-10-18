@@ -27,9 +27,23 @@ export const GovtLagNotice: FC<GovtLagNoticeProps> = ({ currentLang, onRefreshTr
   };
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000); // 30s poll
-    return () => clearInterval(interval);
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const data = await KisanSethuApi.getSyncStatus();
+        if (!cancelled && data && data.status) {
+          setSyncStatus(data);
+        }
+      } catch {
+        // Backend offline or local fallback
+      }
+    };
+    run();
+    const interval = setInterval(run, 30000); // 30s poll
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const handleManualScrapeSync = async () => {

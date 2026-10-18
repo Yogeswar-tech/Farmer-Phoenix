@@ -169,7 +169,7 @@ def execute_mutation(query: str, params: tuple | list | None = None) -> int:
 
 
 def init_database() -> None:
-    """Initialize database tables using schema.sql and seed.sql if using PostgreSQL."""
+    """Initialize database tables using schema.sql as single source of truth."""
     schema_file = CURRENT_DIR / "schema.sql"
     seed_file = CURRENT_DIR / "seed.sql"
 
@@ -179,7 +179,17 @@ def init_database() -> None:
                 schema_sql = f.read()
             with get_db_cursor() as cur:
                 cur.execute(schema_sql)
-            logger.info("PostgreSQL schema successfully initialized.")
+                try:
+                    cur.execute("ALTER TABLE farmer_profiles ADD COLUMN IF NOT EXISTS firebase_uid VARCHAR(128);")
+                    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_farmer_profiles_uid ON farmer_profiles (firebase_uid);")
+                    try:
+                        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                        cur.execute("ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding vector(768);")
+                    except Exception:
+                        cur.execute("ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding text;")
+                except Exception:
+                    pass
+            logger.info("PostgreSQL schema successfully initialized from schema.sql.")
 
             if seed_file.exists():
                 with open(seed_file, "r", encoding="utf-8") as f:
@@ -191,6 +201,7 @@ def init_database() -> None:
         except Exception as e:
             logger.error("Failed to run PostgreSQL schema.sql/seed.sql: %s", e)
 
-    # If SQLite fallback, ensure tables exist in legacy db
+    # Initialize all SQLite tables (including price_alerts and farmer_profiles with firebase_uid)
     from .db import init_sqlite_tables
     init_sqlite_tables()
+    logger.info("SQLite schema successfully initialized.")

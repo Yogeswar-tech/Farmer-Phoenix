@@ -32,17 +32,16 @@ def test_load_prompt_and_fragments() -> None:
 
 
 @pytest.mark.asyncio
-async def test_llm_gateway_offline_fallback() -> None:
-    gateway = LLMGateway(api_key="")
+async def test_llm_gateway_unconfigured_raises() -> None:
+    from app.llm.client import LLMUnavailableError
+    gateway = LLMGateway(api_key="", project_id="")
     prompt = (
         "Context:\n"
         "[1] Tomato (Hybrid) in Koyambedu mandi on 2026-10-11: Modal price is ₹2500/quintal\n"
         "Question: Tomato price near Chennai?"
     )
-    response = await gateway.generate_response(prompt)
-    assert len(response) > 0
-    assert "Tomato" in response
-    assert "2500" in response
+    with pytest.raises(LLMUnavailableError):
+        await gateway.generate_response(prompt)
 
 
 def test_validator_grounding_pass() -> None:

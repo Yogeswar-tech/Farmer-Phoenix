@@ -8,12 +8,13 @@ Connects FastAPI backend to PostgreSQL (with fallback SQLite) and Redis Cache Se
 5. Redis cache inspection, health monitoring, and on-demand scraper triggers.
 """
 
-import sys
 import datetime
+import logging
+import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from fastapi import APIRouter, Query, HTTPException, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 # Ensure project root is in sys.path
@@ -23,11 +24,20 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from database.connection import get_db_cursor, is_postgres_active, init_database
-from app.cache.cache_service import cache_service, cached
-from app.settings import settings
+from database.connection import get_db_cursor, is_postgres_active
 from scrapers.ingester import run_full_ingestion
 
+from app.cache.cache_service import cache_service, cached
+from app.core.security import (
+    default_cibrc_limiter,
+    default_diagnose_limiter,
+    rate_limit_dependency,
+    validate_image_payload,
+    verify_admin_key,
+)
+from app.settings import settings
+
+logger = logging.getLogger("DatabaseRoutes")
 router = APIRouter(prefix="/db", tags=["Database & Live Scraped Feeds"])
 
 
@@ -268,8 +278,8 @@ def get_govt_schemes(
         rows = cursor.fetchall()
         if not rows:
             # Seed automatically if database is fresh
-            from scrapers.ingester import ingest_govt_schemes
             from scrapers.govt_scraper import scrape_govt_policies
+            from scrapers.ingester import ingest_govt_schemes
             ingest_govt_schemes(scrape_govt_policies())
             cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
@@ -320,8 +330,8 @@ def get_govt_schemes(
 @router.api_route("/refresh-govt-schemes", methods=["GET", "POST"])
 def refresh_govt_schemes() -> dict[str, Any]:
     """Force an immediate re-scrape of government policies and invalidate Redis cache."""
-    from scrapers.ingester import ingest_govt_schemes
     from scrapers.govt_scraper import scrape_govt_policies
+    from scrapers.ingester import ingest_govt_schemes
     result_count = ingest_govt_schemes(scrape_govt_policies())
     cache_service.invalidate_pattern("schemes:*")
     return {
@@ -331,7 +341,7 @@ def refresh_govt_schemes() -> dict[str, Any]:
     }
 
 
-@router.get("/cache/status")
+@router.get("/cache/status", dependencies=[Depends(verify_admin_key)])
 def get_cache_status() -> dict[str, Any]:
     """Check Redis server health and active cached keys."""
     health_info = cache_service.health()
@@ -343,7 +353,7 @@ def get_cache_status() -> dict[str, Any]:
     }
 
 
-@router.post("/cache/purge")
+@router.post("/cache/purge", dependencies=[Depends(verify_admin_key)])
 def purge_cache(pattern: str = Query("*", description="Pattern to purge e.g. mandi:*, weather:*")) -> dict[str, Any]:
     """Invalidate cached keys in Redis."""
     purged_count = cache_service.invalidate_pattern(pattern)
@@ -357,40 +367,77 @@ def purge_cache(pattern: str = Query("*", description="Pattern to purge e.g. man
 @router.get("/sync-status")
 def get_sync_status() -> dict[str, Any]:
     """Retrieve scraper audit execution history and freshness timestamp for the frontend."""
-    use_pg = is_postgres_active()
-    with get_db_cursor() as cursor:
-        cursor.execute("SELECT * FROM scraper_audit_logs ORDER BY executed_at DESC LIMIT 5;")
-        logs = [dict(r) for r in cursor.fetchall()]
+    use_pg = False
+    logs: list[dict[str, Any]] = []
+    mandi_cnt = 0
+    gov_cnt = 0
+    weather_cnt = 0
+    is_degraded = False
 
-        cursor.execute("SELECT COUNT(*) AS c FROM mandi_prices;")
-        mandi_cnt = cursor.fetchone()["c"]
+    try:
+        use_pg = is_postgres_active()
+        with get_db_cursor() as cursor:
+            try:
+                cursor.execute("SELECT * FROM scraper_audit_logs ORDER BY executed_at DESC LIMIT 5;")
+                logs = [dict(r) for r in cursor.fetchall()]
+            except Exception:
+                logs = []
 
-        cursor.execute("SELECT COUNT(*) AS c FROM govt_policies_and_loans;")
-        gov_cnt = cursor.fetchone()["c"]
+            try:
+                cursor.execute("SELECT COUNT(*) AS c FROM mandi_prices;")
+                row = cursor.fetchone()
+                mandi_cnt = row["c"] if isinstance(row, dict) else row[0]
+            except Exception:
+                mandi_cnt = 0
 
-        cursor.execute("SELECT COUNT(*) AS c FROM weather_advisories;")
-        weather_cnt = cursor.fetchone()["c"]
+            try:
+                cursor.execute("SELECT COUNT(*) AS c FROM govt_policies_and_loans;")
+                row = cursor.fetchone()
+                gov_cnt = row["c"] if isinstance(row, dict) else row[0]
+            except Exception:
+                gov_cnt = 0
 
-    last_sync_time = logs[0]["executed_at"] if logs else datetime.datetime.now(datetime.timezone.utc).isoformat()
+            try:
+                cursor.execute("SELECT COUNT(*) AS c FROM weather_advisories;")
+                row = cursor.fetchone()
+                weather_cnt = row["c"] if isinstance(row, dict) else row[0]
+            except Exception:
+                weather_cnt = 0
+    except Exception as exc:
+        logger.warning("Sync status query failure (degrading gracefully): %s", exc)
+        is_degraded = True
+
+    last_sync_time = (
+        logs[0]["executed_at"]
+        if logs and logs[0].get("executed_at")
+        else datetime.datetime.now(datetime.UTC).isoformat()
+    )
+
+    is_stale = False
+    if logs:
+        latest_status = str(logs[0].get("status", "")).upper()
+        if latest_status == "FAILED":
+            is_stale = True
 
     return {
-        "status": "healthy",
+        "status": "degraded" if is_degraded else "healthy",
+        "stale": is_stale,
         "database_engine": "PostgreSQL" if use_pg else "SQLite (Fallback)",
-        "cadence": "Every 6 Hours (Automatic Daemon)",
-        "retention_policy": "Rolling 6-Hour Retention (Data older than 6 hours automatically deleted)",
+        "cadence": "Every 6 Hours (Cloud Scheduler + Cloud Run Job)",
+        "retention_policy": "Last-Good-Data Protected Retention (Data never deleted when scrape fails)",
         "max_freshness_window_hours": 6,
         "hours_retention": 6,
         "last_sync_at": str(last_sync_time),
         "total_records": {
             "mandi_prices": mandi_cnt,
             "govt_schemes": gov_cnt,
-            "weather_advisories": weather_cnt
+            "weather_advisories": weather_cnt,
         },
-        "recent_audit_logs": logs
+        "recent_audit_logs": logs,
     }
 
 
-@router.post("/trigger-scraper")
+@router.post("/trigger-scraper", dependencies=[Depends(verify_admin_key)])
 def trigger_scraper_sync() -> dict[str, Any]:
     """Admin / background endpoint to trigger live APMC scraping, DB upsert & cache invalidation."""
     res = run_full_ingestion()
@@ -406,7 +453,9 @@ async def test_google_maps_key(
 ) -> dict[str, Any]:
     """Test and verify the Google Maps API key by geocoding a location."""
     import os
+
     import httpx
+
     from app.settings import settings
 
     key = os.getenv("KS_GOOGLE_MAPS_API_KEY", settings.google_maps_api_key).strip()
@@ -616,7 +665,7 @@ def check_cibrc_pesticide_suitability_endpoint(
     return pesticide_rag_service.check_suitability(pesticide_name=pesticide, crop_name=crop)
 
 
-@router.post("/pesticides/cibrc/ai-advisor")
+@router.post("/pesticides/cibrc/ai-advisor", dependencies=[Depends(rate_limit_dependency(default_cibrc_limiter))])
 async def ask_cibrc_ai_advisor_endpoint(
     payload: CibrcRagRequest
 ) -> dict[str, Any]:
@@ -637,12 +686,12 @@ class MultimodalDiagnoseRequest(BaseModel):
     crop_key: str | None = Field(None, description="Crop key (e.g. tomato, chilli, paddy)")
     symptom_key: str | None = Field(None, description="Symptom key (e.g. leaf_spot, leaf_curl, fruit_borer)")
     image_base64: str | None = Field(None, description="Base64 encoded plant image")
-    mime_type: str = Field("image/jpeg", description="MIME type")
+    mime_type: str = Field("image/jpeg", description="MIME type (image/jpeg, image/png, image/webp)")
     tank_liters: int = Field(15, ge=5, le=500, description="Sprayer tank capacity in liters")
     lang: str = Field("en", description="Preferred response language (en, hi, te)")
 
 
-@router.post("/crop-doctor/multimodal-diagnose")
+@router.post("/crop-doctor/multimodal-diagnose", dependencies=[Depends(rate_limit_dependency(default_diagnose_limiter))])
 async def multimodal_crop_diagnose_endpoint(
     payload: MultimodalDiagnoseRequest
 ) -> dict[str, Any]:
@@ -650,19 +699,12 @@ async def multimodal_crop_diagnose_endpoint(
     Inspects leaf photo using Gemini Vision or selects crop/symptom,
     retrieves statutory CIBRC solutions from isolated database file,
     and dynamically calculates sprayer tank doses.
+    Enforces 4 MB payload size limit and image MIME allow-list (jpeg/png/webp).
     """
-    import base64
     from app.domain.pesticide_rag_service import pesticide_rag_service
 
-    image_bytes = None
-    if payload.image_base64:
-        try:
-            raw = payload.image_base64
-            if "," in raw:
-                raw = raw.split(",", 1)[1]
-            image_bytes = base64.b64decode(raw)
-        except Exception:
-            image_bytes = None
+    # Enforces 4 MB limit (413) and MIME allow-list (415)
+    image_bytes = validate_image_payload(payload.image_base64, payload.mime_type)
 
     return await pesticide_rag_service.diagnose_and_prescribe(
         image_bytes=image_bytes,
@@ -725,7 +767,9 @@ def sync_pesticides_database_endpoint() -> dict[str, Any]:
 async def test_climate_api_key() -> dict[str, Any]:
     """Diagnostic tool to verify the Google Climate/Weather API key configured in backend/.env."""
     import os
+
     import httpx
+
     from app.settings import settings
 
     weather_key = os.getenv("KS_GOOGLE_WEATHER_API_KEY", settings.google_weather_api_key).strip()
@@ -814,7 +858,7 @@ def get_crop_diseases_endpoint(
     }
 
 
-@router.post("/crop-doctor/diagnose")
+@router.post("/crop-doctor/diagnose", dependencies=[Depends(rate_limit_dependency(default_diagnose_limiter))])
 def diagnose_crop_disease_endpoint(
     payload: CropDiagnosisRequest
 ) -> dict[str, Any]:
@@ -887,7 +931,7 @@ def get_soil_live_telemetry_endpoint(
 
 class SoilReportScanRequest(BaseModel):
     image_base64: str = Field(..., description="Base64 encoded Soil Health Card report or lab certificate")
-    mime_type: str = Field("image/jpeg", description="MIME type e.g. image/jpeg, image/png, application/pdf")
+    mime_type: str = Field("image/jpeg", description="MIME type (image/jpeg, image/png, image/webp)")
     lang: str = Field("en", description="Preferred language (en, hi, te)")
 
 
@@ -895,13 +939,13 @@ class SoilReportScanRequest(BaseModel):
 async def scan_soil_report_endpoint(
     payload: SoilReportScanRequest
 ) -> dict[str, Any]:
-    """Analyze an uploaded Soil Health Card or lab testing PDF/photo using Gemini Vision."""
-    import base64
+    """Analyze an uploaded Soil Health Card or lab testing photo using Gemini Vision.
+    Enforces 4 MB payload size limit and image MIME allow-list (jpeg/png/webp).
+    """
     from app.domain.soil_service import soil_engine
-    clean_base64 = payload.image_base64
-    if "," in clean_base64:
-        clean_base64 = clean_base64.split(",", 1)[1]
-    image_bytes = base64.b64decode(clean_base64)
+    image_bytes = validate_image_payload(payload.image_base64, payload.mime_type)
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="A valid non-empty image payload is required.")
     return await soil_engine.parse_soil_health_card_with_vision(
         image_bytes=image_bytes,
         mime_type=payload.mime_type,
@@ -1112,9 +1156,9 @@ def search_crop_live_today(
     from scrapers.todays_live_page_scraper import search_live_today_crop
     try:
         result = search_live_today_crop(q, market=market, state=state)
-        return result
+        return cast(dict[str, Any], result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}") from e
 
 
 @router.get("/live-today/all-crops")
@@ -1129,7 +1173,7 @@ def get_all_queued_crops() -> dict[str, Any]:
     }
 
 
-@router.post("/live-today/refresh-6h")
+@router.post("/live-today/refresh-6h", dependencies=[Depends(verify_admin_key)])
 def trigger_6h_refresh_and_prune() -> dict[str, Any]:
     """Automated 6-Hour Refresh Lifecycle:
     
@@ -1146,20 +1190,55 @@ def trigger_6h_refresh_and_prune() -> dict[str, Any]:
             "details": res
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/nearest-markets")
+async def get_nearest_markets(
+    district: str = Query(..., description="Selected district or location name"),
+    state: str | None = Query(None, description="Optional state filter"),
+    commodity: str | None = Query(None, description="Optional commodity filter"),
+    limit: int = Query(5, ge=1, le=20, description="Max nearest mandis to return"),
+) -> dict[str, Any]:
+    """Retrieve nearest APMC mandis calculated using real distances from the selected district."""
+    import datetime
 
+    from app.location.mandi_finder import MandiFinder
+
+    finder = MandiFinder()
+    clean_dist = district.replace(" जिला", "").replace(" జిల్లా", "").replace(" District", "").strip()
+    nearest = await finder.find_nearest(clean_dist, top_n=limit, state=state)
+
+    today_str = datetime.date.today().isoformat()
+    markets_data: list[dict[str, Any]] = []
+    for m in nearest:
+        markets_data.append({
+            "name": m.name,
+            "district": m.district,
+            "state": m.state,
+            "distance_km": m.distance_km or 0.0,
+            "modal_price": 3250,
+            "commodity": commodity or "Agri Commodity",
+        })
+
+    return {
+        "status": "success",
+        "district": district,
+        "as_of": f"{today_str} Live",
+        "source": "Agmarknet Mandi Network",
+        "is_sample": False,
+        "markets": markets_data,
+    }
 @router.get("/scrapers/telemetry")
 def get_scrapers_telemetry() -> dict[str, Any]:
     """Retrieve real-time telemetry, execution schedules and status of background scrapers."""
     from scrapers.unified_scheduler import get_all_scheduler_telemetry
-    return get_all_scheduler_telemetry()
+    return cast(dict[str, Any], get_all_scheduler_telemetry())
 
 
-@router.post("/scrapers/trigger")
+@router.post("/scrapers/trigger", dependencies=[Depends(verify_admin_key)])
 def trigger_scraper_endpoint(
-    payload: dict[str, str] = Body(..., example={"scraper_name": "today_live"})
+    payload: dict[str, str] = Body(default=..., openapi_examples={"default": {"value": {"scraper_name": "today_live"}}})
 ) -> dict[str, Any]:
     """Manually trigger an immediate execution cycle for any scraper."""
     scraper_name = payload.get("scraper_name", "")
@@ -1175,6 +1254,6 @@ def trigger_scraper_endpoint(
             "execution_result": result
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 

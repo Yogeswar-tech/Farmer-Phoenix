@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, type FC, type ChangeEvent } from 'react';
 import type { Language, LocationOption } from '../types';
-import { translations } from '../data/i18n';
 import { KisanSethuApi } from '../services/api';
 import {
   FlaskConical,
@@ -8,20 +7,13 @@ import {
   Search,
   Volume2,
   VolumeX,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Sparkles,
   Loader2,
-  Upload,
-  RefreshCw,
   Send,
-  Check,
   Info,
   Bot,
   Clock,
   ShieldCheck,
-  Flame,
   X
 } from 'lucide-react';
 
@@ -36,9 +28,8 @@ export const CropPesticideDoctorView: FC<CropPesticideDoctorViewProps> = ({
   currentLang,
   currentLocation,
   initialCropKey = 'tomato',
-  onOpenHelpline
+  onOpenHelpline: _onOpenHelpline
 }) => {
-  const t = translations[currentLang] || translations.en;
 
   // Selected State
   const [selectedCropKey, setSelectedCropKey] = useState<string>(initialCropKey);

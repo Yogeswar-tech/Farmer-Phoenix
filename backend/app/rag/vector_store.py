@@ -276,8 +276,8 @@ class VertexVectorSearchStore(BaseVectorStore):
             return local_added
 
         try:
-            from google.cloud import aiplatform  # type: ignore[import-untyped]
-            from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (  # type: ignore[import-untyped]
+            from google.cloud import aiplatform
+            from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
                 Namespace,
                 NumericNamespace,
             )

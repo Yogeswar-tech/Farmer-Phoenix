@@ -227,11 +227,15 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
   const [loadQuintals, setLoadQuintals] = useState(50);
   const [backendRoi, setBackendRoi] = useState<any | null>(null);
 
-  useEffect(() => {
+  const [prevSyncKey, setPrevSyncKey] = useState(`${currentLocation?.id}-${selectedCropKey}`);
+  const syncKey = `${currentLocation?.id}-${selectedCropKey}`;
+  if (syncKey !== prevSyncKey) {
+    setPrevSyncKey(syncKey);
     setDistanceKm(computeDistance(selectedCropKey));
-  }, [currentLocation?.id, selectedCropKey]);
+  }
 
   const effectiveLocalMandi = currentLocation ? currentLocation.mandiName[currentLang] : currentIntel.localMandi[currentLang];
+  const recommendedMandiName = currentIntel.recommendedMandi[currentLang];
 
   useEffect(() => {
     let isMounted = true;
@@ -243,7 +247,7 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
           vehicleType: vehicle,
           distanceKm,
           originMandi: effectiveLocalMandi,
-          destinationMandi: currentIntel.recommendedMandi[currentLang],
+          destinationMandi: recommendedMandiName,
           lang: currentLang
         });
         if (isMounted && res && res.status === 'success') {
@@ -255,7 +259,7 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
     }
     fetchLiveRoi();
     return () => { isMounted = false; };
-  }, [selectedCropKey, loadQuintals, vehicle, distanceKm, currentLang, currentLocation?.id]);
+  }, [selectedCropKey, loadQuintals, vehicle, distanceKm, currentLang, currentLocation?.id, effectiveLocalMandi, recommendedMandiName]);
 
   const handleProductSelect = (cropKey: string) => {
     setSelectedCropKey(cropKey);

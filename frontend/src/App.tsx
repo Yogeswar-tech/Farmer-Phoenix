@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   View,
   Text,
@@ -13,14 +14,12 @@ import {
   MANDI_DATABASE,
   AGRICULTURAL_LOCATIONS,
   getLocationAdaptedMandi,
-  getNearestColdStorage,
   getNearestLocationFromCoords,
   getLanguageForLocation
 } from './data/mockData';
 import { translations } from './data/i18n';
 import { KisanSethuApi } from './services/api';
 import { Header } from './components/Header';
-import { GovtLagNotice } from './components/GovtLagNotice';
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { MandiHeroCard } from './components/MandiHeroCard';
 import { FarmerHomeDashboard } from './components/FarmerHomeDashboard';
@@ -35,16 +34,30 @@ import { PriceAlertModal } from './components/PriceAlertModal';
 import { LoginModal, type FarmerProfile } from './components/LoginModal';
 import { LocationModal } from './components/LocationModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import {
-  Stethoscope,
-  Landmark,
-  TrendingUp,
-  CloudRain,
-  Warehouse,
-  Lock,
-  Sparkles,
-  Mic
-} from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
+
+const TAB_TO_PATH: Record<NavigationTab, string> = {
+  home: '/',
+  rates: '/prices',
+  climate: '/weather',
+  advisory: '/doctor',
+  soildoctor: '/soil',
+  schemes: '/schemes',
+  storage: '/storage',
+  logistics: '/transport'
+};
+
+const PATH_TO_TAB: Record<string, NavigationTab> = {
+  '/': 'home',
+  '/home': 'home',
+  '/prices': 'rates',
+  '/weather': 'climate',
+  '/doctor': 'advisory',
+  '/soil': 'soildoctor',
+  '/schemes': 'schemes',
+  '/storage': 'storage',
+  '/transport': 'logistics'
+};
 
 export function App() {
   // User Profile from DB (strictly isolated per Gmail account)
@@ -54,7 +67,7 @@ export function App() {
       if (savedUser) {
         try {
           return JSON.parse(savedUser);
-        } catch (e) {
+        } catch {
           return null;
         }
       }
@@ -77,11 +90,27 @@ export function App() {
         try {
           const u = JSON.parse(savedUser);
           return u.farmer_name || u.email?.split('@')[0];
-        } catch (e) {}
+        } catch {}
       }
     }
     return undefined;
   });
+
+  // Responsive Layout: Track mobile web vs desktop screen size
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth <= 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Initialize Location: Prioritize DB profile of logged-in user, otherwise localStorage, otherwise default
   const [currentLocation, setCurrentLocation] = useState<LocationOption>(() => {
@@ -112,7 +141,7 @@ export function App() {
               lng: u.longitude ? Number(u.longitude) : 80.4365
             };
           }
-        } catch (e) {}
+        } catch {}
       }
 
       const savedLocId = localStorage.getItem('ks_user_location_id');
@@ -134,7 +163,7 @@ export function App() {
           if (u.preferred_lang === 'hi' || u.preferred_lang === 'te' || u.preferred_lang === 'en') {
             return u.preferred_lang;
           }
-        } catch (e) {}
+        } catch {}
       }
       const savedLang = localStorage.getItem('ks_user_lang') as Language | null;
       if (savedLang === 'hi' || savedLang === 'te' || savedLang === 'en') {
@@ -146,7 +175,7 @@ export function App() {
         if (found) return getLanguageForLocation(found);
       }
     }
-    return getLanguageForLocation(AGRICULTURAL_LOCATIONS[0]);
+    return 'te';
   });
 
   // Initialize Selected Crop: Prioritize DB profile of logged-in user
@@ -157,7 +186,7 @@ export function App() {
         try {
           const u = JSON.parse(savedUser);
           if (u.primary_crop) return u.primary_crop;
-        } catch (e) {}
+        } catch {}
       }
     }
     return 'chilli';
@@ -201,8 +230,28 @@ export function App() {
     }
   };
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<NavigationTab>('home');
+  const activeTab: NavigationTab = useMemo(() => {
+    return PATH_TO_TAB[location.pathname] || 'home';
+  }, [location.pathname]);
+
+  const handleSelectTab = useCallback((tab: NavigationTab) => {
+    const targetPath = TAB_TO_PATH[tab] || '/';
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+  }, [location.pathname, navigate]);
+
+  // Update document.documentElement.lang whenever the language changes
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = currentLang;
+    }
+  }, [currentLang]);
+
   const [searchQuery, setSearchQuery] = useState('');
 
   // AI Voice Assistant State
@@ -214,8 +263,26 @@ export function App() {
 
   // Price Alert Modal State
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+
+  // Live data states
   const [liveMandiRecord, setLiveMandiRecord] = useState<any | null>(null);
+  const [isMandiLoading, setIsMandiLoading] = useState<boolean>(true);
+  const [isMandiError, setIsMandiError] = useState<boolean>(false);
+  const [isMandiSample, setIsMandiSample] = useState<boolean>(false);
+
   const [liveWeatherRecord, setLiveWeatherRecord] = useState<any | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState<boolean>(true);
+  const [isWeatherError, setIsWeatherError] = useState<boolean>(false);
+  const [isWeatherSample, setIsWeatherSample] = useState<boolean>(false);
+
+  // Nearest markets state from backend using real distances
+  const [nearestMarkets, setNearestMarkets] = useState<any[]>([]);
+  const [isNearestLoading, setIsNearestLoading] = useState<boolean>(true);
+  const [isNearestError, setIsNearestError] = useState<boolean>(false);
+  const [isNearestSample, setIsNearestSample] = useState<boolean>(false);
+  const [nearestAsOf, setNearestAsOf] = useState<string>('Today Live');
+  const [nearestSource, setNearestSource] = useState<string>('Agmarknet Geospatial Network');
+
   const [_isLiveFromBackend, setIsLiveFromBackend] = useState<boolean>(false);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
@@ -224,10 +291,17 @@ export function App() {
   // Fetch live Mandi rates from Backend whenever selected crop or location changes
   useEffect(() => {
     let isMounted = true;
+
     const fetchLiveMandi = async () => {
+      setIsMandiLoading(true);
+      setIsMandiError(false);
       try {
-        const rates = await KisanSethuApi.getMandiRates(selectedCropKey, currentLocation.state.en);
-        if (isMounted && rates && rates.length > 0) {
+        const res = await KisanSethuApi.getMandiRates(selectedCropKey, currentLocation.state.en);
+        const rates = res?.data || [];
+        const isSample = Boolean(res?.isSample);
+        setIsMandiSample(isSample);
+
+        if (isMounted && rates && rates.length > 0 && !isSample) {
           const keyLower = selectedCropKey.toLowerCase().replace(/_/g, ' ');
           const matched = rates.find((r: any) => {
             const comm = (r.commodity || '').toLowerCase();
@@ -236,38 +310,117 @@ export function App() {
           }) || rates[0];
           setLiveMandiRecord(matched);
           setIsLiveFromBackend(true);
+          setIsMandiError(false);
         } else {
           // Direct fallback to live-today crop search
           const searchRes = await KisanSethuApi.searchCropTodayPrice(selectedCropKey, `${currentLocation.name.en} APMC Yard`, currentLocation.state.en);
           if (isMounted && searchRes && searchRes.status === 'success') {
             setLiveMandiRecord(searchRes);
             setIsLiveFromBackend(true);
+            setIsMandiError(false);
+            setIsMandiSample(false);
+          } else {
+            if (isMounted) {
+              setLiveMandiRecord(null);
+              setIsLiveFromBackend(false);
+              setIsMandiError(true);
+              setIsMandiSample(true);
+            }
           }
         }
-      } catch (e) {
-        if (isMounted) setIsLiveFromBackend(false);
+      } catch {
+        if (isMounted) {
+          setLiveMandiRecord(null);
+          setIsLiveFromBackend(false);
+          setIsMandiError(true);
+          setIsMandiSample(true);
+        }
+      } finally {
+        if (isMounted) setIsMandiLoading(false);
       }
     };
     fetchLiveMandi();
     return () => { isMounted = false; };
-  }, [selectedCropKey, currentLocation.id, refreshTrigger]);
+  }, [selectedCropKey, currentLocation.id, currentLocation.name.en, currentLocation.state.en, refreshTrigger]);
 
   // Fetch live operational weather from Backend
   useEffect(() => {
     let isMounted = true;
+
     const fetchLiveWeather = async () => {
+      setIsWeatherLoading(true);
+      setIsWeatherError(false);
       try {
-        const weatherList = await KisanSethuApi.getWeatherAdvisories(currentLocation.id);
-        if (isMounted && weatherList && weatherList.length > 0) {
+        const res = await KisanSethuApi.getWeatherAdvisories(currentLocation.id);
+        const weatherList = res?.data || [];
+        const isSample = Boolean(res?.isSample);
+        setIsWeatherSample(isSample);
+
+        if (isMounted && weatherList && weatherList.length > 0 && !isSample) {
           setLiveWeatherRecord(weatherList[0]);
+          setIsWeatherError(false);
+        } else {
+          if (isMounted) {
+            setLiveWeatherRecord(null);
+            setIsWeatherError(true);
+            setIsWeatherSample(true);
+          }
         }
-      } catch (e) {
-        // Fallback
+      } catch {
+        if (isMounted) {
+          setLiveWeatherRecord(null);
+          setIsWeatherError(true);
+          setIsWeatherSample(true);
+        }
+      } finally {
+        if (isMounted) setIsWeatherLoading(false);
       }
     };
     fetchLiveWeather();
     return () => { isMounted = false; };
   }, [currentLocation.id, refreshTrigger]);
+
+  // Fetch nearest APMC markets from backend using real distances from selected district
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchNearest = async () => {
+      setIsNearestLoading(true);
+      setIsNearestError(false);
+      try {
+        const districtName = currentLocation.district?.en || currentLocation.name.en;
+        const res = await KisanSethuApi.getNearestMarkets(
+          districtName,
+          currentLocation.state?.en,
+          selectedCropKey
+        );
+        if (isMounted) {
+          if (res && res.data && res.data.length > 0) {
+            setNearestMarkets(res.data);
+            setIsNearestSample(Boolean(res.isSample));
+            setNearestAsOf(res.asOf || 'Today Live');
+            setNearestSource(res.source || 'Agmarknet Geospatial Network');
+            setIsNearestError(false);
+          } else {
+            setNearestMarkets([]);
+            setIsNearestSample(true);
+            setIsNearestError(true);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setNearestMarkets([]);
+          setIsNearestSample(true);
+          setIsNearestError(true);
+        }
+      } finally {
+        if (isMounted) setIsNearestLoading(false);
+      }
+    };
+
+    fetchNearest();
+    return () => { isMounted = false; };
+  }, [currentLocation.id, currentLocation.district?.en, currentLocation.name.en, currentLocation.state?.en, selectedCropKey, refreshTrigger]);
 
   // Active Mandi item based on selected crop or search query, dynamically adapted to user's selected location
   const baseMandi: MandiItem = useMemo(() => {
@@ -420,9 +573,6 @@ export function App() {
     return base;
   }, [baseMandi, currentLocation, liveMandiRecord]);
 
-  // Dynamically calculate nearest cold storage facility based on user's selected location
-  const nearestStorage = getNearestColdStorage(currentLocation);
-
   const handleOpenLogin = (feature?: string) => {
     setLockedFeatureName(feature);
     setIsLoginModalOpen(true);
@@ -469,12 +619,14 @@ export function App() {
   const handleGmailLoginSuccess = (profile: FarmerProfile) => {
     setCurrentUserProfile(profile);
     setIsLoggedIn(true);
-    const displayName = profile.farmer_name || profile.email.split('@')[0];
+    const displayName = profile.farmer_name || (profile.email ? profile.email.split('@')[0] : (profile.phone_number ? `+91 ${profile.phone_number}` : 'రైతు మిత్ర'));
     setUserName(displayName);
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('ks_auth_profile', JSON.stringify(profile));
-      localStorage.setItem('ks_active_email', profile.email);
+      if (profile.email) {
+        localStorage.setItem('ks_active_email', profile.email);
+      }
     }
 
     // 1. Resolve and cascade user's location strictly from their DB profile!
@@ -565,8 +717,8 @@ export function App() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.appContainer}>
+    <SafeAreaView style={[styles.safeArea, isMobile && styles.safeAreaMobile]}>
+      <View style={[styles.appContainer, isMobile && styles.appContainerMobile]}>
         {/* Top Header */}
         <Header
           currentLang={currentLang}
@@ -587,17 +739,26 @@ export function App() {
 
 
         {/* Body Layout: Sidebar + Main Content */}
-        <View style={styles.bodyLayout}>
-          {/* Desktop Left Sidebar */}
-          <DesktopSidebar
-            currentLang={currentLang}
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
-            onOpenHelpline={handleOpenHelpline}
-          />
+        <View
+          style={[styles.bodyLayout, isMobile && styles.bodyLayoutMobile]}
+        >
+          {/* Desktop Left Sidebar (Rendered ONLY on desktop > 768px) */}
+          {!isMobile && (
+            <div className="desktop-sidebar-wrapper">
+              <DesktopSidebar
+                currentLang={currentLang}
+                activeTab={activeTab}
+                onSelectTab={handleSelectTab}
+                onOpenHelpline={handleOpenHelpline}
+              />
+            </div>
+          )}
 
           {/* Main Scrollable Content */}
-          <ScrollView style={styles.mainScrollView} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            style={[styles.mainScrollView, isMobile && styles.mainScrollViewMobile]}
+            contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}
+          >
             {/* TAB 1: Home Dashboard - Clean Modern Farmer-First Interface */}
             {activeTab === 'home' && (
               <FarmerHomeDashboard
@@ -605,10 +766,23 @@ export function App() {
                 userName={userName}
                 currentLocation={currentLocation}
                 activeMandi={activeMandi}
+                liveMandiRecord={liveMandiRecord}
+                isMandiLoading={isMandiLoading}
+                isMandiError={isMandiError}
+                isMandiSample={isMandiSample}
                 liveWeatherRecord={liveWeatherRecord}
-                onNavigateTab={setActiveTab}
+                isWeatherLoading={isWeatherLoading}
+                isWeatherError={isWeatherError}
+                isWeatherSample={isWeatherSample}
+                nearestMarkets={nearestMarkets}
+                isNearestMarketsLoading={isNearestLoading}
+                isNearestMarketsError={isNearestError}
+                isNearestMarketsSample={isNearestSample}
+                nearestMarketsAsOf={nearestAsOf}
+                nearestMarketsSource={nearestSource}
+                onNavigateTab={handleSelectTab}
                 onOpenVoiceAssistant={() => setIsAiModalOpen(true)}
-                onOpenCropDoctorUpload={() => setActiveTab('advisory')}
+                onOpenCropDoctorUpload={() => handleSelectTab('advisory')}
                 onOpenLogin={handleOpenLogin}
                 onOpenHelpline={handleOpenHelpline}
               />
@@ -639,7 +813,7 @@ export function App() {
                   onOpenAlertModal={() => setIsAlertModalOpen(true)}
                   onShareWhatsApp={handleShareWhatsApp}
                   onOpenHelpline={handleOpenHelpline}
-                  onSelectCrop={(key) => setSelectedCropKey(key)}
+                  onSelectCrop={handleSelectCrop}
                   currentLocation={currentLocation}
                 />
               </View>
@@ -697,14 +871,16 @@ export function App() {
           </ScrollView>
         </View>
 
-        {/* Sticky Mobile-Only Bottom Navigation (Hidden on Web/Desktop to keep clean single sidebar) */}
-        <div className="mobile-bottom-nav-wrap" data-testid="mobile-bottom-nav">
-          <MobileBottomNav
-            currentLang={currentLang}
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
-          />
-        </div>
+        {/* Sticky Mobile-Only Bottom Navigation (Fixed at bottom on mobile, hidden on desktop) */}
+        {isMobile && (
+          <div className="mobile-bottom-nav-wrap" data-testid="mobile-bottom-nav">
+            <MobileBottomNav
+              currentLang={currentLang}
+              activeTab={activeTab}
+              onSelectTab={handleSelectTab}
+            />
+          </div>
+        )}
 
         {/* Floating AI Voice Assistant Button (Instant Click Response) */}
         {isAiModeEnabled && (
@@ -716,7 +892,7 @@ export function App() {
                 setIsAiModalOpen(true);
               }
             } as any)}
-            style={styles.floatingFab}
+            style={[styles.floatingFab, isMobile && styles.floatingFabMobile]}
             activeOpacity={0.6}
           >
             <Image
@@ -778,6 +954,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     overflow: 'hidden' as any,
   },
+  safeAreaMobile: {
+    height: 'auto' as any,
+    minHeight: '100dvh' as any,
+    maxHeight: 'none' as any,
+    overflow: 'visible' as any,
+  },
   appContainer: {
     flex: 1,
     height: '100vh' as any,
@@ -788,18 +970,37 @@ const styles = StyleSheet.create({
     flexDirection: 'column' as any,
     overflow: 'hidden' as any,
   },
+  appContainerMobile: {
+    height: 'auto' as any,
+    minHeight: '100dvh' as any,
+    maxHeight: 'none' as any,
+    overflow: 'visible' as any,
+  },
   bodyLayout: {
     flex: 1,
     flexDirection: 'row',
     overflow: 'hidden' as any,
     minHeight: 0,
   },
+  bodyLayoutMobile: {
+    flexDirection: 'column',
+    overflow: 'visible' as any,
+    width: '100%',
+  },
   mainScrollView: {
     flex: 1,
     height: '100%' as any,
   },
+  mainScrollViewMobile: {
+    height: 'auto' as any,
+    width: '100%',
+    overflow: 'visible' as any,
+  },
   scrollContent: {
-    paddingBottom: 88,
+    paddingBottom: 40,
+  },
+  scrollContentMobile: {
+    paddingBottom: 96,
   },
   homeLayout: {
     padding: 16,
@@ -914,7 +1115,7 @@ const styles = StyleSheet.create({
   },
   floatingFab: {
     position: 'absolute',
-    bottom: 74,
+    bottom: 24,
     right: 20,
     backgroundColor: '#2D5A27',
     borderRadius: 30,
@@ -930,6 +1131,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#A2DC9A',
     zIndex: 900,
+  },
+  floatingFabMobile: {
+    bottom: 74,
+    right: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   fabBrinjalIcon: {
     width: 26,

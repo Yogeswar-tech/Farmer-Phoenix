@@ -13,7 +13,7 @@ import logging
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 CURRENT_FILE = Path(__file__).resolve()
 BACKEND_DIR = CURRENT_FILE.parents[2]
@@ -21,10 +21,9 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.cache.cache_service import cache_service
-from app.llm.client import LLMGateway
-from app.settings import settings
-from database.cibrc_isolated_db import get_cibrc_cursor, get_cibrc_db_path, init_isolated_cibrc_db
+from database.cibrc_isolated_db import get_cibrc_cursor, init_isolated_cibrc_db
+
+from app.llm import LLMGateway, LLMUnavailableError, load_prompt
 
 logger = logging.getLogger("PesticideRagService")
 
@@ -32,7 +31,7 @@ logger = logging.getLogger("PesticideRagService")
 class PesticideRagService:
     """RAG-powered service connecting isolated CIBRC registry database file with Google Gemini API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.llm_gateway = LLMGateway()
         # Ensure the isolated database file is initialized
         try:
@@ -46,12 +45,13 @@ class PesticideRagService:
     def search_registry(
         self,
         query: str = "",
-        category: Optional[str] = None,
-        crop: Optional[str] = None,
+        category: str | None = None,
+        crop: str | None = None,
         limit: int = 50
     ) -> list[dict[str, Any]]:
         """Searches CIBRC records in the isolated database file matching query string, category, or crop."""
-        ph = "?"
+        from database.connection import is_postgres_active
+        ph = "%s" if is_postgres_active() else "?"
 
         sql = """
             SELECT 
@@ -74,7 +74,7 @@ class PesticideRagService:
                     OR LOWER(crop) LIKE {ph}
                     OR LOWER(crop_key) LIKE {ph}
                     OR LOWER(target_pest_or_disease) LIKE {ph}
-                    OR LOWER(payload) LIKE {ph}
+                    OR LOWER(CAST(payload AS TEXT)) LIKE {ph}
                 )
             """
             wildcard = f"%{q}%"
@@ -228,8 +228,8 @@ class PesticideRagService:
     async def generate_rag_advisory(
         self,
         user_query: str,
-        crop: Optional[str] = None,
-        pesticide: Optional[str] = None,
+        crop: str | None = None,
+        pesticide: str | None = None,
         lang: str = "en"
     ) -> dict[str, Any]:
         """Executes full RAG workflow:
@@ -286,49 +286,81 @@ class PesticideRagService:
 
         grounded_context = "\n\n".join(context_blocks)
 
-        system_instruction = (
-            "You are the senior Agricultural Pharmacologist and CIBRC Statutory Crop Protection Advisor for Kisan-Sethu.\n\n"
-            "STRICT GROUNDING & ANTI-HALLUCINATION RULES:\n"
-            "1. You are strictly bound to the official Government of India Central Insecticide Board & Registration Committee (CIBRC) "
-            "database records provided in the context below. Search ONLY this data and DO NOT search or extrapolate outside this dataset.\n"
-            "2. DO NOT make up, assume, guess, or invent any pesticide, brand name, active dose, dilution rate, or waiting period that is not explicitly present in the provided records.\n"
-            "3. If a queried chemical is NOT registered for the queried crop in the provided CIBRC context:\n"
-            "   - Explicitly state: '⛔ NOT REGISTERED in CIBRC Database for [Crop]'.\n"
-            "   - Warn of severe phytotoxicity, crop loss, or illegal residues (e.g. 2,4-D causing severe epinasty and kill on broadleaf crops like Tomato/Cotton).\n"
-            "   - Suggest ONLY the registered alternatives present in the provided context.\n"
-            "4. ALWAYS provide the EXACT 15-Liter Knapsack Sprayer Pump dose (in ml or grams per 15L tank) so smallholder Indian farmers can mix accurately in the field.\n"
-            "5. ALWAYS specify the Pre-Harvest Interval (waiting period in days) before harvesting to prevent toxic chemical residues.\n"
-            "6. State the Toxicity Triangle (Green = caution/safe, Blue = moderate, Yellow = highly toxic, Red = extremely hazardous, Bio = certified organic).\n"
-            f"7. Respond in the requested language: '{lang}' (English, Hindi, or Telugu). If Hindi, write in fluent Devanagari script. If Telugu, write in Telugu script.\n\n"
-            f"Context from Isolated CIBRC Registry Database ({Path(get_cibrc_db_path()).name}):\n"
-            f"{grounded_context}"
+        advisor_prompt = load_prompt(
+            "doctor",
+            "advisor",
+            version=1,
+            variables={
+                "crop": crop or "Not specified",
+                "farmer_question": f"{user_query} (Pesticide: {pesticide or 'N/A'})",
+                "cibrc_records": grounded_context,
+                "lang": lang,
+            },
         )
-
-        user_prompt = f"Farmer Question: {user_query}\nTarget Crop: {crop or 'Not specified'}\nPesticide Queried: {pesticide or 'Not specified'}"
 
         # Step 3: Invoke LLM Gateway
         ai_response_text = ""
         is_llm_online = False
         try:
-            if settings.gemini_api_key and not settings.gemini_api_key.startswith("your_"):
-                ai_response_text = await self.llm_gateway.generate_response(
-                    prompt=user_prompt,
-                    system_instruction=system_instruction,
-                    use_strong_model=False
-                )
-                if ai_response_text:
-                    is_llm_online = True
-        except Exception as exc:
-            logger.warning("Gemini API call failed (%s); using CIBRC grounded fallback synthesizer.", exc)
-
-        if not ai_response_text:
-            ai_response_text = self._generate_grounded_fallback(
-                query=user_query,
-                crop=crop,
-                pesticide=pesticide,
-                retrieved_docs=unique_docs,
-                lang=lang
+            if not self.llm_gateway.is_available():
+                raise LLMUnavailableError("LLM credentials not configured")
+            raw_response = await self.llm_gateway.generate_response(
+                prompt=advisor_prompt,
+                use_strong_model=False,
             )
+            if raw_response:
+                is_llm_online = True
+                try:
+                    cleaned = raw_response.replace("```json", "").replace("```", "").strip()
+                    parsed_res = json.loads(cleaned)
+                    selected_ids = parsed_res.get("selected_record_ids", [])
+                    reasoning = parsed_res.get("reasoning", "")
+                    notes = parsed_res.get("advisory_notes", "")
+                    chosen_docs = [d for d in unique_docs if d["id"] in selected_ids] or unique_docs[:3]
+                    ai_response_text = f"{reasoning}\n\n{notes}\n\n" + self._generate_grounded_fallback(
+                        user_query, crop, pesticide, chosen_docs, lang
+                    )
+                except Exception:
+                    ai_response_text = raw_response
+
+        except LLMUnavailableError as exc:
+            logger.warning("LLM unavailable for CIBRC RAG: %s", exc)
+            friendly_message = (
+                "సలహా సేవ ప్రస్తుతం అందుబాటులో లేదు. దయచేసి స్థానిక వ్యవసాయ అధికారిని లేదా కిసాన్ కాల్ సెంటర్ (1800-180-1551) సంప్రదించండి."
+                if lang == "te"
+                else (
+                    "कीटनाशक सलाहकार सेवा वर्तमान में अनुपलब्ध है। कृपया अपने स्थानीय कृषि अधिकारी या किसान कॉल सेंटर (1800-180-1551) से परामर्श लें।"
+                    if lang == "hi"
+                    else "Pesticide advisory service is temporarily unavailable. Please consult your local Agricultural Extension Officer or Kisan Call Centre (1800-180-1551)."
+                )
+            )
+            return {
+                "status": "unavailable",
+                "advisory": None,
+                "message": friendly_message,
+                "query": user_query,
+                "crop": crop,
+                "pesticide": pesticide,
+                "language": lang,
+                "llm_engine": "None",
+                "rag_context_count": len(unique_docs),
+                "retrieved_records": unique_docs[:10],
+            }
+        except Exception as exc:
+            logger.warning("Unexpected error during CIBRC RAG LLM call: %s", exc)
+            friendly_message = "Advisory service temporarily unavailable. Please consult Kisan Call Centre (1800-180-1551)."
+            return {
+                "status": "unavailable",
+                "advisory": None,
+                "message": friendly_message,
+                "query": user_query,
+                "crop": crop,
+                "pesticide": pesticide,
+                "language": lang,
+                "llm_engine": "None",
+                "rag_context_count": len(unique_docs),
+                "retrieved_records": unique_docs[:10],
+            }
 
         return {
             "status": "success",
@@ -345,8 +377,8 @@ class PesticideRagService:
     def _generate_grounded_fallback(
         self,
         query: str,
-        crop: Optional[str],
-        pesticide: Optional[str],
+        crop: str | None,
+        pesticide: str | None,
         retrieved_docs: list[dict[str, Any]],
         lang: str = "en"
     ) -> str:
@@ -354,7 +386,7 @@ class PesticideRagService:
         target_crop = crop or (retrieved_docs[0]["crop"] if retrieved_docs else "Selected Crop")
 
         if lang == "hi":
-            header = f"🌾 **किसान-सेतु CIBRC कीटनाशक एवं खुराक परामर्श (भारत सरकार अधिकृत डेटा)** 🌾\n\n"
+            header = "🌾 **किसान-सेतु CIBRC कीटनाशक एवं खुराक परामर्श (भारत सरकार अधिकृत डेटा)** 🌾\n\n"
             header += f"**लक्षित फसल:** {target_crop}\n\n"
             sections = []
             for d in retrieved_docs[:4]:
@@ -373,7 +405,7 @@ class PesticideRagService:
             return header + "\n".join(sections) + footer
 
         elif lang == "te":
-            header = f"🌾 **కిసాన్-సేతు CIBRC పురుగుమందుల మోతాదు సలహా (భారత ప్రభుత్వ అధికారిక సమాచారం)** 🌾\n\n"
+            header = "🌾 **కిసాన్-సేతు CIBRC పురుగుమందుల మోతాదు సలహా (భారత ప్రభుత్వ అధికారిక సమాచారం)** 🌾\n\n"
             header += f"**ఎంచుకున్న పంట:** {target_crop}\n\n"
             sections = []
             for d in retrieved_docs[:4]:
@@ -392,7 +424,7 @@ class PesticideRagService:
             return header + "\n".join(sections) + footer
 
         else:
-            header = f"🌾 **Kisan-Sethu CIBRC Statutory Pesticide & Dosage Advisory (Govt. of India Certified)** 🌾\n\n"
+            header = "🌾 **Kisan-Sethu CIBRC Statutory Pesticide & Dosage Advisory (Govt. of India Certified)** 🌾\n\n"
             header += f"**Queried Crop:** {target_crop} | **Query:** {query or 'Approved Presets'}\n\n"
             sections = []
             for d in retrieved_docs[:5]:
@@ -415,23 +447,25 @@ class PesticideRagService:
             return header + "\n".join(sections) + footer
     async def diagnose_and_prescribe(
         self,
-        image_bytes: Optional[bytes] = None,
+        image_bytes: bytes | None = None,
         mime_type: str = "image/jpeg",
-        crop_key: Optional[str] = None,
-        symptom_key: Optional[str] = None,
-        user_query: Optional[str] = None,
+        crop_key: str | None = None,
+        symptom_key: str | None = None,
+        user_query: str | None = None,
         tank_liters: int = 15,
         lang: str = "en"
     ) -> dict[str, Any]:
         """Multimodal 3-Column Diagnostic & Prescriptive Engine:
         1. Analyzes leaf/plant photo via Gemini Vision (or symptom selection).
-        2. Retrieves official statutory CIBRC solutions from isolated database file.
-        3. Dynamically calculates sprayer pump dosage for any tank capacity (15L, 20L, 50L, 200L).
-        4. Provides audio scripts in English, Hindi, and Telugu.
+        2. Returns needs_more_info if analysis fails, confidence is low, or crop not in registry.
+        3. Dynamically calculates sprayer pump dosage for single values and ranges (e.g. 7.5-10 g).
+        4. Derives is_cibrc_approved from database row.
+        5. Formulates output as 'possible causes and what to check', never a definite diagnosis.
         """
-        detected_crop = crop_key or "tomato"
-        detected_symptom = symptom_key or "leaf_spot"
+        detected_crop = (crop_key or "").strip().lower() if crop_key else None
+        detected_symptom = (symptom_key or "").strip().lower() if symptom_key else None
         vision_analysis_note = ""
+        vision_confidence = 1.0
 
         # Step 1: Multimodal Gemini Vision Inspection
         if image_bytes:
@@ -440,11 +474,14 @@ class PesticideRagService:
                 "Carefully inspect this leaf or plant image:\n"
                 "1. Determine if this is an agricultural crop or plant.\n"
                 "2. Identify the crop (e.g., Tomato, Chilli, Paddy, Potato, Mango, Cotton, Wheat, Grapes, Apple).\n"
-                "3. Diagnose the visible pest or disease symptom (e.g., Leaf Spot, Leaf Curl, Early Blight, Late Blight, Fruit Borer, Mites, Blast, Rust).\n"
+                "3. Describe possible visible pest or disease symptoms.\n"
+                "4. Estimate your diagnostic confidence between 0.0 and 1.0.\n"
                 "Respond in valid JSON format ONLY with keys:\n"
-                "{\"is_crop\": true, \"crop\": \"Tomato\", \"crop_key\": \"tomato\", \"symptom\": \"Leaf Spot\", \"symptom_key\": \"leaf_spot\", \"explanation\": \"...\"}"
+                "{\"is_crop\": true, \"crop_key\": \"tomato\", \"symptom_key\": \"leaf_spot\", \"confidence\": 0.85, \"possible_causes\": \"...\", \"what_to_check\": \"...\"}"
             )
             try:
+                if not self.llm_gateway.is_available():
+                    raise LLMUnavailableError("LLM vision service not configured")
                 vision_text = await self.llm_gateway.generate_vision_response(
                     image_bytes=image_bytes,
                     mime_type=mime_type,
@@ -453,13 +490,58 @@ class PesticideRagService:
                 if vision_text:
                     cleaned_json = vision_text.replace("```json", "").replace("```", "").strip()
                     parsed = json.loads(cleaned_json)
-                    if parsed.get("crop_key"):
+                    if not parsed.get("is_crop", True):
+                        return {
+                            "status": "needs_more_info",
+                            "message": "The provided image does not appear to show an agricultural crop leaf or plant.",
+                            "questions": [
+                                "Can you upload a clear photo showing the crop foliage, leaves, or stems?",
+                                "Which crop are you cultivating (e.g. Tomato, Chilli, Paddy, Cotton)?",
+                                "What symptoms or damage did you notice on the plant?"
+                            ],
+                            "possible_causes": [],
+                            "actionable_solutions": []
+                        }
+
+                    vision_confidence = float(parsed.get("confidence", 0.85))
+                    if parsed.get("crop_key") and not detected_crop:
                         detected_crop = parsed["crop_key"].lower()
-                    if parsed.get("symptom_key"):
+                    if parsed.get("symptom_key") and not detected_symptom:
                         detected_symptom = parsed["symptom_key"].lower()
-                    vision_analysis_note = parsed.get("explanation", "")
+                    vision_analysis_note = parsed.get("possible_causes", "") or parsed.get("what_to_check", "")
             except Exception as exc:
-                logger.warning("Gemini Vision parsing failed (%s); using symptom heuristics.", exc)
+                logger.warning("Vision analysis failed or unavailable: %s", exc)
+                if not detected_crop:
+                    return {
+                        "status": "needs_more_info",
+                        "message": "Image analysis was inconclusive or unavailable. Please clarify your crop details.",
+                        "questions": [
+                            "Which crop is affected (e.g. Tomato, Chilli, Paddy, Cotton)?",
+                            "What visible symptoms are on the leaves (e.g., yellow spots, curling, holes)?",
+                            "Can you capture a clearer photo in daylight showing both sides of the leaf?"
+                        ],
+                        "possible_causes": [],
+                        "actionable_solutions": []
+                    }
+
+        # If confidence is low (< 0.60) or crop was not identified:
+        if vision_confidence < 0.60 or not detected_crop:
+            return {
+                "status": "needs_more_info",
+                "message": (
+                    "మరిన్ని వివరాలు అవసరం. నిర్ధారించడానికి కింది ప్రశ్నలకు సమాధానం ఇవ్వండి." if lang == "te"
+                    else "अधिक जानकारी की आवश्यकता है। कृपया नीचे दिए गए प्रश्नों के उत्तर दें।" if lang == "hi"
+                    else "More information needed for accurate diagnosis. Please answer the questions below."
+                ),
+                "questions": [
+                    "Which crop is affected (e.g. Tomato, Chilli, Paddy, Cotton)?",
+                    "Are the symptoms on the upper leaves, lower leaves, or fruits?",
+                    "Do you see visible insects, webbing, or powder on the underside of the leaves?",
+                    "How many days ago did the symptoms first appear?"
+                ],
+                "possible_causes": [],
+                "actionable_solutions": []
+            }
 
         # Standardize crop name & key
         clean_crop = detected_crop.lower()
@@ -495,38 +577,110 @@ class PesticideRagService:
             display_crop = clean_crop.title()
             crop_icon = "🌱"
 
-        # Step 2: Query Isolated Database for Target Solutions
-        symptom_query_str = detected_symptom.replace("_", " ")
+        # Step 2: Check if crop exists in CIBRC statutory registry
         all_crop_records = self.search_registry(crop=clean_crop, limit=50)
+        if not all_crop_records:
+            return {
+                "status": "needs_more_info",
+                "message": (
+                    f"CIBRC రిజిస్ట్రీలో '{clean_crop}' నమోదు కాలేదు. దయచేసి సరైన పంట పేరును పేర్కొనండి." if lang == "te"
+                    else f"CIBRC रजिस्ट्री में '{clean_crop}' पंजीकृत नहीं है। कृपया सही फसल नाम दर्ज करें।" if lang == "hi"
+                    else f"No registered CIBRC records found for crop '{clean_crop}'. Please verify the crop name."
+                ),
+                "questions": [
+                    f"Is '{clean_crop}' known locally by another crop name?",
+                    "Are you cultivating another primary crop in this field?",
+                    "Please contact the Kisan Call Centre (1800-180-1551) for guidance on unlisted crops."
+                ],
+                "possible_causes": [],
+                "actionable_solutions": []
+            }
 
-        # Filter or rank records by symptom match
+        # If symptom was not detected or provided:
+        if not detected_symptom:
+            return {
+                "status": "needs_more_info",
+                "message": f"Please specify the symptom or pest problem affecting your {display_crop}.",
+                "questions": [
+                    f"What symptoms do you observe on the {display_crop} (e.g. leaf spots, wilting, borers)?",
+                    "Are the leaves curling upwards or downwards?",
+                    "Is there any fungal powder or mold visible?"
+                ],
+                "possible_causes": [],
+                "actionable_solutions": []
+            }
+
+        # Step 3: Match records by symptom
+        symptom_query_str = detected_symptom.replace("_", " ")
         matching_records = [
             r for r in all_crop_records
-            if any(term in r["target_pest_or_disease"].lower() for term in symptom_query_str.split())
+            if any(term in r["target_pest_or_disease"].lower() for term in symptom_query_str.split() if len(term) > 2)
         ]
-        if not matching_records:
-            matching_records = all_crop_records[:6]
 
-        # Step 3: Build Actionable Solution Bottle Cards with Dynamic Pump Math
+        # If no matching records found, return empty solutions with explicit message (NO fallback!)
+        if not matching_records:
+            no_products_msg = (
+                f"{display_crop} లో '{symptom_query_str}' కొరకు CIBRC లో నమోదైన ఉత్పత్తులు ఏవీ కనుగొనబడలేదు." if lang == "te"
+                else f"{display_crop} में '{symptom_query_str}' के लिए CIBRC में कोई पंजीकृत उत्पाद नहीं मिला।" if lang == "hi"
+                else f"No registered products found in the CIBRC statutory registry for '{symptom_query_str}' in {display_crop}."
+            )
+            # Audio script MUST NOT mention medicine
+            audio_script = (
+                f"{display_crop} పంటలో ఈ తెగులుకు CIBRC ఆమోదిత రసాయనాలు లేవు. దయచేసి సేంద్రియ పద్ధతులు మరియు కిసాన్ కాల్ సెంటర్ (1800-180-1551) సలహా తీసుకోండి." if lang == "te"
+                else f"{display_crop} में इस लक्षण के लिए कोई अनुमोदित उत्पाद नहीं है। कृपया किसान कॉल सेंटर (1800-180-1551) या कृषि विज्ञान केंद्र से संपर्क करें।" if lang == "hi"
+                else f"No registered CIBRC products found for {symptom_query_str} in {display_crop}. Please contact your local Krishi Vigyan Kendra or Kisan Call Centre (1800-180-1551) for non-chemical IPM options."
+            )
+            return {
+                "status": "success",
+                "message": no_products_msg,
+                "detected_crop": {
+                    "key": clean_crop,
+                    "name": display_crop,
+                    "icon": crop_icon
+                },
+                "possible_causes_and_what_to_check": {
+                    "possible_cause": symptom_query_str.title(),
+                    "what_to_check": f"Inspect {display_crop} foliage for specific signs of {symptom_query_str}. Check for moisture stress or nutrient deficiency before spraying.",
+                    "notes": vision_analysis_note or "Visual screening completed. Verify in field.",
+                    "diagnostic_notice": "Possible causes and what to check in field, not a definitive diagnosis."
+                },
+                "tank_liters": tank_liters,
+                "actionable_solutions": [],
+                "audio_script": audio_script,
+                "language": lang
+            }
+
+        # Step 4: Build Actionable Solution Bottle Cards with Dynamic Range Pump Math
         actionable_solutions = []
         for r in matching_records:
-            # Parse baseline 15L pump dose numbers
             base_15l_str = r.get("pump_dose_15l", "")
-            num_match = re.search(r"(\d+(?:\.\d+)?)", base_15l_str)
-            unit = "ml" if "ml" in base_15l_str.lower() else "g"
+            unit = "ml" if "ml" in base_15l_str.lower() else ("g" if "g" in base_15l_str.lower() else "units")
 
-            if num_match:
-                base_val = float(num_match.group(1))
-                # Dynamic scaling: base_val is for 15L
+            # Correctly handle ranges like "7.5-10 g" or "15 to 20 ml"
+            range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)", base_15l_str, re.IGNORECASE)
+            single_match = re.search(r"(\d+(?:\.\d+)?)", base_15l_str)
+
+            if range_match:
+                low = float(range_match.group(1))
+                high = float(range_match.group(2))
+                scaled_low = round((low / 15.0) * tank_liters, 1)
+                scaled_high = round((high / 15.0) * tank_liters, 1)
+                rate_low = round(low / 15.0, 2)
+                rate_high = round(high / 15.0, 2)
+                calculated_pump_dose = (
+                    f"{scaled_low}-{scaled_high} {unit} per {tank_liters}L pump ({rate_low}-{rate_high} {unit}/L)"
+                )
+            elif single_match:
+                base_val = float(single_match.group(1))
                 scaled_val = round((base_val / 15.0) * tank_liters, 1)
-                calculated_pump_dose = f"{scaled_val} {unit} per {tank_liters}L pump ({round(base_val/15.0, 2)} {unit}/L)"
+                rate = round(base_val / 15.0, 2)
+                calculated_pump_dose = f"{scaled_val} {unit} per {tank_liters}L pump ({rate} {unit}/L)"
             else:
                 calculated_pump_dose = base_15l_str or f"Refer to {tank_liters}L tank label"
 
             brands = r.get("payload", {}).get("common_brands", []) if isinstance(r.get("payload"), dict) else []
             primary_brand = brands[0] if brands else r["pesticide_name"].split()[0]
 
-            # Assign bottle color themes based on toxicity band
             tox_band = r.get("toxicity_band", "blue").lower()
             if tox_band == "green":
                 cap_color = "#10B981"
@@ -543,6 +697,9 @@ class PesticideRagService:
             else:
                 cap_color = "#3B82F6"
                 band_label = "Blue (Moderately Toxic)"
+
+            # Derive is_cibrc_approved from database row
+            row_approved = bool(r.get("is_approved", True))
 
             actionable_solutions.append({
                 "id": r["id"],
@@ -561,30 +718,30 @@ class PesticideRagService:
                 "cap_color": cap_color,
                 "application_method": r["application_method"],
                 "safety_advice": r["safety_warnings"],
-                "is_cibrc_approved": True
+                "is_cibrc_approved": row_approved
             })
 
-        # Step 4: Build Vernacular Audio Script
+        # Step 5: Vernacular Audio Script
         top_sol = actionable_solutions[0] if actionable_solutions else None
         if lang == "hi":
             symptom_hi = "पत्ती धब्बा" if "spot" in detected_symptom else "पत्ती मरोड़" if "curl" in detected_symptom else "फल छेदक" if "borer" in detected_symptom else "झुलसा रोग"
             audio_script = (
-                f"{display_crop} में {symptom_hi} की पहचान हुई है। "
-                f"केंद्रीय कीटनाशी बोर्ड द्वारा अनुमोदित दवा {top_sol['brand_name'] if top_sol else 'दवा'} का प्रयोग करें। "
-                f"{tank_liters} लीटर पंप में {top_sol['pump_dose'].split(' per ')[0] if top_sol else 'सही मात्रा'} घोलें। "
+                f"{display_crop} में {symptom_hi} के संभावित लक्षण पाए गए हैं। "
+                f"केंद्रीय कीटनाशी बोर्ड द्वारा पंजीकृत उत्पाद {top_sol['brand_name'] if top_sol else ''} का प्रयोग कर सकते हैं। "
+                f"{tank_liters} लीटर पंप में {top_sol['pump_dose'].split(' per ')[0] if top_sol else ''} मिलाएं। "
                 f"तुड़ाई से पहले {top_sol['waiting_period_days'] if top_sol else '3 दिन'} की प्रतीक्षा अवधि का पालन करें।"
             )
         elif lang == "te":
             audio_script = (
-                f"{display_crop} పంటలో తెగులు గుర్తించబడింది. "
-                f"CIBRC ఆమోదించిన {top_sol['brand_name'] if top_sol else 'మందు'} వాడండి. "
-                f"{tank_liters} లీటర్ల పంపుకు {top_sol['pump_dose'].split(' per ')[0] if top_sol else 'సరైన మోతాదు'} కలపండి."
+                f"{display_crop} పంటలో ఈ లక్షణాలు గమనించబడ్డాయి. "
+                f"CIBRC నమోదైన {top_sol['brand_name'] if top_sol else ''} వాడవచ్చు. "
+                f"{tank_liters} లీటర్ల పంపుకు {top_sol['pump_dose'].split(' per ')[0] if top_sol else ''} కలపండి."
             )
         else:
             audio_script = (
-                f"Identified {detected_symptom.replace('_', ' ')} in {display_crop}. "
-                f"Recommended CIBRC approved solution is {top_sol['brand_name'] if top_sol else 'medicine'}. "
-                f"Mix {top_sol['pump_dose'].split(' per ')[0] if top_sol else 'recommended dose'} per {tank_liters}L tank. "
+                f"Possible causes of {detected_symptom.replace('_', ' ')} observed in {display_crop}. "
+                f"Registered statutory solution is {top_sol['brand_name'] if top_sol else ''}. "
+                f"Mix {top_sol['pump_dose'].split(' per ')[0] if top_sol else ''} per {tank_liters}L tank. "
                 f"Observe mandatory pre-harvest interval of {top_sol['waiting_period_days'] if top_sol else 'waiting days'}."
             )
 
@@ -595,11 +752,11 @@ class PesticideRagService:
                 "name": display_crop,
                 "icon": crop_icon
             },
-            "detected_symptom": {
-                "key": detected_symptom,
-                "title": detected_symptom.replace("_", " ").title(),
-                "severity": "high" if "curl" in detected_symptom or "borer" in detected_symptom else "medium",
-                "notes": vision_analysis_note or "CIBRC Certified Diagnostic Pattern"
+            "possible_causes_and_what_to_check": {
+                "possible_cause": detected_symptom.replace("_", " ").title(),
+                "what_to_check": f"Inspect leaf undersides and stems of {display_crop} for signs of {detected_symptom.replace('_', ' ')}.",
+                "notes": vision_analysis_note or "Visual screening completed. Confirm in field before spraying.",
+                "diagnostic_notice": "Possible causes and what to check in field, not a definitive diagnosis."
             },
             "tank_liters": tank_liters,
             "actionable_solutions": actionable_solutions,

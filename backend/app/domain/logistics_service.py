@@ -8,11 +8,11 @@ Provides:
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("LogisticsService")
 
-VEHICLE_PROFILES = {
+VEHICLE_PROFILES: dict[str, dict[str, Any]] = {
     "tractor": {
         "name": {"en": "Tractor Trolley", "hi": "ट्रैक्टर ट्रॉली", "te": "ట్రాక్టర్ ట్రాలీ"},
         "rate_per_km": 24.0,
@@ -204,9 +204,9 @@ class LogisticsEngine:
         crop_key: str = "chilli",
         load_quintals: float = 50.0,
         vehicle_type: str = "tractor",
-        distance_km: Optional[float] = None,
-        origin_mandi: Optional[str] = None,
-        destination_mandi: Optional[str] = None,
+        distance_km: float | None = None,
+        origin_mandi: str | None = None,
+        destination_mandi: str | None = None,
         lang: str = "en"
     ) -> dict[str, Any]:
         """Calculates round-trip transport logistics, gross spread, and net profit."""
@@ -295,10 +295,11 @@ class LogisticsEngine:
             corridor_dest = corridor["destination_mandi"].get(lang, corridor["destination_mandi"]["en"])
 
         # Financial Calculations
-        rate_km = veh_profile["rate_per_km"]
-        round_trip_distance = eff_distance * 2.0
+        rate_km = float(veh_profile["rate_per_km"])
+        round_trip_distance = float(eff_distance) * 2.0
         base_freight = round_trip_distance * rate_km
-        diesel_liters = round(round_trip_distance / veh_profile["fuel_economy_kmpl"], 1)
+        fuel_economy = float(veh_profile["fuel_economy_kmpl"])
+        diesel_liters = round(round_trip_distance / fuel_economy, 1)
         diesel_expense = round(diesel_liters * 96.0, 1)  # Diesel @ ₹96/L
         toll_and_loading = 400.0 if eff_distance > 40 else 200.0
 
@@ -329,6 +330,9 @@ class LogisticsEngine:
 
         verdict_text = verdict_hi if lang == "hi" else (verdict_te if lang == "te" else verdict_en)
 
+        veh_name_data = veh_profile["name"]
+        veh_name_str = veh_name_data.get(lang, veh_name_data.get("en", "")) if isinstance(veh_name_data, dict) else str(veh_name_data)
+
         return {
             "status": "success",
             "crop_key": crop,
@@ -340,7 +344,7 @@ class LogisticsEngine:
             "load_quintals": load_quintals,
             "vehicle": {
                 "type": vehicle_type,
-                "name": veh_profile["name"].get(lang, veh_profile["name"]["en"]),
+                "name": veh_name_str,
                 "rate_per_km": rate_km
             },
             "rates": {
@@ -367,7 +371,7 @@ class LogisticsEngine:
             "verdict": verdict_text
         }
 
-    def get_corridors(self, crop_key: Optional[str] = None, lang: str = "en") -> list[dict[str, Any]]:
+    def get_corridors(self, crop_key: str | None = None, lang: str = "en") -> list[dict[str, Any]]:
         """List major recommended terminal corridors."""
         results = []
         keys = [crop_key.lower().strip()] if (crop_key and crop_key.lower().strip() in DEFAULT_CORRIDORS) else list(DEFAULT_CORRIDORS.keys())

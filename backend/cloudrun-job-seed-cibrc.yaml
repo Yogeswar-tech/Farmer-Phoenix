@@ -1,0 +1,31 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: kisan-sethu-seed-cibrc
+  labels:
+    cloud.google.com/location: asia-south1
+spec:
+  template:
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          containers:
+          - image: asia-south1-docker.pkg.dev/kisan-sethu/kisan-sethu-repo/kisan-sethu-app:latest
+            command:
+            - python
+            - backend/scripts/seed_cibrc_pesticide_registry.py
+            env:
+            - name: KS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ks-database-url
+                  key: latest
+            - name: POSTGRES_SSL
+              value: "true"
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+          maxRetries: 3
+          timeoutSeconds: 300

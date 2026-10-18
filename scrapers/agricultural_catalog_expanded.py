@@ -1011,3 +1011,14 @@ EXPANDED_AGRICULTURAL_CATALOG: list[dict[str, Any]] = [
         "helpdesk": "1800-180-4510"
     }
 ]
+
+import os
+if not os.getenv("KS_USE_SAMPLE_DATA", "false").lower() in ("true", "1", "yes"):
+    _KEYS_TO_REMOVE = {
+        "base_modal_qtl", "grade_a_range", "grade_b_range", "grade_c_range",
+        "arrival_quintals", "trend", "selling_advice", "weather_alert",
+        "nearest_markets", "helpdesk"
+    }
+    for _item in EXPANDED_AGRICULTURAL_CATALOG:
+        for _k in _KEYS_TO_REMOVE:
+            _item.pop(_k, None)

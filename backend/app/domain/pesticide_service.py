@@ -10,10 +10,9 @@ Provides:
 7. High-speed caching for sub-5ms UI responses.
 """
 
-import json
 import logging
 import re
-from typing import Any, Optional
+from typing import Any, cast
 
 from app.cache.cache_service import CacheService
 
@@ -828,7 +827,7 @@ PESTICIDE_DATABASE: list[dict[str, Any]] = [
 class PesticideEngine:
     """Intelligent Agricultural Pesticide Search and Crop Suitability Matcher."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.pesticides = PESTICIDE_DATABASE
 
     def search_pesticides(self, query: str) -> list[dict[str, Any]]:
@@ -866,7 +865,7 @@ class PesticideEngine:
 
         return results
 
-    def get_pesticide_by_id(self, pesticide_id: str) -> Optional[dict[str, Any]]:
+    def get_pesticide_by_id(self, pesticide_id: str) -> dict[str, Any] | None:
         """Finds pesticide record by ID."""
         pid = pesticide_id.lower().strip()
         return next((p for p in self.pesticides if p["id"] == pid), None)
@@ -874,7 +873,7 @@ class PesticideEngine:
     def analyze_crop_suitability(
         self,
         pesticide_id: str,
-        crop_query: Optional[str] = None,
+        crop_query: str | None = None,
         tank_liters: int = 15,
         lang: str = "en"
     ) -> dict[str, Any]:
@@ -882,7 +881,7 @@ class PesticideEngine:
         cache_key = f"pest_suitability:{pesticide_id}:{crop_query or 'all'}:{tank_liters}:{lang}"
         cached = cache_service.get_json(cache_key)
         if cached:
-            return cached
+            return cast(dict[str, Any], cached)
 
         # Find pesticide or search by query
         pesticide = self.get_pesticide_by_id(pesticide_id)
@@ -897,7 +896,7 @@ class PesticideEngine:
 
         # Crop matching logic
         selected_crop_clean = (crop_query or "").strip().lower()
-        crop_verdict: Optional[dict[str, Any]] = None
+        crop_verdict: dict[str, Any] | None = None
 
         if selected_crop_clean and selected_crop_clean != "all":
             # Check suitable crops
@@ -944,16 +943,17 @@ class PesticideEngine:
                     "note": matched_suitable.get("note", "")
                 }
             else:
+                crop_title = (crop_query or "Crop").title()
                 crop_verdict = {
                     "status": "OFF_LABEL_CAUTION",
                     "badge": "⚠️ OFF-LABEL / NOT REGISTERED",
-                    "crop_name": crop_query.title(),
+                    "crop_name": crop_title,
                     "is_suitable": False,
                     "reason": {
-                        "en": f"This chemical is not officially registered by CIBRC for {crop_query.title()}. Use at your own risk or consult your local Krishi Vigyan Kendra (KVK).",
-                        "hi": f"यह दवा सीआईबीआरसी (CIBRC) द्वारा {crop_query} के लिए अनुमोदित नहीं है। स्थानीय कृषि विज्ञान केंद्र से सलाह लें।",
-                        "te": f"ఈ మందు {crop_query} పంటకు అధికారికంగా సిఫార్సు చేయబడలేదు."
-                    }.get(lang, f"Not officially registered for {crop_query.title()}")
+                        "en": f"This chemical is not officially registered by CIBRC for {crop_title}. Use at your own risk or consult your local Krishi Vigyan Kendra (KVK).",
+                        "hi": f"यह दवा सीआईबीआरसी (CIBRC) द्वारा {crop_title} के लिए अनुमोदित नहीं है। स्थानीय कृषि विज्ञान केंद्र से सलाह लें।",
+                        "te": f"ఈ మందు {crop_title} పంటకు అధికారికంగా సిఫార్సు చేయబడలేదు."
+                    }.get(lang, f"Not officially registered for {crop_title}")
                 }
 
         # Calculate Knapsack Sprayer Pump dilution math (15L / 16L / 20L)

@@ -1,0 +1,1187 @@
+[
+  {
+    "commodity": "Red Chilli",
+    "crop_key": "red_chilli",
+    "icon": "🌶️",
+    "aliases": [
+      "chilli",
+      "red chilli",
+      "mirchi",
+      "mirch",
+      "lal mirch",
+      "teja",
+      "dry chilli",
+      "byadgi"
+    ],
+    "category": "Spices / Vegetables"
+  },
+  {
+    "commodity": "Tomato",
+    "crop_key": "tomato",
+    "icon": "🍅",
+    "aliases": [
+      "tomato",
+      "tamatar",
+      "tamata",
+      "hybrid tomato",
+      "local tomato",
+      "desi tomato"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Potato",
+    "crop_key": "potato",
+    "icon": "🥔",
+    "aliases": [
+      "potato",
+      "aloo",
+      "batata",
+      "alu",
+      "jyoti",
+      "pukhraj",
+      "chipsona",
+      "kufri"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Onion",
+    "crop_key": "onion",
+    "icon": "🧅",
+    "aliases": [
+      "onion",
+      "pyaz",
+      "pyaaz",
+      "kanda",
+      "ulli",
+      "garva",
+      "red onion"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Brinjal",
+    "crop_key": "brinjal",
+    "icon": "🍆",
+    "aliases": [
+      "brinjal",
+      "eggplant",
+      "baingan",
+      "vankaya",
+      "badanekayi",
+      "kathirikai",
+      "aubergine"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Ladyfinger (Okra)",
+    "crop_key": "okra",
+    "icon": "🌿",
+    "aliases": [
+      "okra",
+      "ladyfinger",
+      "bhindi",
+      "bhendi",
+      "bendakaya",
+      "benda"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Cauliflower",
+    "crop_key": "cauliflower",
+    "icon": "🥦",
+    "aliases": [
+      "cauliflower",
+      "gobhi",
+      "phool gobhi",
+      "gobi",
+      "phoolgobi"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Cabbage",
+    "crop_key": "cabbage",
+    "icon": "🥬",
+    "aliases": [
+      "cabbage",
+      "patta gobhi",
+      "bandha gobi",
+      "kosu",
+      "muttai kose"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Carrot",
+    "crop_key": "carrot",
+    "icon": "🥕",
+    "aliases": [
+      "carrot",
+      "gajar",
+      "gajjara",
+      "orange carrot",
+      "red carrot"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Ginger",
+    "crop_key": "ginger",
+    "icon": "🫚",
+    "aliases": [
+      "ginger",
+      "adrak",
+      "allam",
+      "adrakh",
+      "fresh ginger",
+      "sonth"
+    ],
+    "category": "Spices / Roots"
+  },
+  {
+    "commodity": "Garlic",
+    "crop_key": "garlic",
+    "icon": "🧄",
+    "aliases": [
+      "garlic",
+      "lahsun",
+      "vellulli",
+      "lasun",
+      "desi garlic",
+      "ootti garlic"
+    ],
+    "category": "Spices / Roots"
+  },
+  {
+    "commodity": "Cucumber",
+    "crop_key": "cucumber",
+    "icon": "🥒",
+    "aliases": [
+      "cucumber",
+      "kheera",
+      "kakdi",
+      "dosakaya",
+      "vellarikka"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Bottle Gourd (Lauki)",
+    "crop_key": "bottle_gourd",
+    "icon": "🥒",
+    "aliases": [
+      "bottle gourd",
+      "lauki",
+      "sorakaya",
+      "doodhi",
+      "anapakaya",
+      "ghiya"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Bitter Gourd (Karela)",
+    "crop_key": "bitter_gourd",
+    "icon": "🥒",
+    "aliases": [
+      "bitter gourd",
+      "karela",
+      "kakarakaya",
+      "pavakkai",
+      "karavila"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Green Peas (Matar)",
+    "crop_key": "green_peas",
+    "icon": "🫛",
+    "aliases": [
+      "green peas",
+      "peas",
+      "matar",
+      "batani",
+      "pattani",
+      "fresh peas"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Capsicum (Bell Pepper)",
+    "crop_key": "capsicum",
+    "icon": "🫑",
+    "aliases": [
+      "capsicum",
+      "bell pepper",
+      "shimla mirch",
+      "bengaluru mirchi",
+      "green pepper"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Drumstick (Moringa)",
+    "crop_key": "drumstick",
+    "icon": "🥢",
+    "aliases": [
+      "drumstick",
+      "moringa",
+      "munakkaya",
+      "sahjan",
+      "murungakkai",
+      "nuggekayi"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Radish (Mooli)",
+    "crop_key": "radish",
+    "icon": "🌱",
+    "aliases": [
+      "radish",
+      "mooli",
+      "mullangi",
+      "white radish"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Beetroot",
+    "crop_key": "beetroot",
+    "icon": "🫐",
+    "aliases": [
+      "beetroot",
+      "chukandar",
+      "beet",
+      "beet root"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Cherry",
+    "crop_key": "cherry",
+    "icon": "🍒",
+    "aliases": [
+      "cherry",
+      "cherries",
+      "kashmiri cherry",
+      "himachal cherry",
+      "double cherry",
+      "mishri cherry"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Mango",
+    "crop_key": "mango",
+    "icon": "🥭",
+    "aliases": [
+      "mango",
+      "aam",
+      "mamidi",
+      "alphonso",
+      "banganapalli",
+      "kesar",
+      "totapuri",
+      "dasheri"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Banana",
+    "crop_key": "banana",
+    "icon": "🍌",
+    "aliases": [
+      "banana",
+      "kela",
+      "arati",
+      "grand naine",
+      "robusta",
+      "yelakki",
+      "nendran"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Apple",
+    "crop_key": "apple",
+    "icon": "🍎",
+    "aliases": [
+      "apple",
+      "seb",
+      "sebu",
+      "kashmiri apple",
+      "himachali apple",
+      "royal delicious"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Pomegranate",
+    "crop_key": "pomegranate",
+    "icon": "🍎",
+    "aliases": [
+      "pomegranate",
+      "anar",
+      "danimma",
+      "dalimb",
+      "bhagwa"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Watermelon",
+    "crop_key": "watermelon",
+    "icon": "🍉",
+    "aliases": [
+      "watermelon",
+      "tarbooz",
+      "puchakaya",
+      "kalingad",
+      "sugar baby"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Paddy",
+    "crop_key": "paddy",
+    "icon": "🌾",
+    "aliases": [
+      "paddy",
+      "rice",
+      "dhan",
+      "vari",
+      "sona masoori",
+      "basmati",
+      "1121",
+      "bpt 5204"
+    ],
+    "category": "Food Grains"
+  },
+  {
+    "commodity": "Wheat",
+    "crop_key": "wheat",
+    "icon": "🌾",
+    "aliases": [
+      "wheat",
+      "gehun",
+      "godhuma",
+      "sharbati",
+      "lokwan",
+      "durum"
+    ],
+    "category": "Food Grains"
+  },
+  {
+    "commodity": "Maize (Corn)",
+    "crop_key": "maize",
+    "icon": "🌽",
+    "aliases": [
+      "maize",
+      "corn",
+      "makka",
+      "jonnalu",
+      "makki",
+      "yellow maize"
+    ],
+    "category": "Food Grains"
+  },
+  {
+    "commodity": "Bengal Gram (Chana)",
+    "crop_key": "chana",
+    "icon": "🧆",
+    "aliases": [
+      "chana",
+      "bengal gram",
+      "chickpea",
+      "senagalu",
+      "kala chana",
+      "kabuli chana"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Red Gram (Toor / Arhar)",
+    "crop_key": "toor_dal",
+    "icon": "🥣",
+    "aliases": [
+      "toor",
+      "arhar",
+      "red gram",
+      "pigeon pea",
+      "kandulu",
+      "tur"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Cotton",
+    "crop_key": "cotton",
+    "icon": "🌱",
+    "aliases": [
+      "cotton",
+      "kapas",
+      "patti",
+      "shankar-6",
+      "bt cotton",
+      "prathi"
+    ],
+    "category": "Commercial / Fiber"
+  },
+  {
+    "commodity": "Turmeric",
+    "crop_key": "turmeric",
+    "icon": "🟡",
+    "aliases": [
+      "turmeric",
+      "haldi",
+      "pasupu",
+      "salem turmeric",
+      "nizamabad turmeric",
+      "manjal"
+    ],
+    "category": "Spices / Commercial"
+  },
+  {
+    "commodity": "Soybean",
+    "crop_key": "soybean",
+    "icon": "🫘",
+    "aliases": [
+      "soybean",
+      "soya",
+      "soyabean",
+      "yellow soybean"
+    ],
+    "category": "Oilseeds"
+  },
+  {
+    "commodity": "Groundnut (Peanut)",
+    "crop_key": "groundnut",
+    "icon": "🥜",
+    "aliases": [
+      "groundnut",
+      "peanut",
+      "moongphali",
+      "verusenaga",
+      "kadalai",
+      "shengdana"
+    ],
+    "category": "Oilseeds"
+  },
+  {
+    "commodity": "Black Pepper",
+    "crop_key": "black_pepper",
+    "icon": "🧂",
+    "aliases": [
+      "black pepper",
+      "kali mirch",
+      "miriyalu",
+      "kurumulaku",
+      "pepper"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Saffron (Kesar)",
+    "crop_key": "saffron",
+    "icon": "🌸",
+    "aliases": [
+      "saffron",
+      "kesar",
+      "kumkuma puvvu",
+      "zafran",
+      "mongra"
+    ],
+    "category": "Spices / Exotic"
+  },
+  {
+    "commodity": "Button Mushroom",
+    "crop_key": "button_mushroom",
+    "icon": "🍄",
+    "aliases": [
+      "mushroom",
+      "button mushroom",
+      "white button mushroom",
+      "khumb",
+      "kalan",
+      "mushrooms",
+      "white mushroom",
+      "fresh mushroom"
+    ],
+    "category": "Fungi / Edible Mushrooms"
+  },
+  {
+    "commodity": "Oyster Mushroom",
+    "crop_key": "oyster_mushroom",
+    "icon": "🍄",
+    "aliases": [
+      "oyster mushroom",
+      "dhingri",
+      "dhingri mushroom",
+      "pleurotus",
+      "grey oyster"
+    ],
+    "category": "Fungi / Edible Mushrooms"
+  },
+  {
+    "commodity": "Dragon Fruit",
+    "crop_key": "dragon_fruit",
+    "icon": "🐉",
+    "aliases": [
+      "dragon fruit",
+      "pitaya",
+      "kamalam",
+      "red dragon fruit",
+      "white dragon fruit",
+      "dragonfruit"
+    ],
+    "category": "Fruits / Exotic"
+  },
+  {
+    "commodity": "Avocado",
+    "crop_key": "avocado",
+    "icon": "🥑",
+    "aliases": [
+      "avocado",
+      "butter fruit",
+      "hass avocado",
+      "benik",
+      "fuerte"
+    ],
+    "category": "Fruits / Exotic"
+  },
+  {
+    "commodity": "Custard Apple",
+    "crop_key": "custard_apple",
+    "icon": "🍏",
+    "aliases": [
+      "custard apple",
+      "sitaphal",
+      "seethaphal",
+      "sharifa",
+      "ata",
+      "custardapple"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Guava",
+    "crop_key": "guava",
+    "icon": "🍐",
+    "aliases": [
+      "guava",
+      "amrood",
+      "jama",
+      "taiwan pink guava",
+      "safeda",
+      "amrud"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Papaya",
+    "crop_key": "papaya",
+    "icon": "🍈",
+    "aliases": [
+      "papaya",
+      "papita",
+      "boppayi",
+      "red lady papaya",
+      "red lady",
+      "papayas"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Sapota",
+    "crop_key": "sapota",
+    "icon": "🥔",
+    "aliases": [
+      "sapota",
+      "chikoo",
+      "chiku",
+      "sapodilla",
+      "kalipatti",
+      "cricket ball"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Sugarcane",
+    "crop_key": "sugarcane",
+    "icon": "🎋",
+    "aliases": [
+      "sugarcane",
+      "ganna",
+      "cheruku",
+      "cane",
+      "sugar cane"
+    ],
+    "category": "Commercial / Cash Crops"
+  },
+  {
+    "commodity": "Orange",
+    "crop_key": "orange",
+    "icon": "🍊",
+    "aliases": [
+      "orange",
+      "oranges",
+      "santra",
+      "narangi",
+      "nagpur orange",
+      "kinnow",
+      "mandarin"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Sweet Lime",
+    "crop_key": "sweet_lime",
+    "icon": "🍈",
+    "aliases": [
+      "sweet lime",
+      "mosambi",
+      "mousambi",
+      "mothambi",
+      "sweet lemon"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Lemon",
+    "crop_key": "lemon",
+    "icon": "🍋",
+    "aliases": [
+      "lemon",
+      "lemons",
+      "lime",
+      "nimbu",
+      "kagzi nimbu",
+      "citrus",
+      "elumichai"
+    ],
+    "category": "Fruits / Vegetables"
+  },
+  {
+    "commodity": "Grapes",
+    "crop_key": "grapes",
+    "icon": "🍇",
+    "aliases": [
+      "grapes",
+      "grape",
+      "angoor",
+      "draksha",
+      "thompson seedless",
+      "sonaka",
+      "kishmish",
+      "green grapes",
+      "black grapes"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Pineapple",
+    "crop_key": "pineapple",
+    "icon": "🍍",
+    "aliases": [
+      "pineapple",
+      "pineapples",
+      "ananas",
+      "kew pineapple",
+      "queen pineapple"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Coconut",
+    "crop_key": "coconut",
+    "icon": "🥥",
+    "aliases": [
+      "coconut",
+      "coconuts",
+      "nariyal",
+      "kobbari",
+      "tender coconut",
+      "copra",
+      "tenkai"
+    ],
+    "category": "Plantation / Fruits"
+  },
+  {
+    "commodity": "Strawberry",
+    "crop_key": "strawberry",
+    "icon": "🍓",
+    "aliases": [
+      "strawberry",
+      "strawberries",
+      "mahabaleshwar strawberry",
+      "fresh strawberry"
+    ],
+    "category": "Fruits / Berry"
+  },
+  {
+    "commodity": "Muskmelon",
+    "crop_key": "muskmelon",
+    "icon": "🍈",
+    "aliases": [
+      "muskmelon",
+      "cantaloupe",
+      "kharbooja",
+      "kharbuj",
+      "honey melon"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Kiwi",
+    "crop_key": "kiwi",
+    "icon": "🥝",
+    "aliases": [
+      "kiwi",
+      "kiwifruit",
+      "chinese gooseberry",
+      "green kiwi"
+    ],
+    "category": "Fruits / Exotic"
+  },
+  {
+    "commodity": "Fig",
+    "crop_key": "fig",
+    "icon": "🫐",
+    "aliases": [
+      "fig",
+      "figs",
+      "anjeer",
+      "anjir",
+      "fresh anjeer"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Jackfruit",
+    "crop_key": "jackfruit",
+    "icon": "🍈",
+    "aliases": [
+      "jackfruit",
+      "kathal",
+      "panasa",
+      "jack fruit",
+      "raw jackfruit"
+    ],
+    "category": "Fruits / Vegetables"
+  },
+  {
+    "commodity": "Litchi",
+    "crop_key": "litchi",
+    "icon": "🍒",
+    "aliases": [
+      "litchi",
+      "lychee",
+      "lichee",
+      "shahi litchi",
+      "china litchi"
+    ],
+    "category": "Fruits"
+  },
+  {
+    "commodity": "Green Chilli",
+    "crop_key": "green_chilli",
+    "icon": "🌶️",
+    "aliases": [
+      "green chilli",
+      "hari mirch",
+      "pachi mirchi",
+      "chilli green",
+      "jwala",
+      "fresh chilli"
+    ],
+    "category": "Vegetables / Spices"
+  },
+  {
+    "commodity": "Spinach",
+    "crop_key": "spinach",
+    "icon": "🥬",
+    "aliases": [
+      "spinach",
+      "palak",
+      "palak saag",
+      "paalak",
+      "green spinach"
+    ],
+    "category": "Vegetables / Leafy"
+  },
+  {
+    "commodity": "Fenugreek Leaves",
+    "crop_key": "fenugreek_leaves",
+    "icon": "🌿",
+    "aliases": [
+      "fenugreek",
+      "methi",
+      "methi patta",
+      "fenugreek leaves",
+      "menthi kura",
+      "kasuri methi green"
+    ],
+    "category": "Vegetables / Leafy"
+  },
+  {
+    "commodity": "Coriander Leaves",
+    "crop_key": "coriander_leaves",
+    "icon": "🌿",
+    "aliases": [
+      "coriander",
+      "coriander leaves",
+      "dhaniya",
+      "dhaniya patta",
+      "kothimbir",
+      "cilantro",
+      "kothimeera"
+    ],
+    "category": "Vegetables / Leafy"
+  },
+  {
+    "commodity": "Mint Leaves",
+    "crop_key": "mint_leaves",
+    "icon": "🌱",
+    "aliases": [
+      "mint",
+      "mint leaves",
+      "pudina",
+      "podina",
+      "fresh mint"
+    ],
+    "category": "Vegetables / Leafy"
+  },
+  {
+    "commodity": "Ridge Gourd",
+    "crop_key": "ridge_gourd",
+    "icon": "🥒",
+    "aliases": [
+      "ridge gourd",
+      "turai",
+      "tori",
+      "beerakaya",
+      "luffa",
+      "peerkangai"
+    ],
+    "category": "Vegetables / Gourds"
+  },
+  {
+    "commodity": "Pumpkin",
+    "crop_key": "pumpkin",
+    "icon": "🎃",
+    "aliases": [
+      "pumpkin",
+      "pumpkins",
+      "kaddu",
+      "sitaphal vegetable",
+      "gummadikaya",
+      "red pumpkin",
+      "yellow pumpkin"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "French Beans",
+    "crop_key": "french_beans",
+    "icon": "🫛",
+    "aliases": [
+      "french beans",
+      "green beans",
+      "beans",
+      "fali",
+      "haricot beans",
+      "chikkudu"
+    ],
+    "category": "Vegetables"
+  },
+  {
+    "commodity": "Sweet Potato",
+    "crop_key": "sweet_potato",
+    "icon": "🍠",
+    "aliases": [
+      "sweet potato",
+      "shakarkand",
+      "shakarkandi",
+      "chilagada dumpa",
+      "sakkaravalli"
+    ],
+    "category": "Vegetables / Tubers"
+  },
+  {
+    "commodity": "Basmati Rice",
+    "crop_key": "basmati_rice",
+    "icon": "🍚",
+    "aliases": [
+      "basmati",
+      "basmati rice",
+      "chawal",
+      "rice",
+      "1121 rice",
+      "pusa basmati"
+    ],
+    "category": "Food Grains"
+  },
+  {
+    "commodity": "Pearl Millet (Bajra)",
+    "crop_key": "bajra",
+    "icon": "🌾",
+    "aliases": [
+      "bajra",
+      "pearl millet",
+      "sajje",
+      "kambu",
+      "bajri"
+    ],
+    "category": "Food Grains / Millets"
+  },
+  {
+    "commodity": "Sorghum (Jowar)",
+    "crop_key": "jowar",
+    "icon": "🌾",
+    "aliases": [
+      "jowar",
+      "sorghum",
+      "jowari",
+      "jonnalu",
+      "cholam",
+      "maldandi"
+    ],
+    "category": "Food Grains / Millets"
+  },
+  {
+    "commodity": "Finger Millet (Ragi)",
+    "crop_key": "ragi",
+    "icon": "🌾",
+    "aliases": [
+      "ragi",
+      "finger millet",
+      "mandua",
+      "nachni",
+      "ragulu",
+      "kezhvaragu"
+    ],
+    "category": "Food Grains / Millets"
+  },
+  {
+    "commodity": "Barley",
+    "crop_key": "barley",
+    "icon": "🌾",
+    "aliases": [
+      "barley",
+      "jau",
+      "jav",
+      "malt barley"
+    ],
+    "category": "Food Grains"
+  },
+  {
+    "commodity": "Green Gram (Moong)",
+    "crop_key": "moong",
+    "icon": "🥣",
+    "aliases": [
+      "moong",
+      "moong dal",
+      "green gram",
+      "pesalu",
+      "mung bean",
+      "sabut moong"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Black Gram (Urad)",
+    "crop_key": "urad",
+    "icon": "🥣",
+    "aliases": [
+      "urad",
+      "urad dal",
+      "black gram",
+      "minapappu",
+      "mash",
+      "black matpe"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Red Lentil (Masoor)",
+    "crop_key": "masoor",
+    "icon": "🥣",
+    "aliases": [
+      "masoor",
+      "masoor dal",
+      "red lentil",
+      "lentil",
+      "sabut masoor"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Kidney Beans (Rajma)",
+    "crop_key": "rajma",
+    "icon": "🫘",
+    "aliases": [
+      "rajma",
+      "kidney beans",
+      "red kidney beans",
+      "chitra rajma",
+      "sharmili rajma"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Kabuli Chana",
+    "crop_key": "kabuli_chana",
+    "icon": "🧆",
+    "aliases": [
+      "kabuli chana",
+      "white chickpea",
+      "chole",
+      "garbanzo",
+      "dollar chana"
+    ],
+    "category": "Pulses"
+  },
+  {
+    "commodity": "Green Cardamom",
+    "crop_key": "cardamom",
+    "icon": "🌿",
+    "aliases": [
+      "cardamom",
+      "elaichi",
+      "green cardamom",
+      "chhoti elaichi",
+      "yelakkai",
+      "cardamoms"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Cumin Seeds (Jeera)",
+    "crop_key": "cumin",
+    "icon": "🧂",
+    "aliases": [
+      "cumin",
+      "cumin seeds",
+      "jeera",
+      "jira",
+      "zeera",
+      "jeelakarra",
+      "cuminseed"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Coriander Seeds",
+    "crop_key": "coriander_seeds",
+    "icon": "🌿",
+    "aliases": [
+      "coriander seeds",
+      "sabut dhania",
+      "dhania seeds",
+      "dhaniyalu",
+      "coriander seed"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Cloves",
+    "crop_key": "cloves",
+    "icon": "🌰",
+    "aliases": [
+      "cloves",
+      "clove",
+      "laung",
+      "lavang",
+      "lavangam"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Cinnamon",
+    "crop_key": "cinnamon",
+    "icon": "🪵",
+    "aliases": [
+      "cinnamon",
+      "dalchini",
+      "taj",
+      "dalchina chekka",
+      "ceylon cinnamon"
+    ],
+    "category": "Spices"
+  },
+  {
+    "commodity": "Almond",
+    "crop_key": "almond",
+    "icon": "🥜",
+    "aliases": [
+      "almond",
+      "almonds",
+      "badam",
+      "mamra badam",
+      "gurbandi",
+      "california almond"
+    ],
+    "category": "Dry Fruits / Nuts"
+  },
+  {
+    "commodity": "Cashew Nut",
+    "crop_key": "cashew",
+    "icon": "🥜",
+    "aliases": [
+      "cashew",
+      "cashews",
+      "cashew nut",
+      "kaju",
+      "jeedipappu",
+      "raw cashew nut"
+    ],
+    "category": "Dry Fruits / Nuts"
+  },
+  {
+    "commodity": "Walnut",
+    "crop_key": "walnut",
+    "icon": "🌰",
+    "aliases": [
+      "walnut",
+      "walnuts",
+      "akhrot",
+      "akroot",
+      "kashmiri walnut"
+    ],
+    "category": "Dry Fruits / Nuts"
+  },
+  {
+    "commodity": "Sesame (Til)",
+    "crop_key": "sesame",
+    "icon": "🌱",
+    "aliases": [
+      "sesame",
+      "sesame seeds",
+      "til",
+      "safed til",
+      "kala til",
+      "nuvvulu",
+      "gingelly"
+    ],
+    "category": "Oilseeds"
+  },
+  {
+    "commodity": "Mustard Seeds",
+    "crop_key": "mustard_seeds",
+    "icon": "🟡",
+    "aliases": [
+      "mustard",
+      "mustard seeds",
+      "sarson",
+      "rai",
+      "toria",
+      "pili sarson"
+    ],
+    "category": "Oilseeds"
+  }
+]

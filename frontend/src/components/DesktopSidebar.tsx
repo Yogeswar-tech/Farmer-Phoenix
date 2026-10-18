@@ -67,6 +67,10 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
               onPress={() => onSelectTab(item.id)}
               style={[styles.navItem, isActive && styles.navItemActive]}
               activeOpacity={0.7}
+              accessibilityRole="link"
+              role="link"
+              aria-label={item.label}
+              accessibilityLabel={item.label}
             >
               <View style={styles.iconWrap}>
                 {item.icon}
@@ -96,6 +100,10 @@ export const DesktopSidebar: FC<DesktopSidebarProps> = ({
           onPress={() => onOpenHelpline('1551')}
           style={styles.callBtn}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          role="button"
+          aria-label={`${t.freeCallBtn} 1551`}
+          accessibilityLabel={`${t.freeCallBtn} 1551`}
         >
           <Text style={styles.callBtnText}>{t.freeCallBtn}</Text>
         </TouchableOpacity>
@@ -135,9 +143,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
+    minHeight: 48,
+    boxSizing: 'border-box' as any,
   },
   navItemActive: {
     backgroundColor: '#EFF7EE',
@@ -199,9 +209,11 @@ const styles = StyleSheet.create({
   },
   callBtn: {
     backgroundColor: '#2D5A27',
-    paddingVertical: 6,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   callBtnText: {
     fontSize: 12,

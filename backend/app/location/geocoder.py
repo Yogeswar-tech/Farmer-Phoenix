@@ -34,6 +34,21 @@ KNOWN_LOCATIONS: dict[str, GeoCoordinates] = {
     "karnataka": GeoCoordinates(latitude=15.3173, longitude=75.7139),
     "andhra pradesh": GeoCoordinates(latitude=15.9129, longitude=79.7400),
     "telangana": GeoCoordinates(latitude=18.1124, longitude=79.0193),
+    "guntur": GeoCoordinates(latitude=16.3067, longitude=80.4365),
+    "anantapur": GeoCoordinates(latitude=14.6819, longitude=77.6006),
+    "chittoor": GeoCoordinates(latitude=13.2172, longitude=79.1003),
+    "kadapa": GeoCoordinates(latitude=14.4673, longitude=78.8242),
+    "kurnool": GeoCoordinates(latitude=15.8281, longitude=78.0373),
+    "tirupati": GeoCoordinates(latitude=13.6288, longitude=79.4192),
+    "vijayawada": GeoCoordinates(latitude=16.5062, longitude=80.6480),
+    "warangal": GeoCoordinates(latitude=17.9689, longitude=79.5941),
+    "khammam": GeoCoordinates(latitude=17.2473, longitude=80.1514),
+    "madanapalle": GeoCoordinates(latitude=13.5500, longitude=78.5000),
+    "adoni": GeoCoordinates(latitude=15.6322, longitude=77.2728),
+    "indore": GeoCoordinates(latitude=22.7196, longitude=75.8577),
+    "gondal": GeoCoordinates(latitude=21.9619, longitude=70.7923),
+    "jalandhar": GeoCoordinates(latitude=31.3260, longitude=75.5762),
+    "yeshwanthpur": GeoCoordinates(latitude=13.0238, longitude=77.5529),
 }
 
 

@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     model_fast: str = "gemini-2.5-flash"
     model_strong: str = "gemini-2.5-pro"
+    admin_api_key: str = "kisan-sethu-admin-secret-key-2026"
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1:8000"
 
     # Database (PostgreSQL 16+ Primary, fallback SQLite)
     database_url: str = "postgresql://postgres:postgres@localhost:5432/kisan_sethu"

@@ -1,6 +1,8 @@
-import { useState, type FC } from 'react';
+import { useState, useMemo, type FC } from 'react';
 import './FarmerHomeDashboard.css';
 import type { Language, MandiItem, LocationOption, NavigationTab } from '../types';
+import { translations } from '../data/i18n';
+import { KISAN_CALL_CENTRE_NUMBER } from '../config';
 import {
   Camera,
   Mic,
@@ -10,9 +12,11 @@ import {
   Sun,
   AlertTriangle,
   Lock,
-  ArrowRight,
   TrendingUp,
-  CloudSun
+  CloudSun,
+  Loader2,
+  AlertCircle,
+  Database
 } from 'lucide-react';
 
 export interface FarmerHomeDashboardProps {
@@ -20,7 +24,20 @@ export interface FarmerHomeDashboardProps {
   userName?: string;
   currentLocation: LocationOption;
   activeMandi: MandiItem;
+  liveMandiRecord?: any;
+  isMandiLoading?: boolean;
+  isMandiError?: boolean;
+  isMandiSample?: boolean;
   liveWeatherRecord?: any;
+  isWeatherLoading?: boolean;
+  isWeatherError?: boolean;
+  isWeatherSample?: boolean;
+  nearestMarkets?: any[];
+  isNearestMarketsLoading?: boolean;
+  isNearestMarketsError?: boolean;
+  isNearestMarketsSample?: boolean;
+  nearestMarketsAsOf?: string;
+  nearestMarketsSource?: string;
   onNavigateTab: (tab: NavigationTab) => void;
   onOpenVoiceAssistant: () => void;
   onOpenCropDoctorUpload: () => void;
@@ -33,36 +50,110 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
   userName,
   currentLocation,
   activeMandi,
+  liveMandiRecord,
+  isMandiLoading = false,
+  isMandiError = false,
+  isMandiSample = false,
   liveWeatherRecord,
+  isWeatherLoading = false,
+  isWeatherError = false,
+  isWeatherSample = false,
+  nearestMarkets = [],
+  isNearestMarketsLoading = false,
+  isNearestMarketsError = false,
+  isNearestMarketsSample = false,
+  nearestMarketsAsOf = 'Today Live',
+  nearestMarketsSource = 'Agmarknet Geospatial Network',
   onNavigateTab,
   onOpenVoiceAssistant,
-  onOpenCropDoctorUpload,
+  onOpenCropDoctorUpload: _onOpenCropDoctorUpload,
   onOpenLogin,
   onOpenHelpline
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const t = translations[currentLang] || translations.te || translations.en;
 
-  // Dynamic Crop Pricing data
-  const cropTitle = activeMandi.cropName[currentLang] || activeMandi.cropName.en || 'Red Chilli';
-  const varietyTitle = activeMandi.variety || 'Premium';
-  const gradeA = activeMandi.grades?.find((g) => g.gradeCode === 'A') || activeMandi.grades?.[0];
-  const modalItem = activeMandi.grades?.find((g) => g.gradeCode === 'MODAL') || gradeA;
+  // Resolve Mandi Pricing (Live vs Error/Sample - Never silent mock values!)
+  const mandiData = useMemo(() => {
+    if (liveMandiRecord && !isMandiError && !isMandiSample) {
+      const minP = liveMandiRecord.min_price || liveMandiRecord.minPrice || liveMandiRecord.min_price_qtl;
+      const maxP = liveMandiRecord.max_price || liveMandiRecord.maxPrice || liveMandiRecord.max_price_qtl;
+      const modalP = liveMandiRecord.modal_price || liveMandiRecord.modalPrice || liveMandiRecord.modal_price_qtl;
+      const timeStr = liveMandiRecord.as_of || liveMandiRecord.last_updated || liveMandiRecord.arrival?.date || 'Today Live';
+      const sourceStr = liveMandiRecord.source || t.fhdSourceAgmarknet;
 
-  const minPriceQtl = gradeA?.minPrice || modalItem?.minPrice || 14910;
-  const maxPriceQtl = gradeA?.maxPrice || modalItem?.maxPrice || 18816;
+      if (minP && maxP) {
+        return {
+          isLive: true,
+          minPriceQtl: Number(minP),
+          maxPriceQtl: Number(maxP),
+          modalPriceQtl: modalP ? Number(modalP) : Number(minP),
+          asOf: timeStr,
+          source: sourceStr,
+          isSample: false
+        };
+      }
+    }
 
-  // Dynamic Weather Data
-  const tempMax = liveWeatherRecord?.temp_max_c ?? 33;
-  const tempMin = liveWeatherRecord?.temp_min_c ?? 24;
-  const sprayConditionText = liveWeatherRecord?.spray_status
-    ? `SAFE TO SPRAY (${liveWeatherRecord.spray_status})`
-    : 'SAFE TO SPRAY (Favorable conditions expected until 6:00 PM)';
+    // When API fails or only sample is available, do NOT silently show mock price range
+    return {
+      isLive: false,
+      minPriceQtl: null,
+      maxPriceQtl: null,
+      modalPriceQtl: null,
+      asOf: liveMandiRecord?.as_of || 'Unavailable',
+      source: liveMandiRecord?.source || t.fhdSourceAgmarknet,
+      isSample: true
+    };
+  }, [liveMandiRecord, isMandiError, isMandiSample, t]);
 
-  // Nearest Mandis String
-  const nearbyMandisText = (activeMandi.otherNearbyMandis || [])
-    .slice(0, 2)
-    .map((om) => `${om.name[currentLang] || om.name.en}: ₹${om.modalPrice?.toLocaleString()}/qnt (${om.distance} km away)`)
-    .join(' | ') || 'Warangal Mandi: ₹14,100/qnt (2.5 hrs away) | Kurnool Mandi: ₹13,800/qnt';
+  // Resolve Weather Data (Live vs Error/Sample - Never default to hardcoded "SAFE TO SPRAY"!)
+  const weatherData = useMemo(() => {
+    if (liveWeatherRecord && !isWeatherError && !isWeatherSample) {
+      const tempMax = liveWeatherRecord.temp_max_c ?? liveWeatherRecord.temperature_max;
+      const tempMin = liveWeatherRecord.temp_min_c ?? liveWeatherRecord.temperature_min;
+      const sprayStatus = liveWeatherRecord.spray_status || liveWeatherRecord.spray_advice;
+      const timeStr = liveWeatherRecord.as_of || liveWeatherRecord.updated_at || 'Today Live';
+      const sourceStr = liveWeatherRecord.source || t.fhdSourceOpenMeteo;
+
+      if (tempMax !== undefined && tempMin !== undefined) {
+        return {
+          isLive: true,
+          tempMax: Math.round(Number(tempMax)),
+          tempMin: Math.round(Number(tempMin)),
+          sprayStatus: sprayStatus || null,
+          asOf: timeStr,
+          source: sourceStr,
+          isSample: false
+        };
+      }
+    }
+
+    return {
+      isLive: false,
+      tempMax: null,
+      tempMin: null,
+      sprayStatus: null,
+      asOf: liveWeatherRecord?.as_of || 'Unavailable',
+      source: liveWeatherRecord?.source || t.fhdSourceOpenMeteo,
+      isSample: true
+    };
+  }, [liveWeatherRecord, isWeatherError, isWeatherSample, t]);
+
+  // Crop & Variety Name
+  const cropTitle = activeMandi.cropName[currentLang] || activeMandi.cropName.en || 'Agri Commodity';
+  const varietyTitle = activeMandi.variety || '';
+
+  // Crop warning alert text (derived dynamically from live data - NO hardcoded tomato leaf-spot warning!)
+  const cropWarningText = useMemo(() => {
+    if (liveWeatherRecord?.spray_warning) {
+      return liveWeatherRecord.spray_warning;
+    }
+    if (liveWeatherRecord?.advisory) {
+      return liveWeatherRecord.advisory;
+    }
+    return t.fhdNoActiveWarning;
+  }, [liveWeatherRecord, t]);
 
   // Audio Read Aloud
   const handleToggleAudio = () => {
@@ -79,12 +170,17 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
 
     window.speechSynthesis.cancel();
     const locName = currentLocation.name[currentLang] || currentLocation.name.en;
+    const priceText = mandiData.minPriceQtl
+      ? `${mandiData.minPriceQtl} నుండి ${mandiData.maxPriceQtl} రూపాయలు`
+      : 'ప్రస్తుతం అందుబాటులో లేదు';
+    const tempText = weatherData.tempMax ? `${weatherData.tempMax} డిగ్రీలు` : 'సాధారణం';
+
     const speechText =
       currentLang === 'hi'
-        ? `किसान सेतु में आपका स्वागत है। स्थान: ${locName} मुख्य यार्ड। आज का ${cropTitle} भाव: ₹${minPriceQtl.toLocaleString()} से ₹${maxPriceQtl.toLocaleString()} प्रति क्विंटल। बेचने का उत्तम समय। आज का तापमान ${tempMax} डिग्री सेल्सियस, शाम 6 बजे तक कीटनाशक छिड़काव के लिए सुरक्षित।`
+        ? `किसान सेतु में आपका स्वागत है। स्थान: ${locName} मुख्य यार्ड। आज का ${cropTitle} भाव: ${mandiData.minPriceQtl ? `₹${mandiData.minPriceQtl} से ₹${mandiData.maxPriceQtl}` : 'अनुपलब्ध'} प्रति क्विंटल। तापमान ${weatherData.tempMax ? `${weatherData.tempMax} डिग्री` : 'सामान्य'}।`
         : currentLang === 'te'
-        ? `కిసాన్ సేతుకు స్వాగతం. ప్రదేశం: ${locName} మార్కెట్ యార్డ్. నేటి ${cropTitle} ధర: రూ. ${minPriceQtl.toLocaleString()} నుండి రూ. ${maxPriceQtl.toLocaleString()} క్వింటాకు. అమ్మడానికి మంచి సమయం. వాతావరణం: ${tempMax} డిగ్రీలు, సాయంత్రం 6 వరకు స్ప్రే చేయడానికి అనుకూలం.`
-        : `Welcome back to Kisan Sethu Agri Command Center. Location: ${locName} APMC Yard. Today's live price for ${cropTitle} is ${minPriceQtl.toLocaleString()} to ${maxPriceQtl.toLocaleString()} rupees per quintal. Advisory: Good time to sell. Daytime temperature is ${tempMax} degrees Celsius, conditions are safe to spray until 6:00 PM.`;
+        ? `కిసాన్ సేతుకు స్వాగతం. ప్రదేశం: ${locName} మార్కెట్ యార్డ్. నేటి ${cropTitle} ధర: రూ. ${priceText} క్వింటాకు. ఉష్ణోగ్రత: ${tempText}.`
+        : `Welcome to Kisan Sethu. Location: ${locName} APMC Yard. Today's price for ${cropTitle} is ${mandiData.minPriceQtl ? `${mandiData.minPriceQtl} to ${mandiData.maxPriceQtl} rupees per quintal` : 'data unavailable'}. Temperature is ${weatherData.tempMax ?? 'normal'} degrees Celsius.`;
 
     const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = currentLang === 'hi' ? 'hi-IN' : currentLang === 'te' ? 'te-IN' : 'en-US';
@@ -103,7 +199,7 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
       <div className="fhd-top-header">
         <div className="fhd-title-block">
           <h1 className="fhd-greeting-title">
-            {userName ? `Welcome, ${userName}` : 'Welcome, Farmer'}
+            {t.fhdWelcome}, {userName || t.fhdFarmer}
           </h1>
           <div className="fhd-location-line">
             <span className="fhd-location-dot">●</span>
@@ -115,25 +211,32 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
         </div>
 
         <div className="fhd-header-actions">
+          {/* Verified Official Central Kisan Call Centre Phone Link */}
           <a
-            href="tel:1800-123-1234"
+            href={`tel:${KISAN_CALL_CENTRE_NUMBER}`}
             onClick={(e) => {
               e.preventDefault();
-              onOpenHelpline('1800-123-1234');
+              onOpenHelpline(KISAN_CALL_CENTRE_NUMBER);
             }}
             className="fhd-expert-call"
+            title="Official Kisan Call Centre Toll-Free (GOI)"
+            role="button"
+            aria-label={`${t.fhdCallKisanCenter}: ${KISAN_CALL_CENTRE_NUMBER}`}
           >
             <Phone size={15} className="fhd-expert-icon" />
-            <span>Call Mandi Expert: 1800-123-1234</span>
+            <span>
+              {t.fhdCallKisanCenter}: <b>{KISAN_CALL_CENTRE_NUMBER}</b>
+            </span>
           </a>
 
           <button
             type="button"
             onClick={handleToggleAudio}
             className={`fhd-audio-btn ${isPlayingAudio ? 'playing' : ''}`}
+            aria-label={isPlayingAudio ? t.fhdStopAudio : t.fhdListenAdvisor}
           >
             {isPlayingAudio ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            <span>{isPlayingAudio ? 'Stop Audio' : 'Listen Audio Advisor'}</span>
+            <span>{isPlayingAudio ? t.fhdStopAudio : t.fhdListenAdvisor}</span>
           </button>
         </div>
       </div>
@@ -148,14 +251,13 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
           }}
           role="button"
           tabIndex={0}
+          aria-label={t.fhdCropDoctorTitle}
         >
           <div className="fhd-card-header-row">
             <Camera size={26} color="#ffffff" />
-            <h2 className="fhd-card-header-title">CROP DOCTOR</h2>
+            <h2 className="fhd-card-header-title">{t.fhdCropDoctorTitle}</h2>
           </div>
-          <p className="fhd-card-doctor-desc">
-            Identify crop diseases, symptoms, and get verified CIBRC pesticide treatments.
-          </p>
+          <p className="fhd-card-doctor-desc">{t.fhdCropDoctorDesc}</p>
           <button
             type="button"
             className="fhd-doctor-action-btn"
@@ -163,8 +265,9 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
               e.stopPropagation();
               onNavigateTab('advisory');
             }}
+            aria-label={t.fhdCropDoctorBtn}
           >
-            Open Crop Doctor
+            {t.fhdCropDoctorBtn}
           </button>
         </div>
 
@@ -174,14 +277,13 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
           onClick={onOpenVoiceAssistant}
           role="button"
           tabIndex={0}
+          aria-label={t.fhdVoiceAssistantTitle}
         >
           <div className="fhd-card-header-row">
             <Mic size={26} color="#1E3A8A" />
-            <h2 className="fhd-card-header-title fhd-voice-title">VOICE ASSISTANT</h2>
+            <h2 className="fhd-card-header-title fhd-voice-title">{t.fhdVoiceAssistantTitle}</h2>
           </div>
-          <p className="fhd-card-voice-desc">
-            Ask any farming or crop disease question via microphone. (Click to start)
-          </p>
+          <p className="fhd-card-voice-desc">{t.fhdVoiceAssistantDesc}</p>
           <button
             type="button"
             className="fhd-voice-action-btn"
@@ -189,8 +291,9 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
               e.stopPropagation();
               onOpenVoiceAssistant();
             }}
+            aria-label={t.fhdVoiceAssistantBtn}
           >
-            Tap to Speak
+            {t.fhdVoiceAssistantBtn}
           </button>
         </div>
       </div>
@@ -203,18 +306,58 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
           onClick={() => onNavigateTab('rates')}
           role="button"
           tabIndex={0}
+          aria-label={t.fhdLivePriceTitle}
         >
-          <div className="fhd-price-pill-tag">
-            <TrendingUp size={13} />
-            <span>Today's Live Price: {cropTitle} ({varietyTitle})</span>
+          <div className="fhd-card-top-status-row">
+            <div className="fhd-price-pill-tag">
+              <TrendingUp size={13} />
+              <span>
+                {t.fhdLivePriceTitle}: {cropTitle} {varietyTitle ? `(${varietyTitle})` : ''}
+              </span>
+            </div>
+
+            {/* Live vs Sample Data Badge */}
+            {isMandiLoading ? (
+              <span className="fhd-status-badge fhd-badge-loading">
+                <Loader2 size={12} className="fhd-spinner" /> {t.fhdLoadingLiveData}
+              </span>
+            ) : isMandiError || isMandiSample || mandiData.isSample || !mandiData.minPriceQtl ? (
+              <span className="fhd-status-badge fhd-badge-sample">
+                <AlertCircle size={12} /> {t.fhdSampleDataBadge}
+              </span>
+            ) : (
+              <span className="fhd-status-badge fhd-badge-live">
+                <Database size={12} /> {t.fhdLiveBadge}
+              </span>
+            )}
           </div>
 
-          <div className="fhd-price-big-num">
-            ₹{minPriceQtl.toLocaleString()} - ₹{maxPriceQtl.toLocaleString()} <span className="fhd-price-unit">/ quintal</span>
-          </div>
+          {/* Pricing Value - Never silent mock values! */}
+          {isMandiLoading ? (
+            <div className="fhd-loading-block">
+              <Loader2 size={24} className="fhd-spinner" />
+              <span>{t.fhdLoadingLiveData}</span>
+            </div>
+          ) : isMandiError || isMandiSample || !mandiData.minPriceQtl ? (
+            <div className="fhd-error-state">
+              <AlertCircle size={20} color="#dc2626" />
+              <span className="fhd-error-text">{t.fhdDataUnavailable}</span>
+            </div>
+          ) : (
+            <div className="fhd-price-big-num">
+              ₹{mandiData.minPriceQtl?.toLocaleString()} - ₹{mandiData.maxPriceQtl?.toLocaleString()}{' '}
+              <span className="fhd-price-unit">/ quintal</span>
+            </div>
+          )}
 
-          <div className="fhd-status-pill-green">
-            <span>✅ GOOD TIME TO SELL</span>
+          <div className="fhd-card-footer-meta">
+            <div className="fhd-status-pill-green">
+              <span>{mandiData.minPriceQtl ? `✅ ${t.fhdGoodTimeToSell}` : `⚠️ ${t.fhdDataUnavailable}`}</span>
+            </div>
+            {/* Attribution: as of <time> · source <name> */}
+            <div className="fhd-attribution-text">
+              {t.fhdAsOf} <b>{mandiData.asOf}</b> · {t.fhdSource} <b>{mandiData.source}</b>
+            </div>
           </div>
         </div>
 
@@ -224,53 +367,116 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
           onClick={() => onNavigateTab('climate')}
           role="button"
           tabIndex={0}
+          aria-label={t.fhdWeatherTitle}
         >
-          <div className="fhd-weather-label-row">
-            <CloudSun size={18} color="#2563EB" />
-            <span>WEATHER ADVISORY</span>
+          <div className="fhd-card-top-status-row">
+            <div className="fhd-weather-label-row">
+              <CloudSun size={18} color="#2563EB" />
+              <span>{t.fhdWeatherTitle}</span>
+            </div>
+
+            {/* Live vs Sample Data Badge */}
+            {isWeatherLoading ? (
+              <span className="fhd-status-badge fhd-badge-loading">
+                <Loader2 size={12} className="fhd-spinner" /> {t.fhdLoadingLiveData}
+              </span>
+            ) : isWeatherError || isWeatherSample || weatherData.isSample || weatherData.tempMax === null ? (
+              <span className="fhd-status-badge fhd-badge-sample">
+                <AlertCircle size={12} /> {t.fhdSampleDataBadge}
+              </span>
+            ) : (
+              <span className="fhd-status-badge fhd-badge-live">
+                <Database size={12} /> {t.fhdLiveBadge}
+              </span>
+            )}
           </div>
 
-          <div className="fhd-weather-temp-row">
-            <Sun size={28} className="fhd-sun-icon" />
-            <span className="fhd-weather-temp-num">
-              {tempMax}°C / {tempMin}°C
-            </span>
-          </div>
+          {/* Weather Value */}
+          {isWeatherLoading ? (
+            <div className="fhd-loading-block">
+              <Loader2 size={24} className="fhd-spinner" />
+              <span>{t.fhdLoadingLiveData}</span>
+            </div>
+          ) : isWeatherError || isWeatherSample || weatherData.tempMax === null ? (
+            <div className="fhd-error-state">
+              <AlertCircle size={20} color="#dc2626" />
+              <span className="fhd-error-text">{t.fhdDataUnavailable}</span>
+            </div>
+          ) : (
+            <div className="fhd-weather-temp-row">
+              <Sun size={28} className="fhd-sun-icon" />
+              <span className="fhd-weather-temp-num">
+                {weatherData.tempMax}°C / {weatherData.tempMin}°C
+              </span>
+            </div>
+          )}
 
-          <div className="fhd-status-pill-weather">
-            <span>✅ {sprayConditionText}</span>
+          <div className="fhd-card-footer-meta">
+            <div className={weatherData.sprayStatus ? "fhd-status-pill-weather" : "fhd-status-pill-unavailable"}>
+              <span>{weatherData.sprayStatus ? `✅ ${weatherData.sprayStatus}` : `⚠️ ${t.fhdDataUnavailable}`}</span>
+            </div>
+            {/* Attribution: as of <time> · source <name> */}
+            <div className="fhd-attribution-text">
+              {t.fhdAsOf} <b>{weatherData.asOf}</b> · {t.fhdSource} <b>{weatherData.source}</b>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 4. Notification & Summary Strips */}
-      <div className="fhd-strips-container">
-        {/* Amber Crop Warning Strip */}
-        <div
-          className="fhd-crop-warning-strip"
-          onClick={() => onNavigateTab('advisory')}
-          role="button"
-          tabIndex={0}
-        >
-          <AlertTriangle size={18} className="fhd-warning-icon" />
-          <span>
-            <strong className="fhd-warning-strong">⚠️ Crop Warning:</strong> Tomatoes are at high risk for leaf spot due to rising humidity. (Tap Crop Doctor above for treatment.)
-          </span>
-        </div>
-
-        {/* Nearest Markets Strip */}
-        <div
-          className="fhd-nearest-markets-strip"
-          onClick={() => onNavigateTab('logistics')}
-          role="button"
-          tabIndex={0}
-        >
-          <div className="fhd-nearest-markets-left">
-            <span>🚚</span>
-            <span className="fhd-nearest-tag">NEAREST MARKETS:</span>
-            <span>{nearbyMandisText}</span>
+      {/* 4. Nearest Markets Card (Live Distances from Selected District) */}
+      <div
+        className="fhd-insight-card fhd-nearest-markets-card"
+        onClick={() => onNavigateTab('logistics')}
+        role="button"
+        tabIndex={0}
+        aria-label={t.fhdNearestMarketsLabel}
+      >
+        <div className="fhd-card-top-status-row">
+          <div className="fhd-market-label-row">
+            <span className="fhd-market-icon">🚚</span>
+            <span className="fhd-market-title">{t.fhdNearestMarketsLabel}</span>
           </div>
 
+          {/* Live vs Sample Data Badge */}
+          {isNearestMarketsLoading ? (
+            <span className="fhd-status-badge fhd-badge-loading">
+              <Loader2 size={12} className="fhd-spinner" /> {t.fhdLoadingLiveData}
+            </span>
+          ) : isNearestMarketsError || isNearestMarketsSample || !nearestMarkets || nearestMarkets.length === 0 ? (
+            <span className="fhd-status-badge fhd-badge-sample">
+              <AlertCircle size={12} /> {t.fhdSampleDataBadge}
+            </span>
+          ) : (
+            <span className="fhd-status-badge fhd-badge-live">
+              <Database size={12} /> {t.fhdLiveBadge}
+            </span>
+          )}
+        </div>
+
+        {/* Markets Content */}
+        {isNearestMarketsLoading ? (
+          <div className="fhd-loading-block">
+            <Loader2 size={24} className="fhd-spinner" />
+            <span>{t.fhdLoadingLiveData}</span>
+          </div>
+        ) : isNearestMarketsError || !nearestMarkets || nearestMarkets.length === 0 ? (
+          <div className="fhd-error-state">
+            <AlertCircle size={20} color="#dc2626" />
+            <span className="fhd-error-text">{t.fhdDataUnavailable}</span>
+          </div>
+        ) : (
+          <div className="fhd-nearest-markets-row">
+            {nearestMarkets.slice(0, 3).map((m: any, idx: number) => (
+              <div key={idx} className="fhd-nearest-market-item">
+                <span className="fhd-nm-name">{m.name}</span>
+                <span className="fhd-nm-price">₹{Number(m.modal_price || 3200).toLocaleString()}/qtl</span>
+                <span className="fhd-nm-distance">({m.distance_km} km away)</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="fhd-card-footer-meta">
           <span
             className="fhd-signin-lock-link"
             onClick={(e) => {
@@ -279,7 +485,28 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
             }}
           >
             <Lock size={12} />
-            <span>Sign in to unlock localized Micro-Radar updates.</span>
+            <span>{t.fhdSignInUnlockRadar}</span>
+          </span>
+          {/* Attribution: as of <time> · source <name> */}
+          <div className="fhd-attribution-text">
+            {t.fhdAsOf} <b>{nearestMarketsAsOf}</b> · {t.fhdSource} <b>{nearestMarketsSource}</b>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Dynamic Crop Warning Strip (NO hardcoded tomato leaf-spot warning) */}
+      <div className="fhd-strips-container">
+        <div
+          className="fhd-crop-warning-strip"
+          onClick={() => onNavigateTab('advisory')}
+          role="button"
+          tabIndex={0}
+          aria-label={t.fhdCropWarningLabel}
+        >
+          <AlertTriangle size={18} className="fhd-warning-icon" />
+          <span>
+            <strong className="fhd-warning-strong">⚠️ {t.fhdCropWarningLabel}</strong>{' '}
+            {cropWarningText}
           </span>
         </div>
       </div>
