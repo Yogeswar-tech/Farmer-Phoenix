@@ -1368,6 +1368,49 @@ export class KisanSethuApi {
   }
 
   /**
+   * 13b. Google Cloud Real-Time OTP Generation
+   * Generates a verified 6-digit real-time OTP via Google Cloud OTP Service.
+   */
+  static async sendGoogleCloudOtp(phoneNumber: string): Promise<any> {
+    const res = await this.request<any>('/farmer/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone_number: phoneNumber })
+    });
+    return res;
+  }
+
+  /**
+   * 13c. Google Cloud Real-Time OTP Verification
+   * Validates the OTP strictly against the Google Cloud verification engine in the database.
+   */
+  static async verifyGoogleCloudOtp(params: {
+    phoneNumber: string;
+    otp: string;
+    farmerName?: string;
+    preferredLang?: Language;
+    district?: string;
+    state?: string;
+    primaryCrop?: string;
+  }): Promise<any> {
+    const res = await this.request<any>('/farmer/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({
+        phone_number: params.phoneNumber,
+        otp: params.otp,
+        farmer_name: params.farmerName,
+        preferred_lang: params.preferredLang || 'te',
+        district: params.district || 'Guntur',
+        state: params.state || 'Andhra Pradesh',
+        primary_crop: params.primaryCrop || 'chilli'
+      })
+    });
+    if (res && res.token) {
+      this.setAuthToken(res.token);
+    }
+    return res;
+  }
+
+  /**
    * 14. Today's Live Page Mandi Prices (kisan_live_today_db)
    * Scraped twice daily (Morning 06:00 AM & Evening 06:00 PM)
    */

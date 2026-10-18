@@ -404,6 +404,19 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users (phone_number);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_mail_id ON users (mail_id);")
 
+    # Real-Time OTP Verifications Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS otp_verifications (
+        phone_number TEXT PRIMARY KEY,
+        otp_code TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        verified INTEGER DEFAULT 0,
+        attempts INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_verifications (phone_number);")
+
     conn.close()
 
 

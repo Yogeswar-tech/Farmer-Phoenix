@@ -372,3 +372,17 @@ ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding vector(7
 ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS tsv tsvector;
 CREATE INDEX IF NOT EXISTS idx_cibrc_tsv ON cibrc_pesticide_registry USING gin (tsv);
 
+-- ------------------------------------------------------------------------------
+-- 13. Real-Time OTP Verifications (Google Cloud & Firebase Delivery Engine)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS otp_verifications (
+    phone_number VARCHAR(20) PRIMARY KEY,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    attempts INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_verifications (phone_number);
+
+

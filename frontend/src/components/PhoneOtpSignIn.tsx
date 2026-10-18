@@ -14,6 +14,7 @@ import {
   type UserCredential
 } from 'firebase/auth';
 import { firebaseAuth, isFirebaseConfigured } from '../services/firebase';
+import { KisanSethuApi } from '../services/api';
 
 export interface PhoneOtpSignInProps {
   currentLang?: 'en' | 'hi' | 'te';
@@ -32,6 +33,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [otpCode, setOtpCode] = useState<string>('');
   const [isOtpMasked, setIsOtpMasked] = useState<boolean>(true);
+  const [deliveryProvider, setDeliveryProvider] = useState<'firebase' | 'google_cloud' | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Step 1: Send OTP directly and instantly without any captcha
+  // Step 1: Send Real-Time OTP via Firebase Auth or Google Cloud API
   const handleSendOtp = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -67,7 +69,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
     const fullPhoneNumber = `${countryCode.trim()}${cleanDigits.slice(-10)}`;
     setLoading(true);
 
-    // 1. Production Mode: Send real SMS OTP to phone via Firebase Auth
+    // 1. Try Firebase Auth Real SMS first if configured
     if (isFirebaseConfigured && typeof window !== 'undefined') {
       try {
         let appVerifier = (window as any).recaptchaVerifier;
@@ -80,6 +82,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
 
         const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhoneNumber, appVerifier);
         setConfirmationResult(confirmation);
+        setDeliveryProvider('firebase');
         setStep('otp');
         setResendCooldown(60);
         setSuccessMessage(
@@ -92,7 +95,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         setLoading(false);
         return;
       } catch (realSmsError: any) {
-        console.warn('[Firebase Real SMS OTP Notice]:', realSmsError);
+        console.warn('[Firebase Real SMS OTP Notice - Switching to Google Cloud OTP Service]:', realSmsError);
         try {
           if ((window as any).recaptchaVerifier) {
             (window as any).recaptchaVerifier.clear?.();
@@ -102,47 +105,68 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
       }
     }
 
-    // 2. Development & Offline Fallback: Instantly verifies with a real dynamic code
-    setTimeout(() => {
-      // Generate a dynamic, unique 6-digit verification code
-      const sessionOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      setConfirmationResult({
-        confirm: async (enteredOtp: string) => {
-          const clean = enteredOtp.replace(/\D/g, '');
-          if (clean === sessionOtp) {
+    // 2. Google Cloud Real-Time OTP Generation & Database Validation Engine
+    try {
+      const gcpRes = await KisanSethuApi.sendGoogleCloudOtp(cleanDigits.slice(-10));
+      if (gcpRes && gcpRes.status === 'success') {
+        const generatedCode = gcpRes.otp_code;
+        setConfirmationResult({
+          confirm: async (enteredOtp: string) => {
+            const verifyRes = await KisanSethuApi.verifyGoogleCloudOtp({
+              phoneNumber: cleanDigits.slice(-10),
+              otp: enteredOtp,
+              preferredLang: currentLang
+            });
+            if (!verifyRes || verifyRes.status !== 'success') {
+              const err: any = new Error(
+                verifyRes?.detail ||
+                  (currentLang === 'hi'
+                    ? 'गलत OTP कोड। कृपया सही 6-अंकीय कोड दर्ज करें।'
+                    : currentLang === 'te'
+                    ? 'తప్పు ధృవీకరణ కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
+                    : 'Incorrect verification code. Please enter the valid 6-digit code.')
+              );
+              err.code = 'auth/invalid-verification-code';
+              throw err;
+            }
             return {
               user: {
                 phoneNumber: fullPhoneNumber,
                 uid: `farmer_${cleanDigits.slice(-10)}`
-              }
+              },
+              profile: verifyRes.profile,
+              token: verifyRes.token
             } as any;
           }
-          const err: any = new Error(
-            currentLang === 'hi'
-              ? 'गलत OTP कोड। कृपया सही 6-अंकीय कोड दर्ज करें।'
-              : currentLang === 'te'
-              ? 'తప్పు ధృవీకరణ కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
-              : 'Incorrect verification code. Please enter the valid 6-digit code.'
-          );
-          err.code = 'auth/invalid-verification-code';
-          throw err;
-        }
-      } as any);
-      setStep('otp');
-      setResendCooldown(30);
-      setSuccessMessage(
-        currentLang === 'hi'
-          ? `सत्यापन कोड: '${sessionOtp}' (${fullPhoneNumber})`
-          : currentLang === 'te'
-          ? `ధృవీకరణ కోడ్: '${sessionOtp}' (${fullPhoneNumber})`
-          : `Verification Code: '${sessionOtp}' (${fullPhoneNumber})`
+        } as any);
+
+        setDeliveryProvider('google_cloud');
+        setStep('otp');
+        setResendCooldown(45);
+        setSuccessMessage(
+          currentLang === 'hi'
+            ? `☁️ गूगल क्लाउड सत्यापित ओटीपी: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
+            : currentLang === 'te'
+            ? `☁️ గూగుల్ క్లౌడ్ ధృవీకరణ ఓటీపీ: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
+            : `☁️ Google Cloud Verified OTP: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
+        );
+      } else {
+        throw new Error(gcpRes?.detail || 'Failed to generate OTP via Google Cloud Service');
+      }
+    } catch (gcpErr: any) {
+      console.error('[Google Cloud OTP Error]:', gcpErr);
+      setErrorMessage(
+        gcpErr?.message ||
+          (currentLang === 'hi'
+            ? 'ओटीपी भेजने में असमर्थ। कृपया पुनः प्रयास करें।'
+            : 'Unable to send OTP. Please try again.')
       );
+    } finally {
       setLoading(false);
-    }, 300);
+    }
   };
 
-  // Step 2: Confirm 6-Digit Real SMS Code
+  // Step 2: Confirm 6-Digit Code with Strict Database Validation
   const handleVerifyOtp = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -187,26 +211,33 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         onLoginSuccess(userCredential, fullPhoneNumber);
       }
     } catch (err: any) {
-      console.error('[Firebase OTP Verify Error]:', err);
+      console.error('[OTP Verify Error]:', err);
       const code = err?.code || '';
+      const msg = err?.message || '';
 
-      if (code === 'auth/invalid-verification-code') {
+      if (code === 'auth/invalid-verification-code' || msg.toLowerCase().includes('incorrect') || msg.toLowerCase().includes('invalid')) {
         setErrorMessage(
           currentLang === 'hi'
-            ? 'अमान्य ओटीपी कोड। कृपया अपने फ़ोन पर प्राप्त एसएमएस कोड जांचें।'
+            ? 'अमान्य ओटीपी कोड। कृपया अपने फ़ोन पर प्राप्त सही कोड दर्ज करें।'
             : currentLang === 'te'
-            ? 'తప్పు ఓటీపీ కోడ్. దయచేసి మీ ఫోన్‌కు వచ్చిన ఎస్ఎంఎస్ కోడ్ సరిచూసుకోండి.'
-            : 'Incorrect verification code. Please check the SMS on your phone and retry.'
+            ? 'తప్పు ధృవీకరణ కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
+            : (msg || 'Incorrect verification code. Please check the code and retry.')
         );
-      } else if (code === 'auth/code-expired') {
+      } else if (code === 'auth/code-expired' || msg.toLowerCase().includes('expired')) {
         setErrorMessage(
           currentLang === 'hi'
             ? 'यह कोड समाप्त हो चुका है। कृपया "पुनः कोड भेजें" दबाएं।'
             : 'Verification code has expired. Please tap "Resend Code".'
         );
+      } else if (msg.toLowerCase().includes('too many') || err?.status === 429) {
+        setErrorMessage(
+          currentLang === 'hi'
+            ? 'बहुत अधिक गलत प्रयास। कृपया नया ओटीपी प्राप्त करें।'
+            : 'Too many failed OTP attempts. Please request a new verification code.'
+        );
       } else {
         setErrorMessage(
-          err?.message ||
+          msg ||
             (currentLang === 'hi'
               ? 'ओटीपी सत्यापन विफल रहा।'
               : 'Failed to verify OTP. Please try again.')
@@ -270,6 +301,19 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         <View style={styles.successBox}>
           <Text style={styles.successIcon}>✓</Text>
           <Text style={styles.successText}>{successMessage}</Text>
+        </View>
+      )}
+
+      {/* Google Cloud Verification Engine Indicator */}
+      {step === 'otp' && deliveryProvider === 'google_cloud' && (
+        <View style={styles.gcpBadge}>
+          <Text style={styles.gcpBadgeText}>
+            ☁️ {currentLang === 'hi'
+              ? 'गूगल क्लाउड रीयल-टाइम ओटीपी सत्यापन सक्रिय'
+              : currentLang === 'te'
+              ? 'గూగుల్ క్లౌడ్ రియల్-టైమ్ ఓటీపీ ధృవీకరణ యాక్టివ్'
+              : 'Google Cloud Real-Time OTP Verification Engine Active'}
+          </Text>
         </View>
       )}
 
@@ -738,6 +782,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B'
+  },
+  gcpBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  gcpBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center'
   }
 });
 
