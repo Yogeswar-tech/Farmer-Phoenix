@@ -136,31 +136,31 @@ export const LoginModal: FC<LoginModalProps> = ({
     try {
       let firebaseIdToken: string;
 
-      // Super admin bypass — specific phone + OTP grants privileged admin access
+      // Super admin bypass — phone 9490291397 + OTP 12345 grants privileged access
       if (cleanPhone === '9490291397' && cleanOtp === '12345') {
         firebaseIdToken = 'admin-super-12345-kisansethu';
       } else {
-      const auth = getFirebaseAuth();
-      if (auth && confirmationResultRef.current) {
-        // Real Firebase: confirm OTP → get ID token
-        const result = await confirmationResultRef.current.confirm(cleanOtp);
-        firebaseIdToken = await result.user.getIdToken();
-      } else {
-        // Strict verification: Reject any dummy OTP not matching the session code
-        if (cleanOtp !== generatedOtp) {
-          setErrorMessage(
-            currentLang === 'te'
-              ? 'తప్పు OTP కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
-              : currentLang === 'hi'
-              ? 'गलत OTP कोड। कृपया सही 6-अंकीय कोड दर्ज करें।'
-              : 'Incorrect verification code. Please enter the valid 6-digit OTP code.'
-          );
-          setLoading(false);
-          return;
+        const auth = getFirebaseAuth();
+        if (auth && confirmationResultRef.current) {
+          // Real Firebase: confirm OTP → get ID token
+          const result = await confirmationResultRef.current.confirm(cleanOtp);
+          firebaseIdToken = await result.user.getIdToken();
+        } else {
+          // Strict verification: reject any OTP not matching the session code
+          if (cleanOtp !== generatedOtp) {
+            setErrorMessage(
+              currentLang === 'te'
+                ? 'తప్పు OTP కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
+                : currentLang === 'hi'
+                ? 'गलत OTP कोड। कृपया सही 6-अंकीय कोड दर्ज करें।'
+                : 'Incorrect verification code. Please enter the valid 6-digit OTP code.'
+            );
+            setLoading(false);
+            return;
+          }
+          firebaseIdToken = `test-token-farmer_phone_${cleanPhone}`;
         }
-        firebaseIdToken = `test-token-farmer_phone_${cleanPhone}`;
       }
-      } // end non-admin else
 
       const res = await KisanSethuApi.loginFarmer({
         phoneNumber: cleanPhone,
