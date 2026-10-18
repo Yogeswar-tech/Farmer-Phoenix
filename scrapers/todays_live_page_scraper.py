@@ -441,11 +441,46 @@ def get_queued_crop_chips() -> list[dict[str, Any]]:
     return chips
 
 
+_AP_TG_CROPS = [
+    "Red Chilli", "Chilli", "Cotton", "Tomato", "Onion", "Paddy",
+    "Maize", "Groundnut", "Turmeric", "Banana", "Mango",
+]
+_AP_TG_STATES = ["Andhra Pradesh", "Telangana"]
+
+_INSERT_SQL = """
+INSERT INTO live_today_mandi_prices (
+    commodity, market, district, state, variety, grade,
+    arrival_date, session, arrival_quintals, min_price_qtl,
+    max_price_qtl, modal_price_qtl, modal_price_kg, trend,
+    source, payload, scraped_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s,
+    %s, %s, %s, %s,
+    %s, %s, %s, %s,
+    %s, %s, CURRENT_TIMESTAMP
+)
+ON CONFLICT (LOWER(commodity), LOWER(COALESCE(market,'')), arrival_date) DO NOTHING;
+"""
+
+
 class TodaysLivePageScraper:
     """Synchronizes latest genuine APMC prices into `live_today_mandi_prices`."""
 
     def __init__(self):
         self.name = "Today's Live Page APMC Sync"
+
+    def _insert_row(self, cur: Any, commodity: str, market: str | None, district: str | None,
+                    state: str | None, variety: str, grade: str, arrival_date: str,
+                    arrival_quintals: float, min_price_qtl: float, max_price_qtl: float,
+                    modal_price_qtl: float, modal_price_kg: float, source: str) -> None:
+        payload = {"source": source, "arrival_date": arrival_date}
+        trend = "UP" if modal_price_kg > 25.0 else "STABLE"
+        cur.execute(_INSERT_SQL, (
+            commodity, market, district, state, variety, grade,
+            arrival_date, "LIVE_CYCLE", arrival_quintals,
+            min_price_qtl, max_price_qtl, modal_price_qtl, modal_price_kg,
+            trend, source, json.dumps(payload),
+        ))
 
     def run_scrape_and_ingest(self, force_full_prune: bool = False) -> dict[str, Any]:
         """Prunes stale live_today cache older than 6 hours and synchronizes genuine DB records."""
@@ -453,17 +488,23 @@ class TodaysLivePageScraper:
         pruned_count = 0
         synced_count = 0
 
+        # 0. Ensure unique index exists for deduplication
+        with get_live_today_db() as cur:
+            try:
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_ltp_dedup
+                    ON live_today_mandi_prices (LOWER(commodity), LOWER(COALESCE(market,'')), arrival_date);
+                """)
+            except Exception:
+                pass
+
         with get_live_today_db() as cur:
             # 1. Prune records older than 6 hours
             try:
                 cur.execute("DELETE FROM live_today_mandi_prices WHERE created_at < NOW() - INTERVAL '6 hours';")
                 pruned_count = cur.rowcount
             except Exception:
-                try:
-                    cur.execute("DELETE FROM live_today_mandi_prices WHERE created_at < datetime('now', '-6 hours');")
-                    pruned_count = cur.rowcount
-                except Exception:
-                    pass
+                pass
 
             if force_full_prune:
                 try:
@@ -482,51 +523,71 @@ class TodaysLivePageScraper:
                 """)
                 fresh_rows = [dict(r) for r in cur.fetchall()]
         except Exception:
-            try:
-                # SQLite fallback
-                with get_db_cursor() as cur:
-                    cur.execute("""
-                    SELECT * FROM mandi_prices
-                    GROUP BY commodity
-                    ORDER BY arrival_date DESC;
-                    """)
-                    fresh_rows = [dict(r) for r in cur.fetchall()]
-            except Exception:
-                fresh_rows = []
+            fresh_rows = []
 
         with get_live_today_db() as cur:
             for r in fresh_rows:
-                modal_qtl = float(r["modal_price_qtl"])
-                modal_kg = float(r.get("modal_price_kg") or round(modal_qtl / 100.0, 2))
-                payload = {
-                    "source": r.get("source", "AGMARKNET"),
-                    "arrival_date": str(r.get("arrival_date"))[:10],
-                }
-                cur.execute("""
-                INSERT INTO live_today_mandi_prices (
-                    commodity, market, district, state, variety, grade,
-                    arrival_date, session, arrival_quintals, min_price_qtl,
-                    max_price_qtl, modal_price_qtl, modal_price_kg, trend,
-                    source, payload, scraped_at
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, CURRENT_TIMESTAMP
-                );
-                """, (
-                    r["commodity"], r["market"], r["district"], r["state"],
-                    r.get("variety", "FAQ"), r.get("grade", "Standard"),
-                    str(r["arrival_date"])[:10], "LIVE_CYCLE", float(r.get("arrival_quintals") or 0.0),
-                    float(r["min_price_qtl"]), float(r["max_price_qtl"]), modal_qtl, modal_kg,
-                    "UP" if modal_kg > 25.0 else "STABLE",
-                    r.get("source", "AGMARKNET"), json.dumps(payload)
-                ))
-                synced_count += 1
+                try:
+                    modal_qtl = float(r["modal_price_qtl"])
+                    modal_kg = float(r.get("modal_price_kg") or round(modal_qtl / 100.0, 2))
+                    self._insert_row(
+                        cur,
+                        commodity=r["commodity"], market=r["market"],
+                        district=r["district"], state=r["state"],
+                        variety=r.get("variety", "FAQ"), grade=r.get("grade", "Standard"),
+                        arrival_date=str(r["arrival_date"])[:10],
+                        arrival_quintals=float(r.get("arrival_quintals") or 0.0),
+                        min_price_qtl=float(r["min_price_qtl"]),
+                        max_price_qtl=float(r["max_price_qtl"]),
+                        modal_price_qtl=modal_qtl, modal_price_kg=modal_kg,
+                        source=r.get("source", "AGMARKNET"),
+                    )
+                    synced_count += 1
+                except Exception as exc:
+                    logger.debug("Row insert skip: %s", exc)
 
+        # 3. Fetch live AP/Telangana data directly from Open Mandi API
+        live_fetched = 0
+        for state_name in _AP_TG_STATES:
+            for crop in _AP_TG_CROPS:
+                try:
+                    records = fetch_live_open_mandi_api(crop, state=state_name)
+                    if not records:
+                        continue
+                    with get_live_today_db() as cur:
+                        for rec in records:
+                            try:
+                                modal_qtl = float(rec.get("modal_price") or 0)
+                                modal_kg = round(modal_qtl / 100.0, 2)
+                                self._insert_row(
+                                    cur,
+                                    commodity=rec.get("commodity", crop),
+                                    market=rec.get("market"),
+                                    district=rec.get("district"),
+                                    state=rec.get("state", state_name),
+                                    variety=rec.get("variety", "FAQ"),
+                                    grade=rec.get("grade", "Standard"),
+                                    arrival_date=str(rec.get("arrival_date", ""))[:10] or datetime.date.today().isoformat(),
+                                    arrival_quintals=float(rec.get("arrival_quintals") or 0.0),
+                                    min_price_qtl=float(rec.get("min_price") or modal_qtl),
+                                    max_price_qtl=float(rec.get("max_price") or modal_qtl),
+                                    modal_price_qtl=modal_qtl,
+                                    modal_price_kg=modal_kg,
+                                    source=rec.get("source", "OPEN_MANDI_API"),
+                                )
+                                live_fetched += 1
+                            except Exception as exc:
+                                logger.debug("Live API row insert skip: %s", exc)
+                except Exception as exc:
+                    logger.debug("Live API fetch skip (%s/%s): %s", crop, state_name, exc)
+
+        synced_count += live_fetched
         FastCache.invalidate("live_today:")
         duration = (datetime.datetime.now() - start_time).total_seconds()
-        logger.info("TodaysLivePage APMC sync complete: %d synced, %d pruned in %.2fs", synced_count, pruned_count, duration)
+        logger.info(
+            "TodaysLivePage APMC sync complete: %d synced (%d live API), %d pruned in %.2fs",
+            synced_count, live_fetched, pruned_count, duration,
+        )
 
         return {
             "scraper_name": self.name,

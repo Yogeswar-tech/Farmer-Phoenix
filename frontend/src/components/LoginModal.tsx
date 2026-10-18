@@ -30,6 +30,9 @@ interface LoginModalProps {
   onLogout?: () => void;
   currentUserProfile?: FarmerProfile | null;
   lockedFeatureName?: string;
+  currentDistrict?: string;
+  currentState?: string;
+  selectedCropKey?: string;
 }
 
 export const LoginModal: FC<LoginModalProps> = ({
@@ -39,7 +42,10 @@ export const LoginModal: FC<LoginModalProps> = ({
   onLoginSuccess,
   onLogout,
   currentUserProfile,
-  lockedFeatureName
+  lockedFeatureName,
+  currentDistrict,
+  currentState,
+  selectedCropKey
 }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
@@ -155,8 +161,9 @@ export const LoginModal: FC<LoginModalProps> = ({
         farmerName: farmerName.trim() || undefined,
         otp: cleanOtp,
         preferredLang: currentLang,
-        district: 'Chittoor',
-        primaryCrop: 'tomato',
+        district: currentDistrict || 'Guntur',
+        state: currentState || 'Andhra Pradesh',
+        primaryCrop: selectedCropKey || 'chilli',
         idToken: firebaseIdToken
       });
 

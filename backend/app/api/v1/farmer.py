@@ -542,11 +542,22 @@ def update_farmer_location(
             f"UPDATE farmer_profiles SET "
             f"district = {ph}, "
             f"state = {ph}, "
+            f"location_id = COALESCE({ph}, location_id), "
+            f"location_name = COALESCE({ph}, location_name), "
+            f"latitude = COALESCE({ph}, latitude), "
+            f"longitude = COALESCE({ph}, longitude), "
+            f"pincode = COALESCE({ph}, pincode), "
             f"last_login_at = CURRENT_TIMESTAMP "
             f"WHERE firebase_uid = {ph} "
             f"{'RETURNING *;' if use_pg else ';'}"
         )
-        cur.execute(update_query, (payload.district, payload.state, current_uid))
+        cur.execute(update_query, (
+            payload.district, payload.state,
+            payload.location_id, payload.location_name,
+            payload.latitude, payload.longitude,
+            payload.pincode,
+            current_uid
+        ))
         cur.execute(f"SELECT * FROM farmer_profiles WHERE firebase_uid = {ph};", (current_uid,))
         row = cur.fetchone()
 

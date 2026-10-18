@@ -1291,7 +1291,12 @@ export class KisanSethuApi {
         method: 'PUT',
         body: JSON.stringify({
           district: params.district,
-          state: params.state || 'Andhra Pradesh'
+          state: params.state || 'Andhra Pradesh',
+          location_id: params.locationId,
+          location_name: params.locationName,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          pincode: params.pincode
         })
       });
       return res;
@@ -1354,7 +1359,9 @@ export class KisanSethuApi {
           primary_crop: params.primaryCrop || 'chilli'
         })
       });
-      if (res && res.token) {
+      // Keep the real Firebase ID token — don't overwrite it with the backend's
+      // test-token string, which only works in local dev (not in production).
+      if (res && res.token && !params.idToken) {
         this.setAuthToken(res.token);
       }
       if (res && res.status === 'success') {

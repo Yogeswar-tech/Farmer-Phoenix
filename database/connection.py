@@ -230,6 +230,39 @@ def init_database() -> None:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS live_today_mandi_prices (
+                        id SERIAL PRIMARY KEY,
+                        commodity VARCHAR(120) NOT NULL,
+                        market VARCHAR(180),
+                        district VARCHAR(120),
+                        state VARCHAR(80),
+                        variety VARCHAR(80) DEFAULT 'FAQ',
+                        grade VARCHAR(50) DEFAULT 'Standard',
+                        arrival_date DATE,
+                        session VARCHAR(30) DEFAULT 'LIVE_CYCLE',
+                        arrival_quintals NUMERIC(12,2) DEFAULT 0,
+                        min_price_qtl NUMERIC(10,2),
+                        max_price_qtl NUMERIC(10,2),
+                        modal_price_qtl NUMERIC(10,2),
+                        modal_price_kg NUMERIC(10,2),
+                        trend VARCHAR(20) DEFAULT 'STABLE',
+                        source VARCHAR(60) DEFAULT 'AGMARKNET',
+                        payload JSONB,
+                        scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ltp_commodity ON live_today_mandi_prices (LOWER(commodity));"
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ltp_state ON live_today_mandi_prices (state);"
+                )
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_ltp_dedup
+                    ON live_today_mandi_prices (LOWER(commodity), LOWER(COALESCE(market,'')), arrival_date);
+                """)
             logger.info("PostgreSQL schema successfully initialized from schema.sql.")
 
             if seed_file.exists():
