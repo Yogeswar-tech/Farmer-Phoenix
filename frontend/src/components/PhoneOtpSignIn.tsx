@@ -31,6 +31,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
   const [countryCode, setCountryCode] = useState<string>('+91');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [otpCode, setOtpCode] = useState<string>('');
+  const [isOtpMasked, setIsOtpMasked] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -101,12 +102,15 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
       }
     }
 
-    // 2. Development & Offline Fallback: Instantly verifies for smooth testing
+    // 2. Development & Offline Fallback: Instantly verifies with a real dynamic code
     setTimeout(() => {
+      // Generate a dynamic, unique 6-digit verification code
+      const sessionOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
       setConfirmationResult({
         confirm: async (enteredOtp: string) => {
           const clean = enteredOtp.replace(/\D/g, '');
-          if (clean === '123456' || clean.length === 6) {
+          if (clean === sessionOtp) {
             return {
               user: {
                 phoneNumber: fullPhoneNumber,
@@ -114,7 +118,13 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
               }
             } as any;
           }
-          const err: any = new Error('Incorrect verification code. Please enter 123456.');
+          const err: any = new Error(
+            currentLang === 'hi'
+              ? 'गलत OTP कोड। कृपया सही 6-अंकीय कोड दर्ज करें।'
+              : currentLang === 'te'
+              ? 'తప్పు ధృవీకరణ కోడ్. దయచేసి సరైన కోడ్ నమోదు చేయండి.'
+              : 'Incorrect verification code. Please enter the valid 6-digit code.'
+          );
           err.code = 'auth/invalid-verification-code';
           throw err;
         }
@@ -123,10 +133,10 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
       setResendCooldown(30);
       setSuccessMessage(
         currentLang === 'hi'
-          ? `ओटीपी कोड: '123456' दर्ज करें (${fullPhoneNumber})`
+          ? `सत्यापन कोड: '${sessionOtp}' (${fullPhoneNumber})`
           : currentLang === 'te'
-          ? `ధృవీకరణ కోడ్: '123456' నమోదు చేయండి (${fullPhoneNumber})`
-          : `Verification Code: '123456' (${fullPhoneNumber})`
+          ? `ధృవీకరణ కోడ్: '${sessionOtp}' (${fullPhoneNumber})`
+          : `Verification Code: '${sessionOtp}' (${fullPhoneNumber})`
       );
       setLoading(false);
     }, 300);
@@ -304,10 +314,10 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
 
           <Text style={styles.helperText}>
             {currentLang === 'hi'
-              ? '⚡ त्वरित सुरक्षित ओटीपी सत्यापन। (सत्यापन कोड: 123456)'
+              ? '⚡ त्वरित सुरक्षित मोबाइल ओटीपी सत्यापन।'
               : currentLang === 'te'
-              ? '⚡ శీఘ్ర సురక్షిత ఓటీపీ ధృవీకరణ. (ధృవీకరణ కోడ్: 123456)'
-              : '⚡ Fast instant OTP verification (Code: 123456)'}
+              ? '⚡ శీఘ్ర సురక్షిత మొబైల్ ఓటీపీ ధృవీకరణ.'
+              : '⚡ Fast and secure mobile OTP verification.'}
           </Text>
 
           {/* Action Button: Get Verification Code */}
@@ -349,19 +359,38 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
               : 'Enter 6-Digit SMS Verification Code:'}
           </Text>
 
-          <TextInput
-            style={styles.otpInput}
-            value={otpCode}
-            onChangeText={(val) => {
-              setOtpCode(val.replace(/\D/g, '').slice(0, 6));
-              if (errorMessage) setErrorMessage(null);
-            }}
-            placeholder="• • • • • •"
-            placeholderTextColor="#94A3B8"
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-          />
+          <View style={styles.otpInputWrapper}>
+            <TextInput
+              style={styles.otpInput}
+              value={otpCode}
+              onChangeText={(val) => {
+                setOtpCode(val.replace(/\D/g, '').slice(0, 6));
+                if (errorMessage) setErrorMessage(null);
+              }}
+              placeholder={isOtpMasked ? "• • • • • •" : "— — — — — —"}
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              maxLength={6}
+              secureTextEntry={isOtpMasked}
+              autoFocus
+            />
+
+            <TouchableOpacity
+              style={styles.otpMaskToggleBtn}
+              onPress={() => setIsOtpMasked((prev) => !prev)}
+              activeOpacity={0.7}
+              accessibilityLabel={isOtpMasked ? 'Show OTP' : 'Hide OTP'}
+            >
+              <Text style={styles.otpMaskToggleIcon}>
+                {isOtpMasked ? '👁️' : '🔒'}
+              </Text>
+              <Text style={styles.otpMaskToggleText}>
+                {isOtpMasked
+                  ? (currentLang === 'hi' ? 'दिखाएं' : currentLang === 'te' ? 'చూపించు' : 'Show')
+                  : (currentLang === 'hi' ? 'छिपाएं' : currentLang === 'te' ? 'దాచు' : 'Hide')}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Confirm Code Button */}
           <TouchableOpacity
@@ -537,19 +566,45 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: 0.5
   },
+  otpInputWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+    justifyContent: 'center'
+  },
   otpInput: {
     height: 52,
     backgroundColor: '#F8FAFC',
     borderWidth: 2,
     borderColor: '#059669',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 24,
+    paddingLeft: 24,
+    paddingRight: 84,
+    fontSize: 22,
     fontWeight: '800',
     color: '#064E3B',
     textAlign: 'center',
-    letterSpacing: 8,
-    marginBottom: 16
+    letterSpacing: 6
+  },
+  otpMaskToggleBtn: {
+    position: 'absolute',
+    right: 8,
+    top: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    zIndex: 10
+  },
+  otpMaskToggleIcon: {
+    fontSize: 13
+  },
+  otpMaskToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155'
   },
   helperText: {
     fontSize: 11,
