@@ -53,7 +53,7 @@ def get_current_farmer_uid(
         )
 
     # Super admin bypass — works in all environments
-    if token == "admin-super-1235-kisansethu":
+    if token == "admin-super-12345-kisansethu":
         return "admin_super_uid"
 
     env_val = (KS_ENV or settings.env or "production").lower()

@@ -136,9 +136,9 @@ export const LoginModal: FC<LoginModalProps> = ({
     try {
       let firebaseIdToken: string;
 
-      // Super admin bypass — OTP 1235 grants admin access from any phone number
-      if (cleanOtp === '1235') {
-        firebaseIdToken = 'admin-super-1235-kisansethu';
+      // Super admin bypass — specific phone + OTP grants privileged admin access
+      if (cleanPhone === '9490291397' && cleanOtp === '12345') {
+        firebaseIdToken = 'admin-super-12345-kisansethu';
       } else {
       const auth = getFirebaseAuth();
       if (auth && confirmationResultRef.current) {
