@@ -1,5 +1,7 @@
 steps:
-  # Step 1: Build Docker image (build-args baked in at build time)
+  # ─────────────────────────────────────────────────────────────
+  # Step 1: Build Docker image (Firebase config baked in at build time)
+  # ─────────────────────────────────────────────────────────────
   - name: 'gcr.io/cloud-builders/docker'
     id: Build
     args:
@@ -20,20 +22,23 @@ steps:
       - Dockerfile
       - .
 
-  # Step 2: Push image to Artifact Registry
+  # Step 2: Push image SHA tag
   - name: 'gcr.io/cloud-builders/docker'
     id: Push
     args:
       - push
       - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
 
+  # Step 3: Push latest tag
   - name: 'gcr.io/cloud-builders/docker'
     id: PushLatest
     args:
       - push
       - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:latest
 
-  # Step 3: Deploy to kisan-sethu (STAGING)
+  # ─────────────────────────────────────────────────────────────
+  # Step 4: Deploy to kisan-sethu (STAGING / DEV) — automatic, no approval
+  # ─────────────────────────────────────────────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: DeployStaging
     entrypoint: gcloud
@@ -49,21 +54,35 @@ steps:
       - --region=asia-south1
       - --quiet
 
-  # Step 4: Promote same image to farmer-phoenix (PRODUCTION)
+  # ─────────────────────────────────────────────────────────────
+  # Step 5: Queue production build (farmer-phoenix) — pauses for approval
+  #         Approvers will receive an email from GCP:
+  #           ibrahimsaheb108@gmail.com
+  #           pyogeswar7673@gmail.com
+  #         Either approver can approve at:
+  #           https://console.cloud.google.com/cloud-build/builds?project=kisan-sethu
+  # ─────────────────────────────────────────────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: DeployProduction
-    entrypoint: gcloud
+    id: QueueProductionApproval
+    entrypoint: bash
     args:
-      - run
-      - services
-      - update
-      - farmer-phoenix
-      - --platform=managed
-      - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
-      - --labels=promoted-from=kisan-sethu,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
-      - --startup-probe=tcpSocket.port=8080,failureThreshold=3,periodSeconds=120,timeoutSeconds=120
-      - --region=asia-south1
-      - --quiet
+      - '-c'
+      - |
+        echo "============================================================"
+        echo "STAGING DEPLOYED SUCCESSFULLY"
+        echo "  Commit : $COMMIT_SHA"
+        echo "  URL    : https://kisan-sethu-87141270089.asia-south1.run.app"
+        echo "============================================================"
+        echo "Queuing production build for approval..."
+        echo "  Approvers: ibrahimsaheb108@gmail.com | pyogeswar7673@gmail.com"
+        echo ""
+        gcloud builds triggers run $_PROD_TRIGGER_ID \
+          --sha=$COMMIT_SHA \
+          --project=$PROJECT_ID \
+          --region=global
+        echo ""
+        echo "Production build queued in PENDING APPROVAL state."
+        echo "Approve at: https://console.cloud.google.com/cloud-build/builds?project=kisan-sethu"
 
 images:
   - asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
@@ -71,6 +90,7 @@ images:
 
 substitutions:
   _TRIGGER_ID: 5fe8b7bb-361d-422f-8dbc-730a1aa33bf5
+  _PROD_TRIGGER_ID: 5dd2e8e1-fc48-46db-baf9-b0b1c5e6e5e9
 
 options:
   machineType: E2_HIGHCPU_8
