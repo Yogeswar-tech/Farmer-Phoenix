@@ -755,8 +755,21 @@ def get_crop_pesticides_endpoint(
 @router.post("/pesticides/sync")
 def sync_pesticides_database_endpoint() -> dict[str, Any]:
     """6-Month Statutory Gazette Updater: Re-indexes CIBRC registry and updates DB."""
+    import sys
+    from pathlib import Path
     from database.pesticides_db import seed_database_defaults
     seed_database_defaults()
+
+    # Also sync the CIBRC isolated registry into the active database (PostgreSQL in prod)
+    try:
+        scripts_dir = Path(__file__).resolve().parent.parent.parent / "scripts"
+        if str(scripts_dir.parent) not in sys.path:
+            sys.path.insert(0, str(scripts_dir.parent))
+        from scripts.seed_cibrc_pesticide_registry import seed_cibrc_registry
+        seed_cibrc_registry()
+    except Exception as exc:
+        logger.warning("CIBRC registry seed skipped during sync: %s", exc)
+
     return {
         "status": "success",
         "message": "Pesticides and Crops database synchronized successfully with statutory CIBRC registry."

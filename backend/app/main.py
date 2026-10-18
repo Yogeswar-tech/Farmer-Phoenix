@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         count = cibrc_isolated_db.get_cibrc_row_count()
-        if count == 0:
+        if count < 10:
             import sys
             from pathlib import Path
             scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 sys.path.insert(0, str(scripts_dir.parent))
             from scripts.seed_cibrc_pesticide_registry import seed_cibrc_registry
             seed_cibrc_registry()
-            logger.info("CIBRC registry seeded on first startup.")
+            logger.info("CIBRC registry seeded on startup (was %d records).", count)
         else:
             logger.info("CIBRC registry ready: %d records.", count)
     except Exception as exc:
