@@ -34,7 +34,6 @@ const API_BASE_URL = getApiBaseUrl();
 
 export class KisanSethuApi {
   private static authToken: string | null = (typeof window !== 'undefined') ? localStorage.getItem('ks_auth_token') : null;
-  private static adminKey: string = 'kisan-sethu-admin-secret-key-2026';
 
   static setAuthToken(token: string | null) {
     this.authToken = token;
@@ -62,9 +61,6 @@ export class KisanSethuApi {
 
     if (this.authToken && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${this.authToken}`;
-    }
-    if (this.adminKey && !headers['X-Admin-Key']) {
-      headers['X-Admin-Key'] = this.adminKey;
     }
 
     try {
@@ -651,7 +647,7 @@ export class KisanSethuApi {
     try {
       const res = await this.request<any>('/ask', {
         method: 'POST',
-        body: JSON.stringify({ question, language })
+        body: JSON.stringify({ question, lang: language })
       });
       return {
         answer: res.answer || res.response || 'Advisory received successfully.',

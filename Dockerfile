@@ -14,6 +14,20 @@
 FROM node:20-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
+# Firebase web config — public values, safe to bake into the Vite bundle at build time
+ARG VITE_FIREBASE_API_KEY=""
+ARG VITE_FIREBASE_AUTH_DOMAIN=""
+ARG VITE_FIREBASE_PROJECT_ID=""
+ARG VITE_FIREBASE_STORAGE_BUCKET=""
+ARG VITE_FIREBASE_MESSAGING_SENDER_ID=""
+ARG VITE_FIREBASE_APP_ID=""
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
+    VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN \
+    VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID \
+    VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET \
+    VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID \
+    VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
+
 # Install dependencies using lockfile caching
 COPY frontend/package.json ./
 # If package-lock exists, copy it as well
@@ -55,6 +69,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
 COPY backend/prompts ./prompts
 COPY backend/data ./data
+COPY backend/scripts ./scripts
 COPY database ./database
 COPY scrapers ./scrapers
 
