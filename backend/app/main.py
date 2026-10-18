@@ -2,7 +2,9 @@ import logging
 import sys
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -64,11 +66,18 @@ async def add_security_headers(
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        # Firebase Phone Auth: reCAPTCHA scripts from gstatic + Google APIs
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+        "https://www.gstatic.com https://apis.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         + csp_img
-        + "connect-src 'self' http: https:;"
+        # Firebase reCAPTCHA renders in a hidden iframe from google.com
+        + "frame-src 'self' https://www.google.com; "
+        + "connect-src 'self' "
+        "https://identitytoolkit.googleapis.com "
+        "https://securetoken.googleapis.com "
+        "http: https:;"
     )
     return response
 
@@ -109,7 +118,6 @@ def health_ready() -> Response:
             "stale": True
         }
         try:
-            from datetime import datetime, timezone
             from database.connection import get_db_cursor
             with get_db_cursor() as cur:
                 cur.execute("SELECT MAX(arrival_date) AS max_date, COUNT(*) AS total FROM mandi_prices;")
@@ -123,7 +131,7 @@ def health_ready() -> Response:
                         mandi_stats["latest_arrival_date"] = max_d_str
                         try:
                             d_obj = datetime.strptime(max_d_str, "%Y-%m-%d").date()
-                            now_utc = datetime.now(timezone.utc).date()
+                            now_utc = datetime.now(UTC).date()
                             mandi_stats["stale"] = (now_utc - d_obj).days > 2
                         except Exception:
                             mandi_stats["stale"] = False

@@ -1,7 +1,10 @@
-import { useState, useEffect, type FC, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
 import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, Sparkles, AlertCircle, Phone, KeyRound } from 'lucide-react';
+import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
+import type { ConfirmationResult } from 'firebase/auth';
+import { getFirebaseAuth } from '../config/firebase';
 
 export interface FarmerProfile {
   firebase_uid?: string;
@@ -45,6 +48,8 @@ export const LoginModal: FC<LoginModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [demoAccounts, setDemoAccounts] = useState<any[]>([]);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
 
   // Fetch pre-seeded isolated personas from backend database
   useEffect(() => {
@@ -87,6 +92,15 @@ export const LoginModal: FC<LoginModalProps> = ({
     }
   }, [isOpen]);
 
+  // Destroy reCAPTCHA widget when modal closes to avoid duplicate-widget errors on reopen
+  useEffect(() => {
+    if (!isOpen) {
+      try { recaptchaVerifierRef.current?.clear(); } catch {}
+      recaptchaVerifierRef.current = null;
+      confirmationResultRef.current = null;
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSendOtp = async (e: FormEvent) => {
@@ -107,12 +121,29 @@ export const LoginModal: FC<LoginModalProps> = ({
 
     setLoading(true);
     try {
-      // Simulate/trigger Firebase Phone Auth SMS confirmation
-      await new Promise((res) => setTimeout(res, 400));
+      const auth = getFirebaseAuth();
+      if (!auth) {
+        // Local dev without Firebase config — mock flow for KS_ENV=local backend bypass
+        await new Promise((res) => setTimeout(res, 400));
+        setOtpSent(true);
+        setOtp('');
+        return;
+      }
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+      }
+      confirmationResultRef.current = await signInWithPhoneNumber(auth, `+91${cleanPhone}`, recaptchaVerifierRef.current);
       setOtpSent(true);
       setOtp('');
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to send OTP. Please retry.');
+      const code = (err as any)?.code as string | undefined;
+      setErrorMessage(
+        code === 'auth/invalid-phone-number'
+          ? (currentLang === 'te' ? 'తప్పు ఫోన్ నంబర్.' : currentLang === 'hi' ? 'अमान्य फ़ोन नंबर।' : 'Invalid phone number.')
+          : code === 'auth/too-many-requests'
+          ? (currentLang === 'te' ? 'చాలా ప్రయత్నాలు. వేచి ఉండండి.' : currentLang === 'hi' ? 'बहुत अधिक प्रयास। प्रतीक्षा करें।' : 'Too many OTP attempts. Please wait.')
+          : err?.message || 'Failed to send OTP. Please retry.'
+      );
     } finally {
       setLoading(false);
     }
@@ -136,8 +167,16 @@ export const LoginModal: FC<LoginModalProps> = ({
 
     setLoading(true);
     try {
-      // Firebase ID token exchange (using dev token format for local bypass)
-      const mockFirebaseIdToken = `test-token-farmer_phone_${cleanPhone}`;
+      let firebaseIdToken: string;
+      const auth = getFirebaseAuth();
+      if (auth && confirmationResultRef.current) {
+        // Real Firebase: confirm OTP → get ID token
+        const result = await confirmationResultRef.current.confirm(otp.trim());
+        firebaseIdToken = await result.user.getIdToken();
+      } else {
+        // Local dev without Firebase config — mock token accepted by KS_ENV=local backend
+        firebaseIdToken = `test-token-farmer_phone_${cleanPhone}`;
+      }
 
       const res = await KisanSethuApi.loginFarmer({
         phoneNumber: cleanPhone,
@@ -146,7 +185,7 @@ export const LoginModal: FC<LoginModalProps> = ({
         preferredLang: currentLang,
         district: 'Chittoor',
         primaryCrop: 'tomato',
-        idToken: mockFirebaseIdToken
+        idToken: firebaseIdToken
       });
 
       if (res && res.status === 'success' && res.profile) {
@@ -156,11 +195,13 @@ export const LoginModal: FC<LoginModalProps> = ({
         throw new Error(res?.detail || 'OTP verification failed');
       }
     } catch (err: any) {
+      const code = (err as any)?.code as string | undefined;
       setErrorMessage(
-        err?.message ||
-          (currentLang === 'hi'
-            ? 'सत्यापन विफल रहा। कृपया पुनः प्रयास करें।'
-            : 'OTP verification failed. Please try again.')
+        code === 'auth/invalid-verification-code'
+          ? (currentLang === 'te' ? 'తప్పు OTP కోడ్.' : currentLang === 'hi' ? 'गलत OTP कोड।' : 'Invalid OTP code.')
+          : code === 'auth/code-expired'
+          ? (currentLang === 'te' ? 'OTP గడువు ముగిసింది. మళ్ళీ పొందండి.' : currentLang === 'hi' ? 'OTP समाप्त हो गया।' : 'OTP expired. Please resend.')
+          : err?.message || (currentLang === 'hi' ? 'सत्यापन विफल रहा। पुनः प्रयास करें।' : 'OTP verification failed. Please try again.')
       );
     } finally {
       setLoading(false);
@@ -480,6 +521,8 @@ export const LoginModal: FC<LoginModalProps> = ({
           <ShieldCheck size={14} color="#059669" />
           <span>Firebase Phone Auth • Minimal Data Stored (Language, District, Crop)</span>
         </div>
+        {/* Invisible reCAPTCHA mount point required by Firebase Phone Auth */}
+        <div id="recaptcha-container" style={{ display: 'none' }} />
       </div>
     </div>
   );
