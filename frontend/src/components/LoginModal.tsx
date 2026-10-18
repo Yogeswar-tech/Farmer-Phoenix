@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
-import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle, Phone, KeyRound } from 'lucide-react';
+import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle, Phone, KeyRound, UserCheck } from 'lucide-react';
 import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
 import type { ConfirmationResult } from 'firebase/auth';
 import { getFirebaseAuth } from '../config/firebase';
@@ -20,6 +20,7 @@ export interface FarmerProfile {
   longitude?: number;
   pincode?: string;
   primary_crop?: string;
+  is_guest?: boolean;
 }
 
 interface LoginModalProps {
@@ -191,6 +192,22 @@ export const LoginModal: FC<LoginModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGuestLogin = () => {
+    const guestName =
+      currentLang === 'hi' ? 'अतिथि किसान' : currentLang === 'te' ? 'అతిథి రైతు' : 'Guest Farmer';
+    const guestProfile: FarmerProfile = {
+      firebase_uid: `guest_${Date.now()}`,
+      farmer_name: guestName,
+      preferred_lang: currentLang,
+      district: currentDistrict || 'Guntur',
+      state: currentState || 'Andhra Pradesh',
+      primary_crop: selectedCropKey || 'chilli',
+      is_guest: true,
+    };
+    onLoginSuccess(guestProfile);
+    onClose();
   };
 
   const titleText = lockedFeatureName
@@ -483,6 +500,65 @@ export const LoginModal: FC<LoginModalProps> = ({
               </button>
             )}
           </form>
+        )}
+
+        {/* Guest Login — visible only when not yet authenticated */}
+        {!(currentUserProfile && (currentUserProfile.phone_number || currentUserProfile.firebase_uid || currentUserProfile.email)) && (
+          <div style={{ marginTop: '12px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              margin: '0 0 12px',
+              color: '#94A3B8',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+              <span>
+                {currentLang === 'hi' ? 'या' : currentLang === 'te' ? 'లేదా' : 'OR'}
+              </span>
+              <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+            </div>
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '11px 18px',
+                background: '#F8FAFC',
+                border: '1.5px dashed #CBD5E1',
+                borderRadius: '10px',
+                color: '#475569',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F1F5F9'; }}
+              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F8FAFC'; }}
+            >
+              <UserCheck size={16} color="#64748B" />
+              <span>
+                {currentLang === 'hi'
+                  ? 'अतिथि के रूप में जारी रखें'
+                  : currentLang === 'te'
+                  ? 'అతిథిగా కొనసాగించండి'
+                  : 'Continue as Guest'}
+              </span>
+            </button>
+            <p style={{ textAlign: 'center', fontSize: '11px', color: '#94A3B8', margin: '6px 0 0' }}>
+              {currentLang === 'hi'
+                ? 'सभी सुविधाएं मुफ्त में उपलब्ध • डेटा सहेजा नहीं जाता'
+                : currentLang === 'te'
+                ? 'అన్ని ఫీచర్లు ఉచితం • డేటా సేవ్ కాదు'
+                : 'All features available free • No data saved'}
+            </p>
+          </div>
         )}
 
         {/* Security & Farmer Privacy Guarantee Footer */}

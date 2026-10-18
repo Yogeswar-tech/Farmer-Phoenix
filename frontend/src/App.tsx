@@ -694,8 +694,8 @@ export function App() {
       }
     }
 
-    // Persist new location directly to DB profile if logged in (email OR phone/OTP users)
-    if (currentUserProfile && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
+    // Persist new location directly to DB profile if logged in (skip for guests)
+    if (currentUserProfile && !currentUserProfile.is_guest && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
       try {
         const res = await KisanSethuApi.updateFarmerLocation({
           email: currentUserProfile.email,
@@ -801,7 +801,7 @@ export function App() {
 
   const handleSelectCrop = (cropKey: string) => {
     setSelectedCropKey(cropKey);
-    if (currentUserProfile && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
+    if (currentUserProfile && !currentUserProfile.is_guest && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
       KisanSethuApi.updateFarmerCrop(currentUserProfile.email || cropKey, cropKey).catch(() => {});
     }
   };
@@ -952,6 +952,7 @@ export function App() {
           liveSearchResults={liveSearchResults}
           isLoggedIn={isLoggedIn}
           userName={userName}
+          isGuest={!!currentUserProfile?.is_guest}
           currentLocation={currentLocation}
           onOpenLocationModal={() => setIsLocationModalOpen(true)}
           onSelectLocation={handleLocationChange}

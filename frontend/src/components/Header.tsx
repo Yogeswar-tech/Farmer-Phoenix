@@ -25,6 +25,7 @@ interface HeaderProps {
   liveSearchResults?: LiveSearchResult[];
   isLoggedIn: boolean;
   userName?: string;
+  isGuest?: boolean;
   currentLocation: LocationOption;
   onOpenLocationModal: () => void;
   onSelectLocation?: (loc: LocationOption) => void;
@@ -43,6 +44,7 @@ export const Header: FC<HeaderProps> = ({
   liveSearchResults = [],
   isLoggedIn,
   userName,
+  isGuest,
   currentLocation,
   onOpenLocationModal,
   onSelectLocation
@@ -498,17 +500,19 @@ export const Header: FC<HeaderProps> = ({
           {/* Profile / Phone Login Button */}
           <TouchableOpacity
             onPress={onOpenLogin}
-            style={[styles.authBtn, isLoggedIn && styles.authBtnLoggedIn]}
+            style={[styles.authBtn, isLoggedIn && (isGuest ? styles.authBtnGuest : styles.authBtnLoggedIn)]}
             activeOpacity={0.8}
             accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Login with Phone OTP'}
           >
-            <Phone size={14} color={isLoggedIn ? '#2D5A27' : '#FFFFFF'} />
-            <Text style={[styles.authBtnText, isLoggedIn && styles.authBtnTextLoggedIn]}>
+            <Phone size={14} color={isLoggedIn ? (isGuest ? '#92400E' : '#2D5A27') : '#FFFFFF'} />
+            <Text style={[styles.authBtnText, isLoggedIn && (isGuest ? styles.authBtnTextGuest : styles.authBtnTextLoggedIn)]}>
               {isLoggedIn
-                ? (isMobile ? (userName?.split(' ')[0] || 'User') : (userName || (currentLang === 'hi' ? 'प्रोफाइल' : currentLang === 'te' ? 'ప్రొఫైల్' : 'Profile')))
+                ? (isGuest
+                    ? (currentLang === 'hi' ? 'अतिथि' : currentLang === 'te' ? 'అతిథి' : 'Guest')
+                    : (isMobile ? (userName?.split(' ')[0] || 'User') : (userName || (currentLang === 'hi' ? 'प्रोफाइल' : currentLang === 'te' ? 'ప్రొఫైల్' : 'Profile'))))
                 : (currentLang === 'hi' ? 'लॉगिन' : currentLang === 'te' ? 'లాగిన్' : 'Login')}
             </Text>
-            {isLoggedIn && <View style={styles.authDot} />}
+            {isLoggedIn && <View style={[styles.authDot, isGuest && styles.authDotGuest]} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -806,6 +810,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2D5A27',
   },
+  authBtnGuest: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D97706',
+  },
   authBtnText: {
     fontSize: 11,
     fontWeight: '700',
@@ -814,11 +824,17 @@ const styles = StyleSheet.create({
   authBtnTextLoggedIn: {
     color: '#2D5A27',
   },
+  authBtnTextGuest: {
+    color: '#92400E',
+  },
   authDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#16A34A',
+  },
+  authDotGuest: {
+    backgroundColor: '#F59E0B',
   },
   googleBadgePill: {
     width: 16,
