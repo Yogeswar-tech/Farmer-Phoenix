@@ -28,8 +28,31 @@ logger = logging.getLogger("KisanSethuMain")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan manager: Initialises API container in asia-south1 Cloud Run."""
-    logger.info("Kisan Sethu API operational. Ingestion offloaded to Cloud Run Jobs & Scheduler.")
+    """Lifespan manager: initialize DB schema and seed CIBRC data on cold start."""
+    try:
+        from database.connection import init_database
+        init_database()
+        logger.info("Database schema initialized.")
+    except Exception as exc:
+        logger.error("Database schema init failed: %s", exc)
+
+    try:
+        count = cibrc_isolated_db.get_cibrc_row_count()
+        if count == 0:
+            import sys
+            from pathlib import Path
+            scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+            if str(scripts_dir.parent) not in sys.path:
+                sys.path.insert(0, str(scripts_dir.parent))
+            from scripts.seed_cibrc_pesticide_registry import seed_cibrc_registry
+            seed_cibrc_registry()
+            logger.info("CIBRC registry seeded on first startup.")
+        else:
+            logger.info("CIBRC registry ready: %d records.", count)
+    except Exception as exc:
+        logger.warning("CIBRC seed skipped: %s", exc)
+
+    logger.info("Kisan Sethu API operational — Cloud Run asia-south1.")
     yield
     logger.info("Kisan Sethu API shutting down.")
 
