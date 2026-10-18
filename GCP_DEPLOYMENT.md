@@ -21,15 +21,15 @@ gcloud auth application-default login
 
 ---
 
-## Step 1 — Create GCP Project
+## Step 1 — Set Active GCP Project
+
+Your GCP project **`kisan-sethu`** already exists (visible in the Cloud Console project selector).
+`kisansetu-dev` is a **separate Firebase project** used only for Phone Auth — do not confuse the two.
 
 ```bash
-gcloud projects create kisansetu-dev --name="Kisan Sethu"
-gcloud config set project kisansetu-dev
-
-# Link billing (get your billing account ID from: gcloud billing accounts list)
-gcloud billing projects link kisansetu-dev \
-  --billing-account=XXXXXX-XXXXXX-XXXXXX
+# Point gcloud at your existing GCP project
+gcloud config set project kisan-sethu
+gcloud auth application-default login
 ```
 
 ---
@@ -58,7 +58,7 @@ gcloud services enable \
 
 ### 3a. Gemini API Key (Google AI Studio — free)
 1. Go to: **https://aistudio.google.com**
-2. Click **"Get API key"** → **"Create API key"** → select your project `kisansetu-dev`
+2. Click **"Get API key"** → **"Create API key"** → select your project `kisan-sethu`
 3. Copy the key — this is `KS_GEMINI_API_KEY`
 
 ### 3b. Google Maps API Key
@@ -75,8 +75,12 @@ Save this output — it is `KS_ADMIN_API_KEY`. Never put it in frontend code.
 
 ### 3d. Firebase Phone Auth Setup (for real SMS OTP)
 
-1. Go to [Firebase Console](https://console.firebase.google.com) and click **Add project**
-2. Type your existing GCP project ID `kisansetu-dev` — Firebase will attach to it
+> **Two separate projects**: Your GCP infrastructure runs in `kisan-sethu`. Firebase Auth lives in
+> a separate Firebase project `kisansetu-dev`. The backend receives Firebase tokens from `kisansetu-dev`
+> and verifies them with `KS_GCP_PROJECT_ID=kisansetu-dev`. They are already created.
+
+1. Firebase project `kisansetu-dev` already exists — go to [Firebase Console](https://console.firebase.google.com)
+2. Select `kisansetu-dev` — do **not** use `kisan-sethu` here
 3. In the left nav: **Authentication → Sign-in method → Phone** → Enable
 4. Click the **gear ⚙ → Project settings → Your apps** → click **Web `</>`**
 5. Register the app (any nickname), then copy the config block that looks like:
@@ -127,7 +131,7 @@ Get your Cloud SQL connection name (you will need this later):
 ```bash
 gcloud sql instances describe kisan-sethu-db \
   --format="value(connectionName)"
-# Output looks like: kisansetu-dev:asia-south1:kisan-sethu-db
+# Output looks like: kisan-sethu:asia-south1:kisan-sethu-db
 ```
 
 **Save this connection name.**
@@ -241,8 +245,9 @@ Replace the values in CAPITALS before running:
 PROJECT_ID=$(gcloud config get-value project)
 IMAGE="asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest"
 
-# Cloud SQL connection name from Step 4 (format: PROJECT:REGION:INSTANCE)
-CLOUD_SQL_CONN="kisansetu-dev:asia-south1:kisan-sethu-db"
+# Cloud SQL connection name from Step 4 (format: GCP_PROJECT:REGION:INSTANCE)
+# GCP project is kisan-sethu; kisansetu-dev is the Firebase project (different thing)
+CLOUD_SQL_CONN="kisan-sethu:asia-south1:kisan-sethu-db"
 
 # Memorystore private IP from Step 5a
 REDIS_IP="10.x.x.x"
@@ -264,7 +269,7 @@ gcloud run deploy kisan-sethu \
   --vpc-egress all-traffic \
   --set-env-vars "\
 KS_ENV=production,\
-KS_GCP_PROJECT_ID=$PROJECT_ID,\
+KS_GCP_PROJECT_ID=kisansetu-dev,\
 KS_GCP_LOCATION=asia-south1,\
 KS_CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONN,\
 POSTGRES_USER=kisanapp,\
