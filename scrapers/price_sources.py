@@ -376,6 +376,199 @@ class OpenMandiApiSource:
         return []
 
 
+class AgmarknetSource:
+    """Agmarknet 2.0 API (api.agmarknet.gov.in/v1/).
+
+    Uses RSA-PKCS1v15-encrypted password login to obtain a Bearer token.
+    No API key purchase required — just a free account at agmarknet.gov.in.
+
+    Configure via:
+        KS_AGMARKNET_USERNAME  (email or mobile registered at agmarknet.gov.in)
+        KS_AGMARKNET_PASSWORD  (plaintext; encrypted with embedded RSA key before send)
+    """
+
+    name = "AGMARKNET"
+    API_BASE = "https://api.agmarknet.gov.in/v1"
+    ORIGIN = "https://agmarknet.gov.in"
+
+    # Agmarknet 2.0 RSA-2048 public key (embedded in JS bundle)
+    _RSA_PEM = (
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp19WAKQeaQRWZrPoL/S/\n"
+        "1ScKAArO02n9A2ANcTsAq7jBCPfBx60lUWveuYF8f2g+S9//KH5jOVSXVXMBEfNM\n"
+        "dWJRmPQaUORbISRYR0BurtEhC89SFdZzxqvYP/LAjAkWlh3uevIdIHAD9LmU+fxP\n"
+        "lCjCD1vsgO0Q9I59vlmSYwvSWHEsLyjlfAO4CLAICNp9i1wwH2eS3+eXtmSqngRC\n"
+        "M/AhzjVeUbEe+BQacwDdqlHVATM8tonHDkICnpzziQJCJ5/RVaBhMYQknU0dFGL2\n"
+        "2tyXF+qZhn1IfMKwZ4HHuNU1Hb7Oes0Q753hNo3wM4cfV+ZIC0m+pJPZ12+zezBF\n"
+        "wQIDAQAB\n"
+        "-----END PUBLIC KEY-----"
+    )
+
+    # Commodity IDs in Agmarknet 2.0 DB
+    _COMMODITY_IDS: dict[str, list[int]] = {
+        "Red Chilli":   [113, 420],   # Dry Chillies, Bajji chilli
+        "Cotton":       [15],
+        "Tomato":       [65],
+        "Onion":        [23],
+        "Paddy":        [2, 343],     # Paddy(Common), Paddy(Basmati)
+        "Maize":        [4],
+        "Groundnut":    [10, 263],
+        "Turmeric":     [35],
+        "Banana":       [19],
+    }
+
+    # State IDs in Agmarknet 2.0 DB
+    _STATE_IDS: dict[str, int] = {
+        "Andhra Pradesh": 2,
+        "Telangana": 32,
+        "Karnataka": 10,
+        "Maharashtra": 17,
+    }
+
+    def __init__(self, stats: ValidationStats | None = None) -> None:
+        self.username = os.getenv("KS_AGMARKNET_USERNAME", "").strip()
+        self.password = os.getenv("KS_AGMARKNET_PASSWORD", "").strip()
+        self.stats = stats or ValidationStats()
+        self._token: str | None = None
+        self._token_expiry: float = 0.0
+
+    def is_configured(self) -> bool:
+        return bool(self.username and self.password)
+
+    def _encrypt_password(self) -> str:
+        """RSA-PKCS1v15 encrypt the password using Agmarknet's embedded public key."""
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+        import base64
+        pub_key = serialization.load_pem_public_key(self._RSA_PEM.encode())
+        encrypted = pub_key.encrypt(self.password.encode(), asym_padding.PKCS1v15())
+        return base64.b64encode(encrypted).decode()
+
+    def _login(self) -> str | None:
+        """Login and return a Bearer token; cached until expired."""
+        if self._token and time.time() < self._token_expiry:
+            return self._token
+        try:
+            enc_password = self._encrypt_password()
+            req = urllib.request.Request(
+                f"{self.API_BASE}/auth/login",
+                data=json.dumps({"username": self.username, "password": enc_password}).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Origin": self.ORIGIN,
+                    "Referer": f"{self.ORIGIN}/",
+                    "User-Agent": "KisanSethu-AgriScraper/1.0",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                payload = json.loads(resp.read().decode())
+                token = (
+                    payload.get("token")
+                    or payload.get("access_token")
+                    or (payload.get("data") or {}).get("token")
+                    or (payload.get("data") or {}).get("access_token")
+                )
+                if token:
+                    self._token = token
+                    self._token_expiry = time.time() + 3600  # assume 1h
+                    return token
+            logger.warning("AgmarknetSource login: no token in response: %s", payload)
+        except Exception as exc:
+            logger.warning("AgmarknetSource login failed: %s", exc)
+        return None
+
+    def _fetch_prices(
+        self,
+        cmdt_id: int,
+        state_id: int,
+        commodity_name: str,
+        token: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        today = date.today().isoformat()
+        from_date = from_date or today
+        to_date = to_date or today
+        params = urllib.parse.urlencode({
+            "cmdt_id": cmdt_id,
+            "state_id": state_id,
+            "from_date": from_date,
+            "to_date": to_date,
+        })
+        url = f"{self.API_BASE}/prices-and-arrivals/commodity-market/daily-report-state?{params}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Origin": self.ORIGIN,
+                "Referer": f"{self.ORIGIN}/",
+                "User-Agent": "KisanSethu-AgriScraper/1.0",
+                "Accept": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                payload = json.loads(resp.read().decode())
+                rows = payload.get("data") or payload.get("records") or []
+                if isinstance(rows, dict):
+                    rows = rows.get("data") or rows.get("records") or []
+                result = []
+                for r in rows:
+                    result.append({
+                        "commodity": r.get("cmdt_name") or commodity_name,
+                        "market": r.get("market_name") or r.get("mkt_name") or "",
+                        "district": r.get("district_name") or r.get("dist_name") or "",
+                        "state": r.get("state_name") or "",
+                        "variety": r.get("variety") or "FAQ",
+                        "grade": r.get("grade") or "Standard",
+                        "arrival_date": str(r.get("arr_date") or r.get("date") or today)[:10],
+                        "min_price": float(r.get("min_price") or r.get("min_rate") or 0),
+                        "max_price": float(r.get("max_price") or r.get("max_rate") or 0),
+                        "modal_price": float(r.get("modal_price") or r.get("modal_rate") or 0),
+                        "arrival_quintals": float(r.get("arr_qty") or r.get("arrivals") or 0),
+                        "source": "AGMARKNET",
+                    })
+                return result
+        except Exception as exc:
+            logger.debug("AgmarknetSource fetch error (%s/state=%s): %s", commodity_name, state_id, exc)
+            return []
+
+    def fetch(self, commodity: str, state: str | None = None) -> list[PriceRecord]:
+        if not self.is_configured():
+            return []
+        token = self._login()
+        if not token:
+            return []
+
+        cmdt_ids = self._COMMODITY_IDS.get(commodity, [])
+        if not cmdt_ids:
+            clean = commodity.strip().title()
+            for k, v in self._COMMODITY_IDS.items():
+                if k.lower() in clean.lower() or clean.lower() in k.lower():
+                    cmdt_ids = v
+                    break
+        if not cmdt_ids:
+            return []
+
+        state_id = self._STATE_IDS.get(state or "", 0) if state else 0
+        if not state_id:
+            state_id = None
+
+        records: list[PriceRecord] = []
+        for cmdt_id in cmdt_ids:
+            raw_rows = self._fetch_prices(cmdt_id, state_id or 0, commodity, token)
+            for r in raw_rows:
+                r["source"] = "AGMARKNET"
+                rec = validate_price_record(r, self.stats)
+                if rec:
+                    records.append(rec)
+            if records:
+                break  # found data with first commodity ID, skip aliases
+
+        return records
+
+
 def get_tracked_crops() -> list[str]:
     """Retrieve list of crops to track, configurable via KS_TRACKED_CROPS."""
     raw = os.getenv("KS_TRACKED_CROPS")
@@ -393,13 +586,18 @@ def get_tracked_states() -> list[str]:
 
 
 def get_active_price_source(stats: ValidationStats | None = None) -> PriceSource:
-    """Returns official DataGovInSource if configured and healthy, otherwise OpenMandiApiSource.
+    """Priority: DataGovInSource → AgmarknetSource → OpenMandiApiSource.
     NEVER falls back to sample or synthetic data.
     """
     datagov = DataGovInSource(stats=stats)
     if datagov.is_configured():
         logger.info("Using primary PriceSource: DataGovInSource (data.gov.in)")
         return datagov
+
+    agmarknet = AgmarknetSource(stats=stats)
+    if agmarknet.is_configured():
+        logger.info("Using primary PriceSource: AgmarknetSource (agmarknet.gov.in)")
+        return agmarknet
 
     logger.info("Using secondary PriceSource: OpenMandiApiSource (mandi-api.onrender.com)")
     return OpenMandiApiSource(stats=stats)

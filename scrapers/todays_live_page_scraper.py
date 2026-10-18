@@ -548,11 +548,43 @@ class TodaysLivePageScraper:
         live_fetched = 0
 
         def _fetch_one(crop: str, state_name: str) -> list[tuple]:
-            """Returns list of (row_tuple,...) ready to insert."""
+            """Returns list of (row_tuple,...) ready to insert.
+            Tries Agmarknet authenticated source first (if configured), then Open Mandi API.
+            """
             rows: list[tuple] = []
+            records = []
             try:
-                records = fetch_live_open_mandi_api(crop, state=state_name)
-                for rec in records:
+                from scrapers.price_sources import AgmarknetSource, ValidationStats
+                agm = AgmarknetSource(stats=ValidationStats())
+                if agm.is_configured():
+                    prs = agm.fetch(crop, state=state_name)
+                    records = [
+                        {
+                            "commodity": p.commodity,
+                            "market": p.market,
+                            "district": p.district,
+                            "state": p.state,
+                            "variety": p.variety,
+                            "grade": p.grade,
+                            "arrival_date": p.arrival_date,
+                            "min_price": p.min_price_qtl,
+                            "max_price": p.max_price_qtl,
+                            "modal_price": p.modal_price_qtl,
+                            "arrival_quintals": p.arrival_quintals,
+                            "source": p.source,
+                        }
+                        for p in prs
+                    ]
+            except Exception as exc:
+                logger.debug("AgmarknetSource fetch skip (%s/%s): %s", crop, state_name, exc)
+
+            if not records:
+                try:
+                    records = fetch_live_open_mandi_api(crop, state=state_name)
+                except Exception as exc:
+                    logger.debug("OpenMandiApi fetch skip (%s/%s): %s", crop, state_name, exc)
+
+            for rec in records:
                     try:
                         modal_qtl = float(rec.get("modal_price") or 0)
                         if modal_qtl <= 0:
