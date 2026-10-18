@@ -9,19 +9,20 @@ let _auth: Auth | null = null;
  * The OTP flow in LoginModal gracefully falls back to mock tokens when null is returned.
  */
 export function getFirebaseAuth(): Auth | null {
-  const apiKey: string = import.meta.env.VITE_FIREBASE_API_KEY ?? '';
-  if (!apiKey) return null;
+  const env = (typeof import.meta !== 'undefined' ? (import.meta.env || {}) : {}) as Record<string, string | undefined>;
+  const apiKey = (env.VITE_FIREBASE_API_KEY || env.KS_FIREBASE_API_KEY || '').trim();
+  if (!apiKey || apiKey.includes('your_') || apiKey.includes('placeholder')) return null;
 
   if (_auth) return _auth;
 
   const app = getApps().length === 0
     ? initializeApp({
         apiKey,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-        appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
+        authDomain: (env.VITE_FIREBASE_AUTH_DOMAIN || env.KS_FIREBASE_AUTH_DOMAIN || 'kisansetu-dev.firebaseapp.com').trim(),
+        projectId: (env.VITE_FIREBASE_PROJECT_ID || env.KS_FIREBASE_PROJECT_ID || 'kisansetu-dev').trim(),
+        storageBucket: (env.VITE_FIREBASE_STORAGE_BUCKET || env.KS_FIREBASE_STORAGE_BUCKET || 'kisansetu-dev.firebasestorage.app').trim(),
+        messagingSenderId: (env.VITE_FIREBASE_MESSAGING_SENDER_ID || env.KS_FIREBASE_MESSAGING_SENDER_ID || '66226476599').trim(),
+        appId: (env.VITE_FIREBASE_APP_ID || env.KS_FIREBASE_APP_ID || '').trim(),
       })
     : getApp();
 
