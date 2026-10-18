@@ -311,12 +311,27 @@ class CropDoctorEngine:
         """Return all catalogued diseases for a crop, formatted for the requested language."""
         key = crop_key.lower().strip()
         if key not in DISEASE_DATABASE:
+            from app.domain.crop_guide_rag import get_crop_guide_data
+            guide = get_crop_guide_data(key)
+            if guide:
+                return {
+                    "crop_key": key,
+                    "is_supported": True,
+                    "is_sample": False,
+                    "crop_name": guide["crop_name"],
+                    "overview": guide["overview"],
+                    "disease_advisories": guide["disease_advisories"],
+                    "advisory_note": guide["advisory_note"],
+                    "is_cibrc_validated": False,
+                    "data_source": "crop_guide_pdf",
+                    "source_pdf": guide["source_pdf"],
+                }
             return {
                 "crop_key": key,
                 "is_supported": False,
                 "is_sample": True,
-                "message": f"Crop '{key}' not yet in disease database. Showing Chilli as reference only.",
-                "diseases": DISEASE_DATABASE.get("chilli", []),
+                "message": f"Crop '{key}' not found in disease database or crop guide.",
+                "diseases": [],
                 "is_cibrc_validated": False,
                 "data_source": "internal_registry",
             }
@@ -351,12 +366,28 @@ class CropDoctorEngine:
         """Perform pathology evaluation and cross-reference with live weather."""
         key = crop_key.lower().strip()
         if key not in DISEASE_DATABASE:
+            from app.domain.crop_guide_rag import get_crop_guide_data
+            guide = get_crop_guide_data(key, symptom_query=symptom_query)
+            if guide:
+                return {
+                    "status": "crop_guide",
+                    "crop_key": key,
+                    "is_supported": True,
+                    "is_sample": False,
+                    "crop_name": guide["crop_name"],
+                    "overview": guide["overview"],
+                    "disease_advisories": guide["disease_advisories"],
+                    "advisory_note": guide["advisory_note"],
+                    "is_cibrc_validated": False,
+                    "data_source": "crop_guide_pdf",
+                    "source_pdf": guide["source_pdf"],
+                }
             return {
                 "status": "not_found",
                 "crop_key": key,
                 "is_supported": False,
                 "is_sample": True,
-                "message": f"Crop '{key}' not yet in disease database.",
+                "message": f"Crop '{key}' not found in disease database or crop guide.",
                 "is_cibrc_validated": False,
                 "data_source": "internal_registry",
             }

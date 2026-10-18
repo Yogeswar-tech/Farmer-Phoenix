@@ -54,7 +54,15 @@ async def ensure_indexed(store: BaseVectorStore | None = None) -> int:
     chunks_file = Path("data/rag_docs/mandi_price_chunks.json")
     if chunks_file.exists():
         logger.info("Indexing from existing file: %s", chunks_file)
-        return index_from_file(chunks_file, target_store)
+        index_from_file(chunks_file, target_store)
+
+    crop_guide_file = Path("data/rag_docs/crop_guide_chunks.json")
+    if crop_guide_file.exists():
+        logger.info("Indexing crop guide chunks from: %s", crop_guide_file)
+        index_from_file(crop_guide_file, target_store)
+
+    if target_store.count() > 0:
+        return target_store.count()
 
     logger.info("Vector store empty and no chunk file found; running ingestion pipeline...")
     chunks = await run_pipeline(

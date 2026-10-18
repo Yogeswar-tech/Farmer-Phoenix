@@ -11,12 +11,12 @@ Strict Agmarknet / Open Mandi Data Fidelity:
 
 from __future__ import annotations
 
-import os
-import sys
-import re
+import datetime
 import json
 import logging
-import datetime
+import os
+import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +25,8 @@ PROJECT_ROOT = CURRENT_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from database.multi_db_manager import get_live_today_db, query_live_today, FastCache
 from database.connection import get_db_cursor, is_postgres_active
+from database.multi_db_manager import FastCache, get_live_today_db
 
 logger = logging.getLogger("TodaysLivePageScraper")
 
@@ -281,8 +281,8 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
     # 4. If not found in DB, try on-demand fetch via active PriceSource
     if not row:
         try:
-            from scrapers.price_sources import get_active_price_source, ValidationStats
             from scrapers.ingester import ingest_mandi_records
+            from scrapers.price_sources import ValidationStats, get_active_price_source
             stats = ValidationStats()
             source = get_active_price_source(stats)
             fresh_records = source.fetch(target_commodity, state=state)
@@ -328,7 +328,7 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
 
     # 6. Format genuine response
     arrival_date_str = str(row["arrival_date"])[:10]
-    today_utc = datetime.datetime.now(datetime.timezone.utc).date()
+    today_utc = datetime.datetime.now(datetime.UTC).date()
     try:
         arr_date = datetime.datetime.strptime(arrival_date_str, "%Y-%m-%d").date()
         age_days = (today_utc - arr_date).days
@@ -346,9 +346,9 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
     grade_a = {
         "name": "BEST QUALITY (Grade A)",
         "min_qtl": modal_qtl,
-        "max_qtl": max_qtl if max_qtl >= modal_qtl else modal_qtl,
+        "max_qtl": max(max_qtl, modal_qtl),
         "min_kg": round(modal_qtl / 100.0, 2),
-        "max_kg": round((max_qtl if max_qtl >= modal_qtl else modal_qtl) / 100.0, 2),
+        "max_kg": round((max(max_qtl, modal_qtl)) / 100.0, 2),
     }
     mid_min = round((min_qtl + modal_qtl) / 2.0, 2)
     grade_b = {
@@ -424,7 +424,7 @@ def search_live_today_crop(query: str, market: str | None = None, state: str | N
         "helpdesk": helpdesk_num,
         "icon": crop_icon,
         "category": category,
-        "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 
@@ -584,7 +584,8 @@ class TodaysLivePageScraper:
                 except Exception as exc:
                     logger.debug("OpenMandiApi fetch skip (%s/%s): %s", crop, state_name, exc)
 
-            for rec in records:
+            try:
+                for rec in records:
                     try:
                         modal_qtl = float(rec.get("modal_price") or 0)
                         if modal_qtl <= 0:
@@ -645,7 +646,7 @@ class TodaysLivePageScraper:
             "crops_ingested": synced_count,
             "records_pruned": pruned_count,
             "duration_seconds": round(duration, 3),
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
         }
 
 
