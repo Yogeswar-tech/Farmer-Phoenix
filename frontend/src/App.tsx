@@ -694,8 +694,8 @@ export function App() {
       }
     }
 
-    // Persist new location directly to DB profile if logged in!
-    if (currentUserProfile && currentUserProfile.email) {
+    // Persist new location directly to DB profile if logged in (email OR phone/OTP users)
+    if (currentUserProfile && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
       try {
         const res = await KisanSethuApi.updateFarmerLocation({
           email: currentUserProfile.email,
@@ -801,8 +801,8 @@ export function App() {
 
   const handleSelectCrop = (cropKey: string) => {
     setSelectedCropKey(cropKey);
-    if (currentUserProfile && currentUserProfile.email) {
-      KisanSethuApi.updateFarmerCrop(currentUserProfile.email, cropKey).catch(() => {});
+    if (currentUserProfile && (currentUserProfile.email || currentUserProfile.firebase_uid || currentUserProfile.phone_number)) {
+      KisanSethuApi.updateFarmerCrop(currentUserProfile.email || cropKey, cropKey).catch(() => {});
     }
   };
 
@@ -910,6 +910,9 @@ export function App() {
             onLogout={handleLogout}
             currentUserProfile={currentUserProfile}
             lockedFeatureName={undefined}
+            currentDistrict={currentLocation?.district?.en}
+            currentState={currentLocation?.state?.en}
+            selectedCropKey={selectedCropKey}
           />
         </div>
 
@@ -1186,6 +1189,9 @@ export function App() {
             onLogout={handleLogout}
             currentUserProfile={currentUserProfile}
             lockedFeatureName={lockedFeatureName}
+            currentDistrict={currentLocation?.district?.en}
+            currentState={currentLocation?.state?.en}
+            selectedCropKey={selectedCropKey}
           />
         </Suspense>
 
