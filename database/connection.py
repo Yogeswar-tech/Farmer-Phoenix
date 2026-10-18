@@ -259,6 +259,10 @@ def init_database() -> None:
                 cur.execute(
                     "CREATE INDEX IF NOT EXISTS idx_ltp_state ON live_today_mandi_prices (state);"
                 )
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_ltp_dedup
+                    ON live_today_mandi_prices (LOWER(commodity), LOWER(COALESCE(market,'')), arrival_date);
+                """)
             logger.info("PostgreSQL schema successfully initialized from schema.sql.")
 
             if seed_file.exists():
