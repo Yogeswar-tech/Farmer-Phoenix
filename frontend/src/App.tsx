@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   View,
@@ -23,16 +23,18 @@ import { Header } from './components/Header';
 import { DesktopSidebar } from './components/DesktopSidebar';
 import { MandiHeroCard } from './components/MandiHeroCard';
 import { FarmerHomeDashboard } from './components/FarmerHomeDashboard';
-import { MandiLogisticsView } from './components/MandiLogisticsView';
-import { ClimatePredictionView } from './components/ClimatePredictionView';
-import { CropPesticideDoctorView } from './components/CropPesticideDoctorView';
-import { SoilDoctorView } from './components/SoilDoctorView';
-import { SchemesSection } from './components/SchemesSection';
-import { ColdStorageMapView } from './components/ColdStorageMapView';
-import { AiVoiceAssistantModal } from './components/AiVoiceAssistantModal';
-import { PriceAlertModal } from './components/PriceAlertModal';
-import { LoginModal, type FarmerProfile } from './components/LoginModal';
-import { LocationModal } from './components/LocationModal';
+import type { FarmerProfile } from './components/LoginModal';
+
+const MandiLogisticsView = lazy(() => import('./components/MandiLogisticsView').then(m => ({ default: m.MandiLogisticsView })));
+const ClimatePredictionView = lazy(() => import('./components/ClimatePredictionView').then(m => ({ default: m.ClimatePredictionView })));
+const CropPesticideDoctorView = lazy(() => import('./components/CropPesticideDoctorView').then(m => ({ default: m.CropPesticideDoctorView })));
+const SoilDoctorView = lazy(() => import('./components/SoilDoctorView').then(m => ({ default: m.SoilDoctorView })));
+const SchemesSection = lazy(() => import('./components/SchemesSection').then(m => ({ default: m.SchemesSection })));
+const ColdStorageMapView = lazy(() => import('./components/ColdStorageMapView').then(m => ({ default: m.ColdStorageMapView })));
+const AiVoiceAssistantModal = lazy(() => import('./components/AiVoiceAssistantModal').then(m => ({ default: m.AiVoiceAssistantModal })));
+const PriceAlertModal = lazy(() => import('./components/PriceAlertModal').then(m => ({ default: m.PriceAlertModal })));
+const LoginModal = lazy(() => import('./components/LoginModal').then(m => ({ default: m.LoginModal })));
+const LocationModal = lazy(() => import('./components/LocationModal').then(m => ({ default: m.LocationModal })));
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { TrendingUp } from 'lucide-react';
 
@@ -923,11 +925,13 @@ export function App() {
 
             {/* TAB 2: Mandi Logistics */}
             {activeTab === 'logistics' && (
-              <MandiLogisticsView
-                currentLang={currentLang}
-                mandi={activeMandi}
-                currentLocation={currentLocation}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <MandiLogisticsView
+                  currentLang={currentLang}
+                  mandi={activeMandi}
+                  currentLocation={currentLocation}
+                />
+              </Suspense>
             )}
 
             {/* TAB 4: Today's Price */}
@@ -954,52 +958,62 @@ export function App() {
 
             {/* TAB 5: Climate Prediction */}
             {activeTab === 'climate' && (
-              <ClimatePredictionView
-                currentLang={currentLang}
-                isLoggedIn={isLoggedIn}
-                onOpenLogin={handleOpenLogin}
-                currentLocation={currentLocation}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <ClimatePredictionView
+                  currentLang={currentLang}
+                  isLoggedIn={isLoggedIn}
+                  onOpenLogin={handleOpenLogin}
+                  currentLocation={currentLocation}
+                />
+              </Suspense>
             )}
 
             {/* TAB 6: Unified Crop Advisory & Safety Doctor */}
             {activeTab === 'advisory' && (
-              <CropPesticideDoctorView
-                currentLang={currentLang}
-                currentLocation={currentLocation}
-                initialCropKey={selectedCropKey || 'tomato'}
-                onOpenHelpline={handleOpenHelpline}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <CropPesticideDoctorView
+                  currentLang={currentLang}
+                  currentLocation={currentLocation}
+                  initialCropKey={selectedCropKey || 'tomato'}
+                  onOpenHelpline={handleOpenHelpline}
+                />
+              </Suspense>
             )}
 
             {/* TAB 8: Soil Doctor */}
             {activeTab === 'soildoctor' && (
-              <SoilDoctorView
-                currentLang={currentLang}
-                onOpenBookingGate={handleOpenLogin}
-                currentLocation={currentLocation}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <SoilDoctorView
+                  currentLang={currentLang}
+                  onOpenBookingGate={handleOpenLogin}
+                  currentLocation={currentLocation}
+                />
+              </Suspense>
             )}
 
             {/* TAB 9: Government Schemes */}
             {activeTab === 'schemes' && (
-              <SchemesSection
-                currentLang={currentLang}
-                onOpenHelpline={handleOpenHelpline}
-                onLockedFeatureClick={(feat) => handleOpenLogin(feat)}
-                currentLocation={currentLocation}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <SchemesSection
+                  currentLang={currentLang}
+                  onOpenHelpline={handleOpenHelpline}
+                  onLockedFeatureClick={(feat) => handleOpenLogin(feat)}
+                  currentLocation={currentLocation}
+                />
+              </Suspense>
             )}
 
             {/* TAB 10: Cold Storage */}
             {activeTab === 'storage' && (
-              <ColdStorageMapView
-                currentLang={currentLang}
-                onOpenHelpline={handleOpenHelpline}
-                onOpenBookingGate={handleOpenLogin}
-                currentLocation={currentLocation}
-                onSelectLocation={handleLocationChange}
-              />
+              <Suspense fallback={<View style={styles.tabLoader}><Text style={styles.tabLoaderText}>Loading...</Text></View>}>
+                <ColdStorageMapView
+                  currentLang={currentLang}
+                  onOpenHelpline={handleOpenHelpline}
+                  onOpenBookingGate={handleOpenLogin}
+                  currentLocation={currentLocation}
+                  onSelectLocation={handleLocationChange}
+                />
+              </Suspense>
             )}
           </ScrollView>
         </View>
@@ -1056,45 +1070,53 @@ export function App() {
           </button>
         )}
 
-        {/* Modals */}
-        <AiVoiceAssistantModal
-          isOpen={isAiModalOpen}
-          onClose={() => setIsAiModalOpen(false)}
-          currentLang={currentLang}
-          activeMandi={activeMandi}
-          isAiModeEnabled={isAiModeEnabled}
-          onToggleAiMode={setIsAiModeEnabled}
-        />
+        {/* Modals — lazy loaded, fallback null preserves smooth open/close */}
+        <Suspense fallback={null}>
+          <AiVoiceAssistantModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            currentLang={currentLang}
+            activeMandi={activeMandi}
+            isAiModeEnabled={isAiModeEnabled}
+            onToggleAiMode={setIsAiModeEnabled}
+          />
+        </Suspense>
 
-        <PriceAlertModal
-          currentLang={currentLang}
-          isOpen={isAlertModalOpen}
-          onClose={() => setIsAlertModalOpen(false)}
-          cropName={activeMandi.cropName[currentLang]}
-          defaultPrice={activeMandi.grades[1]?.modalPrice || 14200}
-        />
+        <Suspense fallback={null}>
+          <PriceAlertModal
+            currentLang={currentLang}
+            isOpen={isAlertModalOpen}
+            onClose={() => setIsAlertModalOpen(false)}
+            cropName={activeMandi.cropName[currentLang]}
+            defaultPrice={activeMandi.grades[1]?.modalPrice || 14200}
+          />
+        </Suspense>
 
-        <LoginModal
-          currentLang={currentLang}
-          isOpen={isLoginModalOpen}
-          onClose={() => setIsLoginModalOpen(false)}
-          onLoginSuccess={handleGmailLoginSuccess}
-          onLogout={handleLogout}
-          currentUserProfile={currentUserProfile}
-          lockedFeatureName={lockedFeatureName}
-        />
+        <Suspense fallback={null}>
+          <LoginModal
+            currentLang={currentLang}
+            isOpen={isLoginModalOpen}
+            onClose={() => setIsLoginModalOpen(false)}
+            onLoginSuccess={handleGmailLoginSuccess}
+            onLogout={handleLogout}
+            currentUserProfile={currentUserProfile}
+            lockedFeatureName={lockedFeatureName}
+          />
+        </Suspense>
 
-        <LocationModal
-          isOpen={isLocationModalOpen}
-          onClose={() => {
-            setIsLocationModalOpen(false);
-            setIsLocationPostLogin(false);
-          }}
-          currentLocation={currentLocation}
-          onSelectLocation={handleLocationChange}
-          currentLang={currentLang}
-          isPostLoginPrompt={isLocationPostLogin}
-        />
+        <Suspense fallback={null}>
+          <LocationModal
+            isOpen={isLocationModalOpen}
+            onClose={() => {
+              setIsLocationModalOpen(false);
+              setIsLocationPostLogin(false);
+            }}
+            currentLocation={currentLocation}
+            onSelectLocation={handleLocationChange}
+            currentLang={currentLang}
+            isPostLoginPrompt={isLocationPostLogin}
+          />
+        </Suspense>
       </View>
     </SafeAreaView>
   );
@@ -1302,6 +1324,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  tabLoader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  tabLoaderText: {
+    fontSize: 14,
+    color: '#4B7746',
+    fontWeight: '600',
   },
 });
 

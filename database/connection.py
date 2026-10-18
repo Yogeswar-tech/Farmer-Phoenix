@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any, Generator
 from contextlib import contextmanager
@@ -18,7 +19,9 @@ logger = logging.getLogger("KisanSethuDB")
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
-LOCAL_DB_PATH = CURRENT_DIR / "kisan_sethu.db"
+# Use a persistent temp file so all SQLite connections within the same process
+# share the same database — :memory: gives each connection a new empty database.
+LOCAL_DB_PATH = os.path.join(tempfile.gettempdir(), "kisan_sethu_local.db")
 
 try:
     from dotenv import load_dotenv
@@ -30,10 +33,33 @@ except Exception as _e:
 
 
 def resolve_postgres_url() -> str:
-    """Resolves PostgreSQL connection string from either KS_DATABASE_URL or discrete fields."""
-    url = os.getenv("KS_DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
+    """Resolves PostgreSQL connection string from KS_DATABASE_URL, Cloud SQL, or discrete fields.
 
-    # Check if discrete parameters are provided
+    Priority order:
+    1. KS_DATABASE_URL (explicit full URL — Neon.tech, Cloud SQL, or any Postgres)
+    2. KS_CLOUD_SQL_CONNECTION_NAME (GCP Cloud SQL Unix socket, recommended for Cloud Run)
+    3. Discrete POSTGRES_* env vars
+    4. Local default
+    """
+    url = os.getenv("KS_DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
+    if url:
+        return url
+
+    # Cloud SQL via Unix socket (Cloud Run built-in Cloud SQL connection)
+    # Set KS_CLOUD_SQL_CONNECTION_NAME=PROJECT_ID:REGION:INSTANCE_NAME in Cloud Run
+    cloud_sql_conn = os.getenv("KS_CLOUD_SQL_CONNECTION_NAME", "").strip()
+    if cloud_sql_conn:
+        user = os.getenv("POSTGRES_USER", "postgres").strip()
+        password = os.getenv("POSTGRES_PASSWORD", "").strip()
+        db = os.getenv("POSTGRES_DB", "kisan_sethu").strip()
+        auth = f"{user}:{password}" if password else user
+        socket_path = f"/cloudsql/{cloud_sql_conn}"
+        # Unix socket — sslmode not applicable, libpq handles via socket file
+        constructed = f"postgresql://{auth}@/{db}?host={socket_path}"
+        logger.info("Using Cloud SQL Unix socket: /cloudsql/%s", cloud_sql_conn)
+        return constructed
+
+    # Discrete TCP parameters (Neon.tech, Supabase, or any hosted Postgres)
     server = os.getenv("POSTGRES_SERVER", os.getenv("POSTGRES_HOST", "")).strip()
     user = os.getenv("POSTGRES_USER", "").strip()
     password = os.getenv("POSTGRES_PASSWORD", "").strip()
@@ -42,12 +68,13 @@ def resolve_postgres_url() -> str:
 
     if server and user and db:
         auth = f"{user}:{password}" if password else user
-        ssl = "?sslmode=require" if ("neon.tech" in server or "supabase" in server or os.getenv("POSTGRES_SSL", "").lower() == "true") else ""
-        constructed = f"postgresql://{auth}@{server}:{port}/{db}{ssl}"
-        return constructed
-
-    if url:
-        return url
+        needs_ssl = (
+            "neon.tech" in server
+            or "supabase" in server
+            or os.getenv("POSTGRES_SSL", "").lower() == "true"
+        )
+        ssl = "?sslmode=require" if needs_ssl else ""
+        return f"postgresql://{auth}@{server}:{port}/{db}{ssl}"
 
     return "postgresql://postgres:postgres@localhost:5432/kisan_sethu"
 
@@ -200,6 +227,24 @@ def init_database() -> None:
             return
         except Exception as e:
             logger.error("Failed to run PostgreSQL schema.sql/seed.sql: %s", e)
+
+    # Initialize SQLite tables using schema.sql with executescript for multiple statements
+    if not _USING_POSTGRES and schema_file.exists():
+        try:
+            with open(schema_file, "r", encoding="utf-8") as f:
+                schema_sql = f.read()
+            with get_db_cursor() as cur:
+                # Use executescript to support multiple SQL statements in SQLite
+                if hasattr(cur, "executescript"):
+                    cur.executescript(schema_sql)
+                elif hasattr(cur, "connection") and hasattr(cur.connection, "executescript"):
+                    cur.connection.executescript(schema_sql)
+                else:
+                    cur.execute(schema_sql)
+            logger.info("SQLite schema successfully initialized via executescript from schema.sql.")
+            return
+        except Exception as e:
+            logger.warning("SQLite schema.sql executescript fallback: %s", e)
 
     # Initialize all SQLite tables (including price_alerts and farmer_profiles with firebase_uid)
     from .db import init_sqlite_tables

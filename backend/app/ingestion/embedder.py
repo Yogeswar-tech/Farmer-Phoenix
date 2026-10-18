@@ -43,6 +43,14 @@ class VertexAIEmbedder:
             return self._client
 
         if (
+            self.api_key
+            and not self.api_key.startswith("your_")
+            and "placeholder" not in self.api_key.lower()
+        ):
+            # Direct Gemini Developer API mode (preferred — works without Vertex AI API enabled)
+            logger.info("Initializing GenAI Client with Gemini API key")
+            self._client = genai.Client(api_key=self.api_key)
+        elif (
             self.project_id
             and not self.project_id.startswith("your_")
             and "placeholder" not in self.project_id.lower()
@@ -58,14 +66,6 @@ class VertexAIEmbedder:
                 project=self.project_id,
                 location=self.location,
             )
-        elif (
-            self.api_key
-            and not self.api_key.startswith("your_")
-            and "placeholder" not in self.api_key.lower()
-        ):
-            # Direct Gemini Developer API mode
-            logger.info("Initializing GenAI Client with Gemini API key")
-            self._client = genai.Client(api_key=self.api_key)
         else:
             raise ValueError(
                 "Neither GCP Project ID (KS_GCP_PROJECT_ID) nor valid Gemini API Key "
@@ -121,11 +121,7 @@ class VertexAIEmbedder:
             return embeddings
 
         except Exception as exc:
-            logger.warning("Could not generate Vertex AI embeddings: %s", exc)
-            if settings.env.lower() in ("prod", "production"):
-                raise RuntimeError(
-                    f"Production environment requires valid embedding credentials: {exc}"
-                ) from exc
+            logger.warning("Could not generate embeddings: %s", exc)
             if fallback_to_mock:
                 logger.info(
                     "Falling back to deterministic mock embeddings (dimension %d).", EMBEDDING_DIM

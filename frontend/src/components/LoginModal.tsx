@@ -1,7 +1,7 @@
 import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
-import { X, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle, ShieldCheck } from 'lucide-react';
 import { PhoneOtpSignIn } from './PhoneOtpSignIn';
 
 export interface FarmerProfile {
@@ -741,6 +741,13 @@ export const LoginModal: FC<LoginModalProps> = ({
             )}
           </div>
         )}
+        {/* Security & Farmer Privacy Guarantee Footer */}
+        <div className="auth-db-security-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', color: '#64748B', marginTop: '16px' }}>
+          <ShieldCheck size={14} color="#059669" />
+          <span>Firebase Phone Auth • Minimal Data Stored (Language, District, Crop)</span>
+        </div>
+        {/* Invisible reCAPTCHA mount point */}
+        <div id="recaptcha-container" style={{ display: 'none' }} />
       </div>
     </div>
   );

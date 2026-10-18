@@ -1,0 +1,26 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --platform=linux/amd64
+      - --build-arg=VITE_FIREBASE_API_KEY=AIzaSyD1Jw46rpGDOckqBh2sGqePmYHXvJZFL2s
+      - --build-arg=VITE_FIREBASE_AUTH_DOMAIN=kisansetu-dev.firebaseapp.com
+      - --build-arg=VITE_FIREBASE_PROJECT_ID=kisansetu-dev
+      - --build-arg=VITE_FIREBASE_STORAGE_BUCKET=kisansetu-dev.firebasestorage.app
+      - --build-arg=VITE_FIREBASE_MESSAGING_SENDER_ID=66226476599
+      - --build-arg=VITE_FIREBASE_APP_ID=1:66226476599:web:7efe71ca2f83c32818d1b2
+      - -t
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
+      - -t
+      - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest
+      - .
+
+images:
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:$COMMIT_SHA
+  - asia-south1-docker.pkg.dev/$PROJECT_ID/kisan-sethu/app:latest
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s

@@ -62,8 +62,16 @@ class LLMGateway:
         if self._client is not None:
             return self._client
 
-        # Priority 1: Vertex AI when KS_GCP_PROJECT_ID is configured
+        # Priority 1: Gemini Developer API Key (works without Vertex AI enabled in GCP project)
         if (
+            self.api_key
+            and not self.api_key.startswith("your_")
+            and "placeholder" not in self.api_key.lower()
+        ):
+            logger.info("Initializing LLM Gateway in Gemini API Key mode.")
+            self._client = genai.Client(api_key=self.api_key)
+        # Priority 2: Vertex AI (enterprise, requires aiplatform.googleapis.com enabled)
+        elif (
             self.project_id
             and not self.project_id.startswith("your_")
             and "placeholder" not in self.project_id.lower()
@@ -78,14 +86,6 @@ class LLMGateway:
                 project=self.project_id,
                 location=self.location,
             )
-        # Priority 2: Standalone Gemini API Key
-        elif (
-            self.api_key
-            and not self.api_key.startswith("your_")
-            and "placeholder" not in self.api_key.lower()
-        ):
-            logger.info("Initializing LLM Gateway in Gemini API Key mode.")
-            self._client = genai.Client(api_key=self.api_key)
         else:
             logger.warning("No valid LLM credentials found (project_id or api_key).")
             return None

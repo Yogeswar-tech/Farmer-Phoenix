@@ -115,18 +115,16 @@ def init_isolated_cibrc_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_iso_pest_name ON cibrc_pesticide_registry (pesticide_name);
     """
 
-    with get_cibrc_cursor() as cur:
-        cur.executescript(schema_sql)
-        cur.execute("SELECT COUNT(*) as cnt FROM cibrc_pesticide_registry;")
-        row = cur.fetchone()
-        if row and row["cnt"] == 0:
-            try:
-                from backend.scripts.seed_cibrc_isolated_db import seed_isolated_cibrc_db
-                seed_isolated_cibrc_db()
-            except Exception as exc:
-                logger.warning("Could not auto-seed CIBRC database: %s", exc)
+    db_path = get_cibrc_db_path()
+    try:
+        conn = sqlite3.connect(db_path, timeout=30.0)
+        conn.executescript(schema_sql)
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        logger.warning("Could not initialize local SQLite CIBRC database: %s", exc)
 
-    logger.info("Isolated CIBRC database initialized at: %s", get_cibrc_db_path())
+    logger.info("Isolated CIBRC database initialized at: %s", db_path)
 
 
 def execute_cibrc_query(query: str, params: tuple = ()) -> list[dict[str, Any]]:

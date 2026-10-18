@@ -3,6 +3,7 @@ import sys
 import threading
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,13 +29,29 @@ logger = logging.getLogger("KisanSethuMain")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan manager: Initialises database schema and starts automated 6-hour scraper & pruning daemon in background."""
+    """Lifespan manager: initialize DB schema, seed CIBRC registry, and start 6h recurring scraper daemon."""
     try:
         from database.connection import init_database
         init_database()
-        logger.info("Database schemas and fallback SQLite tables initialized.")
+        logger.info("Database schemas and fallback tables initialized.")
     except Exception as exc:
-        logger.warning("Database schema initialization notice: %s", exc)
+        logger.error("Database schema init failed: %s", exc)
+
+    try:
+        count = cibrc_isolated_db.get_cibrc_row_count()
+        if count < 10:
+            import sys
+            from pathlib import Path
+            scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+            if str(scripts_dir.parent) not in sys.path:
+                sys.path.insert(0, str(scripts_dir.parent))
+            from scripts.seed_cibrc_pesticide_registry import seed_cibrc_registry
+            seed_cibrc_registry()
+            logger.info("CIBRC registry seeded on startup (was %d records).", count)
+        else:
+            logger.info("CIBRC registry ready: %d records.", count)
+    except Exception as exc:
+        logger.warning("CIBRC seed skipped: %s", exc)
 
     def background_scraper_daemon():
         import time
@@ -53,6 +70,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     daemon_thread.start()
     logger.info("Automated 6-Hour Recurring Scraper & Data-Pruner Daemon spawned in background.")
+    logger.info("Kisan Sethu API operational — Cloud Run asia-south1.")
     yield
     logger.info("Kisan Sethu API shutting down.")
 
@@ -89,11 +107,18 @@ async def add_security_headers(
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        # Firebase Phone Auth: reCAPTCHA scripts from gstatic + Google APIs
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+        "https://www.gstatic.com https://apis.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         + csp_img
-        + "connect-src 'self' http: https:;"
+        # Firebase reCAPTCHA renders in a hidden iframe from google.com
+        + "frame-src 'self' https://www.google.com; "
+        + "connect-src 'self' "
+        "https://identitytoolkit.googleapis.com "
+        "https://securetoken.googleapis.com "
+        "http: https:;"
     )
     return response
 
@@ -134,7 +159,6 @@ def health_ready() -> Response:
             "stale": True
         }
         try:
-            from datetime import datetime, timezone
             from database.connection import get_db_cursor
             with get_db_cursor() as cur:
                 cur.execute("SELECT MAX(arrival_date) AS max_date, COUNT(*) AS total FROM mandi_prices;")
@@ -148,7 +172,7 @@ def health_ready() -> Response:
                         mandi_stats["latest_arrival_date"] = max_d_str
                         try:
                             d_obj = datetime.strptime(max_d_str, "%Y-%m-%d").date()
-                            now_utc = datetime.now(timezone.utc).date()
+                            now_utc = datetime.now(UTC).date()
                             mandi_stats["stale"] = (now_utc - d_obj).days > 2
                         except Exception:
                             mandi_stats["stale"] = False

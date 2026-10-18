@@ -14,6 +14,16 @@
 FROM node:20-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
+# Firebase web config — these are PUBLIC values (visible in browser devtools on any site using Firebase).
+# Safe to hardcode: security comes from Firebase Security Rules + domain restrictions, not key secrecy.
+# See: https://firebase.google.com/docs/projects/api-keys
+ENV VITE_FIREBASE_API_KEY="AIzaSyD1Jw46rpGDOckqBh2sGqePmYHXvJZFL2s" \
+    VITE_FIREBASE_AUTH_DOMAIN="kisansetu-dev.firebaseapp.com" \
+    VITE_FIREBASE_PROJECT_ID="kisansetu-dev" \
+    VITE_FIREBASE_STORAGE_BUCKET="kisansetu-dev.firebasestorage.app" \
+    VITE_FIREBASE_MESSAGING_SENDER_ID="66226476599" \
+    VITE_FIREBASE_APP_ID="1:66226476599:web:7efe71ca2f83c32818d1b2"
+
 # Install dependencies using lockfile caching
 COPY frontend/package.json ./
 # If package-lock exists, copy it as well
@@ -55,6 +65,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
 COPY backend/prompts ./prompts
 COPY backend/data ./data
+COPY backend/scripts ./scripts
 COPY database ./database
 COPY scrapers ./scrapers
 

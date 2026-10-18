@@ -9,8 +9,9 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field, ValidationError
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 from app.llm.client import get_llm_gateway
 from app.llm.prompt_loader import load_prompt
@@ -42,7 +43,7 @@ class WeatherAdvisoryResponse(BaseModel):
     summary: str = Field(..., description="One line advisory in the farmer's selected language")
     action_badge: ActionBadge = Field(..., description="Action recommendation badge")
     reason: str = Field(..., description="1-2 short sentences in the farmer's language, no jargon")
-    alert: Optional[str] = Field(None, description="Only present if the weather API's severity flag is true")
+    alert: str | None = Field(None, description="Only present if the weather API's severity flag is true")
 
 
 def extract_numbers_from_text(text: str) -> set[float]:
@@ -80,8 +81,8 @@ def build_weather_advisory_prompt(
     weather_data_5days: dict[str, Any],
     location_name: str,
     lang: str = "en",
-    crop: Optional[str] = None,
-    growth_stage: Optional[str] = None,
+    crop: str | None = None,
+    growth_stage: str | None = None,
     api_severity_flag: bool = False,
 ) -> str:
     """Build the versioned prompt injecting strict weather facts and context."""
@@ -109,7 +110,7 @@ def validate_and_sanitize_advisory(
     weather_data_5days: dict[str, Any],
     api_severity_flag: bool,
     lang: str = "en",
-) -> Optional[WeatherAdvisoryResponse]:
+) -> WeatherAdvisoryResponse | None:
     """Enforces strict schema compliance, hallucination checks, and severity constraints."""
     try:
         # 1. Enforce allowed action_badge
@@ -125,7 +126,7 @@ def validate_and_sanitize_advisory(
             return None
 
         # 2. Strict Severity Rule: alert must ONLY be non-null if api_severity_flag is true
-        alert: Optional[str] = None
+        alert: str | None = None
         if api_severity_flag:
             alert_candidate = raw_dict.get("alert")
             if alert_candidate and str(alert_candidate).strip().lower() not in ("null", "none"):
@@ -166,7 +167,7 @@ def generate_deterministic_advisory_fallback(
     weather_data_5days: dict[str, Any],
     api_severity_flag: bool,
     lang: str = "en",
-    crop: Optional[str] = None,
+    crop: str | None = None,
 ) -> WeatherAdvisoryResponse:
     """Generates an accurate, fact-grounded fallback advisory when LLM is offline or unconfigured."""
     current = weather_data_5days.get("current_conditions", {})
@@ -269,9 +270,9 @@ class WeatherAdvisoryService:
         weather_payload: dict[str, Any],
         location_name: str,
         lang: str = "en",
-        crop: Optional[str] = None,
-        growth_stage: Optional[str] = None,
-    ) -> Optional[WeatherAdvisoryResponse]:
+        crop: str | None = None,
+        growth_stage: str | None = None,
+    ) -> WeatherAdvisoryResponse | None:
         """Generates a validated weather advisory, failing silently (returning None or fallback) if LLM errors."""
         try:
             # 1. Prepare structured 5-day weather package
