@@ -441,10 +441,7 @@ def get_queued_crop_chips() -> list[dict[str, Any]]:
     return chips
 
 
-_AP_TG_CROPS = [
-    "Red Chilli", "Chilli", "Cotton", "Tomato", "Onion", "Paddy",
-    "Maize", "Groundnut", "Turmeric", "Banana", "Mango",
-]
+_AP_TG_CROPS = ["Red Chilli", "Cotton", "Tomato", "Paddy", "Onion"]
 _AP_TG_STATES = ["Andhra Pradesh", "Telangana"]
 
 _INSERT_SQL = """
@@ -546,40 +543,58 @@ class TodaysLivePageScraper:
                 except Exception as exc:
                     logger.debug("Row insert skip: %s", exc)
 
-        # 3. Fetch live AP/Telangana data directly from Open Mandi API
+        # 3. Fetch live AP/Telangana data directly from Open Mandi API (parallel)
+        import concurrent.futures
         live_fetched = 0
-        for state_name in _AP_TG_STATES:
-            for crop in _AP_TG_CROPS:
+
+        def _fetch_one(crop: str, state_name: str) -> list[tuple]:
+            """Returns list of (row_tuple,...) ready to insert."""
+            rows: list[tuple] = []
+            try:
+                records = fetch_live_open_mandi_api(crop, state=state_name)
+                for rec in records:
+                    try:
+                        modal_qtl = float(rec.get("modal_price") or 0)
+                        if modal_qtl <= 0:
+                            continue
+                        modal_kg = round(modal_qtl / 100.0, 2)
+                        rows.append((
+                            rec.get("commodity", crop),
+                            rec.get("market"),
+                            rec.get("district"),
+                            rec.get("state", state_name),
+                            rec.get("variety", "FAQ"),
+                            rec.get("grade", "Standard"),
+                            str(rec.get("arrival_date", ""))[:10] or datetime.date.today().isoformat(),
+                            float(rec.get("arrival_quintals") or 0.0),
+                            float(rec.get("min_price") or modal_qtl),
+                            float(rec.get("max_price") or modal_qtl),
+                            modal_qtl, modal_kg,
+                            rec.get("source", "OPEN_MANDI_API"),
+                        ))
+                    except Exception:
+                        pass
+            except Exception as exc:
+                logger.debug("Live API fetch skip (%s/%s): %s", crop, state_name, exc)
+            return rows
+
+        tasks = [(crop, state) for state in _AP_TG_STATES for crop in _AP_TG_CROPS]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_fetch_one, crop, state): (crop, state) for crop, state in tasks}
+            for fut in concurrent.futures.as_completed(futures, timeout=45):
                 try:
-                    records = fetch_live_open_mandi_api(crop, state=state_name)
-                    if not records:
+                    rows_to_insert = fut.result()
+                    if not rows_to_insert:
                         continue
                     with get_live_today_db() as cur:
-                        for rec in records:
+                        for r in rows_to_insert:
                             try:
-                                modal_qtl = float(rec.get("modal_price") or 0)
-                                modal_kg = round(modal_qtl / 100.0, 2)
-                                self._insert_row(
-                                    cur,
-                                    commodity=rec.get("commodity", crop),
-                                    market=rec.get("market"),
-                                    district=rec.get("district"),
-                                    state=rec.get("state", state_name),
-                                    variety=rec.get("variety", "FAQ"),
-                                    grade=rec.get("grade", "Standard"),
-                                    arrival_date=str(rec.get("arrival_date", ""))[:10] or datetime.date.today().isoformat(),
-                                    arrival_quintals=float(rec.get("arrival_quintals") or 0.0),
-                                    min_price_qtl=float(rec.get("min_price") or modal_qtl),
-                                    max_price_qtl=float(rec.get("max_price") or modal_qtl),
-                                    modal_price_qtl=modal_qtl,
-                                    modal_price_kg=modal_kg,
-                                    source=rec.get("source", "OPEN_MANDI_API"),
-                                )
+                                self._insert_row(cur, *r)
                                 live_fetched += 1
                             except Exception as exc:
                                 logger.debug("Live API row insert skip: %s", exc)
                 except Exception as exc:
-                    logger.debug("Live API fetch skip (%s/%s): %s", crop, state_name, exc)
+                    logger.debug("Live API parallel fetch exception: %s", exc)
 
         synced_count += live_fetched
         FastCache.invalidate("live_today:")
