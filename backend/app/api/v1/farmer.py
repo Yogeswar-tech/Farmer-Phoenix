@@ -173,6 +173,7 @@ async def get_insight(
     mandi_price = 25.0  # default ₹/kg fallback
     retail_price = 38.0
     provenance_items: list[dict[str, str]] = []
+    is_sample_data = True  # flipped to False when real data is found
 
     # Check database (PostgreSQL primary, SQLite fallback) for scraped rates
     try:
@@ -191,6 +192,7 @@ async def get_insight(
                 row_dict = dict(db_row)
                 mandi_price = float(row_dict["modal_price_kg"])
                 retail_price = round(mandi_price * 1.45, 1)
+                is_sample_data = False
                 db_name = "PostgreSQL" if use_pg else "SQLite"
                 provenance_items.append({
                     "label": f"{row_dict['market']} wholesale price",
@@ -205,6 +207,7 @@ async def get_insight(
         modal_qtl = float(top_meta.get("modal_price", 2500.0))
         mandi_price = round(modal_qtl / 100.0, 1)  # convert quintal to kg
         retail_price = round(mandi_price * 1.45, 1)
+        is_sample_data = False
 
         for r in results:
             m = r.metadata
@@ -230,6 +233,7 @@ async def get_insight(
     return {
         "request_id": f"req_insight_{int(time.time() * 1000)}",
         "lang": lang,
+        "is_sample_data": is_sample_data,
         "card": {
             "headline": f"{crop.title()} prices near {nearest_summary}",
             "bullets": [
@@ -635,8 +639,8 @@ def get_demo_accounts(
     x_admin_key: str | None = Header(None, alias="X-Admin-Key"),
 ) -> dict[str, Any]:
     """Admin-only (with documented dev-mode bypass only when KS_ENV=local)."""
-    is_local = (settings.env.lower() == "local")
-    if not is_local and (not x_admin_key or x_admin_key.strip() != settings.admin_api_key):
+    is_production = (settings.env.lower() == "production")
+    if is_production and (not x_admin_key or x_admin_key.strip() != settings.admin_api_key):
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: Admin access required for demo accounts in production"
@@ -768,7 +772,7 @@ class UserRegistrationPayload(BaseModel):
     preferred_lang: str | None = Field("en", description="Preferred Language")
 
 
-@router.get("/farmer/users")
+@router.get("/farmer/users", dependencies=[Depends(verify_admin_key)])
 def get_all_users_endpoint() -> dict[str, Any]:
     """Retrieve all farmer records from the users database table."""
     from database.db import get_all_users
@@ -817,7 +821,10 @@ def get_user_by_phone_endpoint(
 
 
 @router.post("/farmer/save-user-details")
-def save_user_details(payload: UserRegistrationPayload) -> dict[str, Any]:
+def save_user_details(
+    payload: UserRegistrationPayload,
+    current_uid: str = Depends(get_current_farmer_uid),
+) -> dict[str, Any]:
     """Registers or updates farmer details in the 'users' database table with phone_number as the Primary Key.
     Stores:
     - phone_number (Primary Key)

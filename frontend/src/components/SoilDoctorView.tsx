@@ -52,6 +52,7 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   const locId = currentLocation?.id || 'guntur';
   const locLat = currentLocation?.lat || 16.3067;
   const locLng = currentLocation?.lng || 80.4365;
+  const isDefaultLocation = !currentLocation?.lat || (currentLocation?.lat === 16.3067 && currentLocation?.lng === 80.4365);
 
   // Crops list for fertilizer calculation
   const supportedCrops = [
@@ -186,6 +187,32 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
 
   return (
     <div className="soil-doctor-view-container" style={{ maxWidth: '1240px', margin: '0 auto', padding: '16px' }}>
+      {/* Default Location Notice */}
+      {isDefaultLocation && (
+        <div style={{
+          background: '#FEF9C3',
+          border: '1.5px solid #FDE047',
+          borderLeft: '5px solid #CA8A04',
+          borderRadius: '10px',
+          padding: '9px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#854D0E'
+        }}>
+          <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '📍 డిఫాల్ట్ స్థానం (గుంటూరు) ఉపయోగించబడుతోంది — మీ నిజమైన స్థానానికి మారండి'
+              : currentLang === 'hi'
+                ? '📍 डिफ़ॉल्ट स्थान (गुंटूर) उपयोग हो रहा है — अपना सही स्थान चुनें'
+                : '📍 Using default location (Guntur) — select your actual location for accurate soil data'}
+          </span>
+        </div>
+      )}
       {/* 1. View Header Strip */}
       <div className="view-header-strip" style={{
         background: 'linear-gradient(135deg, #1E3A8A 0%, #1E40AF 60%, #172554 100%)',

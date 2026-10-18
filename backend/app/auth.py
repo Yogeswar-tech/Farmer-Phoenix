@@ -52,10 +52,6 @@ def get_current_farmer_uid(
             detail="Authentication token cannot be empty",
         )
 
-    # Super admin bypass — works in all environments
-    if token == "admin-super-12345-kisansethu":
-        return "admin_super_uid"
-
     env_val = (KS_ENV or settings.env or "production").lower()
     if env_val == "production":
         if token.startswith("dev-token-") or token.startswith("mock-firebase-"):

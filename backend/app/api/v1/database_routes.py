@@ -164,6 +164,12 @@ def get_cold_storages(
             except Exception:
                 meta = {}
 
+        has_estimated_fields = (
+            not r.get("capacity_mt")
+            or not r.get("available_mt")
+            or not r.get("monthly_rent_per_qtl")
+            or not r.get("contact_phone")
+        )
         capacity_mt = int(r.get("capacity_mt") or 5000)
         available_mt = int(r.get("available_mt") or 1200)
         total_bags = capacity_mt * 20
@@ -206,7 +212,8 @@ def get_cold_storages(
             "temp_range_c": temp_range_c,
             "chambers": chambers,
             "wdra_accredited": wdra_accredited,
-            "facility_meta": meta
+            "facility_meta": meta,
+            "has_estimated_fields": has_estimated_fields,
         }
 
         # Commodity filtering
@@ -327,7 +334,7 @@ def get_govt_schemes(
     }
 
 
-@router.api_route("/refresh-govt-schemes", methods=["GET", "POST"])
+@router.api_route("/refresh-govt-schemes", methods=["GET", "POST"], dependencies=[Depends(verify_admin_key)])
 def refresh_govt_schemes() -> dict[str, Any]:
     """Force an immediate re-scrape of government policies and invalidate Redis cache."""
     from scrapers.govt_scraper import scrape_govt_policies
@@ -504,7 +511,7 @@ async def test_google_maps_key(
 @router.get("/climate-prediction")
 def get_unified_climate_prediction(
     query: str | None = Query(None, description="Search query across any Indian village, tehsil, district, or PIN code"),
-    location_id: str = Query("guntur", description="Location ID (e.g. guntur, fazilka, nashik)"),
+    location_id: str | None = Query(None, description="Location ID (e.g. guntur, fazilka, nashik)"),
     district: str | None = Query(None, description="Optional district name"),
     lat: float | None = Query(None, description="Latitude of the farm/area"),
     lng: float | None = Query(None, description="Longitude of the farm/area"),
@@ -579,7 +586,7 @@ async def generate_weather_llm_advisory_post(
 @router.get("/climate-advisory")
 async def generate_weather_llm_advisory_get(
     query: str | None = Query(None),
-    location_id: str = Query("guntur"),
+    location_id: str | None = Query(None),
     district: str | None = Query(None),
     lat: float | None = Query(None),
     lng: float | None = Query(None),
@@ -1345,7 +1352,7 @@ async def get_nearest_markets(
         "district": district,
         "as_of": f"{today_str} Live",
         "source": "Agmarknet Mandi Network",
-        "is_sample": False,
+        "is_sample": len(markets_data) == 0,
         "markets": markets_data,
     }
 @router.get("/scrapers/telemetry")
@@ -1417,7 +1424,7 @@ def upsert_demo_video(
             return {"status": "success", "id": row["id"] if isinstance(row, dict) else row[0]}
     except Exception as exc:
         logger.error("Failed to upsert demo video: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/admin/cleanup-old-data", dependencies=[Depends(verify_admin_key)])
@@ -1435,6 +1442,6 @@ def cleanup_old_mandi_data(
         return {"status": "success", "deleted_rows": deleted, "days_kept": days_to_keep}
     except Exception as exc:
         logger.error("Cleanup failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

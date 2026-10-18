@@ -246,6 +246,8 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     return REGION_COORDINATES.guntur;
   }, [userGpsCoords, currentLocation?.id]);
 
+  const isDefaultGunturCoords = !gpsActive && !(currentLocation?.id && REGION_COORDINATES[currentLocation?.id?.toLowerCase() || '']);
+
   // Fetch Pan-India Cold Storages from PostgreSQL backend with GPS proximity
   const fetchFacilities = useCallback(async () => {
     try {
@@ -616,6 +618,32 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
 
   return (
     <div className="storage-map-view-container">
+      {/* Default Location Notice */}
+      {isDefaultGunturCoords && (
+        <div style={{
+          background: '#FEF9C3',
+          border: '1.5px solid #FDE047',
+          borderLeft: '5px solid #CA8A04',
+          borderRadius: '10px',
+          padding: '9px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#854D0E'
+        }}>
+          <Navigation size={14} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '📍 డిఫాల్ట్ స్థానం (గుంటూరు) ఉపయోగించబడుతోంది — మీ నిజమైన స్థానానికి మారండి'
+              : currentLang === 'hi'
+                ? '📍 डिफ़ॉल्ट स्थान (गुंटूर) उपयोग हो रहा है — सटीक परिणाम के लिए GPS चालू करें'
+                : '📍 Using default location (Guntur) — enable GPS or select your location for accurate results'}
+          </span>
+        </div>
+      )}
       {/* Clean Farmer Header (No Developer Ribbon or Debug Pill) */}
       <div className="view-header-strip">
         <div className="title-row">

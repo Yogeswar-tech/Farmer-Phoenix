@@ -43,6 +43,12 @@ def resolve_postgres_url() -> str:
     """
     url = os.getenv("KS_DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
     if url:
+        if os.getenv("KS_ENV", "").lower() == "production":
+            if "neon" in url.lower() or "neondb" in url.lower():
+                logger.warning(
+                    "WARNING: KS_DATABASE_URL points to Neon in production! "
+                    "Expected Cloud SQL socket via KS_CLOUD_SQL_CONNECTION_NAME."
+                )
         return url
 
     # Cloud SQL via Unix socket (Cloud Run built-in Cloud SQL connection)
@@ -76,7 +82,11 @@ def resolve_postgres_url() -> str:
         ssl = "?sslmode=require" if needs_ssl else ""
         return f"postgresql://{auth}@{server}:{port}/{db}{ssl}"
 
-    return "postgresql://postgres:postgres@localhost:5432/kisan_sethu"
+    if os.getenv("KS_ENV", "").lower() == "production":
+        raise ValueError(
+            "No database configuration found (set KS_CLOUD_SQL_CONNECTION_NAME or KS_DATABASE_URL)"
+        )
+    return "postgresql://postgres:postgres@localhost:5432/kisan_sethu"  # dev only fallback
 
 
 # PostgreSQL Configuration
@@ -111,11 +121,17 @@ def _init_pg_pool():
     except Exception as e:
         _USING_POSTGRES = False
         _PG_POOL = None
-        logger.warning(
-            "PostgreSQL is offline or unavailable (%s). Falling back to resilient SQLite database at %s.",
-            str(e),
-            LOCAL_DB_PATH
-        )
+        if os.getenv("KS_ENV", "").lower() == "production":
+            logger.critical(
+                "FATAL: PostgreSQL connection failed in production! Cloud SQL unreachable. Refusing SQLite fallback."
+            )
+            raise RuntimeError("PostgreSQL unavailable in production — refusing SQLite fallback.") from e
+        else:
+            logger.warning(
+                "PostgreSQL unavailable. Falling back to SQLite (dev only). Error: %s. SQLite path: %s",
+                str(e),
+                LOCAL_DB_PATH
+            )
 
 
 # Initialize on import
@@ -152,6 +168,7 @@ def get_db_cursor() -> Generator[Any, None, None]:
                 _PG_POOL.putconn(conn)
     else:
         # SQLite fallback
+        logger.warning("SQLite fallback active — data will not persist across restarts.")
         import sqlite3
         conn = sqlite3.connect(
             str(LOCAL_DB_PATH),

@@ -60,7 +60,21 @@ async def get_prices(
                 }
             )
 
-    avg_price = (modal_sum / valid_count) if valid_count > 0 else 0.0
+    if valid_count == 0:
+        return {
+            "commodity": commodity,
+            "state": state,
+            "avg_modal_price": None,
+            "trend": "stable",
+            "records_count": 0,
+            "prices": prices_data,
+            "as_of": date or datetime.date.today().isoformat(),
+            "data_available": False,
+            "is_sample": True,
+            "message": "No price data available for this commodity/location.",
+        }
+
+    avg_price = modal_sum / valid_count
     trend = "stable"
     if valid_count > 1:
         spreads = [p["modal_price"] for p in prices_data]
@@ -75,4 +89,6 @@ async def get_prices(
         "records_count": len(prices_data),
         "prices": prices_data,
         "as_of": date or datetime.date.today().isoformat(),
+        "data_available": True,
+        "is_sample": False,
     }
