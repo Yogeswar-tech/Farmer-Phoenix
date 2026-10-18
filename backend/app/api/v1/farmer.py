@@ -1,6 +1,7 @@
 """Endpoints supporting FarmerEnvelope contract for crops, regions, and insights."""
 
 import datetime
+import os
 import secrets
 import time
 from typing import Any
@@ -715,14 +716,17 @@ def send_otp_endpoint(payload: SendOtpRequest) -> dict[str, Any]:
             )
             cur.execute(upsert_sql, (clean_phone, otp_code, expires_at_iso))
 
-    return {
+    resp_data: dict[str, Any] = {
         "status": "success",
         "delivery": "google_cloud",
         "phone_number": clean_phone,
         "expires_in_seconds": 300,
-        "otp_code": otp_code,
         "message": "Real-time OTP generated and verified via Google Cloud Service"
     }
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        resp_data["otp_code"] = otp_code
+
+    return resp_data
 
 
 @router.post("/farmer/verify-otp")

@@ -72,13 +72,22 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
     // 1. Try Firebase Auth Real SMS first if configured
     if (isFirebaseConfigured && typeof window !== 'undefined') {
       try {
-        let appVerifier = (window as any).recaptchaVerifier;
-        if (!appVerifier) {
-          appVerifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
-            size: 'invisible'
-          });
-          (window as any).recaptchaVerifier = appVerifier;
+        if ((window as any).recaptchaVerifier) {
+          try {
+            (window as any).recaptchaVerifier.clear?.();
+          } catch {}
+          (window as any).recaptchaVerifier = null;
         }
+
+        const wrapper = document.getElementById('recaptcha-wrapper');
+        if (wrapper) {
+          wrapper.innerHTML = '<div id="recaptcha-container"></div>';
+        }
+
+        const appVerifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
+          size: 'invisible'
+        });
+        (window as any).recaptchaVerifier = appVerifier;
 
         const confirmation = await signInWithPhoneNumber(firebaseAuth, fullPhoneNumber, appVerifier);
         setConfirmationResult(confirmation);
@@ -95,7 +104,7 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         setLoading(false);
         return;
       } catch (realSmsError: any) {
-        console.warn('[Firebase Real SMS OTP Notice - Switching to Google Cloud OTP Service]:', realSmsError);
+        console.warn('[Firebase Real SMS OTP Error]:', realSmsError);
         try {
           if ((window as any).recaptchaVerifier) {
             (window as any).recaptchaVerifier.clear?.();
@@ -109,7 +118,6 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
     try {
       const gcpRes = await KisanSethuApi.sendGoogleCloudOtp(cleanDigits.slice(-10));
       if (gcpRes && gcpRes.status === 'success') {
-        const generatedCode = gcpRes.otp_code;
         setConfirmationResult({
           confirm: async (enteredOtp: string) => {
             const verifyRes = await KisanSethuApi.verifyGoogleCloudOtp({
@@ -145,16 +153,16 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         setResendCooldown(45);
         setSuccessMessage(
           currentLang === 'hi'
-            ? `☁️ गूगल क्लाउड सत्यापित ओटीपी: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
+            ? `ओटीपी आपके मोबाइल नंबर (${fullPhoneNumber}) पर भेजा गया है। कृपया अपने फ़ोन पर आया 6-अंकीय कोड दर्ज करें।`
             : currentLang === 'te'
-            ? `☁️ గూగుల్ క్లౌడ్ ధృవీకరణ ఓటీపీ: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
-            : `☁️ Google Cloud Verified OTP: '${generatedCode}' (+91 ${cleanDigits.slice(-10)})`
+            ? `ధృవీకరణ కోడ్ మీ మొబైల్ (${fullPhoneNumber}) కు పంపబడింది. దయచేసి మీ ఫోన్‌కు వచ్చిన 6 అంకెల ఓటీపీని నమోదు చేయండి.`
+            : `Verification code sent to ${fullPhoneNumber}. Please check your phone and enter the 6-digit code.`
         );
       } else {
-        throw new Error(gcpRes?.detail || 'Failed to generate OTP via Google Cloud Service');
+        throw new Error(gcpRes?.detail || 'Failed to generate OTP');
       }
     } catch (gcpErr: any) {
-      console.error('[Google Cloud OTP Error]:', gcpErr);
+      console.error('[OTP Send Error]:', gcpErr);
       setErrorMessage(
         gcpErr?.message ||
           (currentLang === 'hi'
@@ -251,7 +259,9 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
   return (
     <View style={styles.cardContainer}>
       {/* Invisible Recaptcha Container for Real SMS Delivery */}
-      <div id="recaptcha-container" />
+      <div id="recaptcha-wrapper">
+        <div id="recaptcha-container" />
+      </div>
 
       {/* Card Header */}
       <View style={styles.headerRow}>
@@ -304,18 +314,6 @@ export const PhoneOtpSignIn: React.FC<PhoneOtpSignInProps> = ({
         </View>
       )}
 
-      {/* Google Cloud Verification Engine Indicator */}
-      {step === 'otp' && deliveryProvider === 'google_cloud' && (
-        <View style={styles.gcpBadge}>
-          <Text style={styles.gcpBadgeText}>
-            ☁️ {currentLang === 'hi'
-              ? 'गूगल क्लाउड रीयल-टाइम ओटीपी सत्यापन सक्रिय'
-              : currentLang === 'te'
-              ? 'గూగుల్ క్లౌడ్ రియల్-టైమ్ ఓటీపీ ధృవీకరణ యాక్టివ్'
-              : 'Google Cloud Real-Time OTP Verification Engine Active'}
-          </Text>
-        </View>
-      )}
 
       {/* STEP 1: Phone Number Input */}
       {step === 'phone' ? (

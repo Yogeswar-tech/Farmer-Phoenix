@@ -522,8 +522,6 @@ export const LoginModal: FC<LoginModalProps> = ({
           <ShieldCheck size={14} color="#059669" />
           <span>Firebase Phone Auth • Minimal Data Stored (Language, District, Crop)</span>
         </div>
-        {/* Invisible reCAPTCHA mount point */}
-        <div id="recaptcha-container" style={{ display: 'none' }} />
       </div>
     </div>
   );
