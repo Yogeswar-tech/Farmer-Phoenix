@@ -329,7 +329,7 @@ export const AiVoiceAssistantModal: FC<AiVoiceAssistantModalProps> = ({
     setIsThinking(true);
 
     try {
-      const locationName = activeMandi.mandiName?.[currentLang] || activeMandi.name?.[currentLang] || 'Guntur';
+      const locationName = activeMandi.mandiName?.[currentLang] || (activeMandi as any).name?.[currentLang] || 'Guntur';
       const cropName = activeMandi.cropName?.en || 'chilli';
 
       const res = await KisanSethuApi.askVoiceBot({
