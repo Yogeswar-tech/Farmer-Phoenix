@@ -37,9 +37,51 @@ CREATE TABLE IF NOT EXISTS mandi_prices (
 CREATE INDEX IF NOT EXISTS idx_mandi_commodity_date ON mandi_prices (commodity, arrival_date DESC);
 CREATE INDEX IF NOT EXISTS idx_mandi_market_commodity ON mandi_prices (market, commodity);
 CREATE INDEX IF NOT EXISTS idx_mandi_state_dist ON mandi_prices (state, district, commodity);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mandi_prices_unique ON mandi_prices (market, commodity, variety, arrival_date);
 
 -- GIN Index on JSONB raw_payload for high-speed search inside unstructured JSON fields
 CREATE INDEX IF NOT EXISTS idx_mandi_raw_payload_gin ON mandi_prices USING gin (raw_payload);
+
+-- ------------------------------------------------------------------------------
+-- 1B. Mandi Price History (Daily Records - Never Pruned by 6-Hour Lifecycles)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS mandi_price_history (
+    id BIGSERIAL PRIMARY KEY,
+    market VARCHAR(150) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    commodity VARCHAR(100) NOT NULL,
+    variety VARCHAR(100) DEFAULT 'FAQ',
+    arrival_date DATE NOT NULL,
+    min_price_qtl NUMERIC(10, 2) NOT NULL,
+    max_price_qtl NUMERIC(10, 2) NOT NULL,
+    modal_price_qtl NUMERIC(10, 2) NOT NULL,
+    arrival_quintals NUMERIC(12, 2) DEFAULT 0.00,
+    source VARCHAR(100) NOT NULL,
+    fetched_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mandi_history_unique ON mandi_price_history (market, commodity, variety, arrival_date);
+CREATE INDEX IF NOT EXISTS idx_mandi_history_comm_date ON mandi_price_history (commodity, arrival_date DESC);
+CREATE INDEX IF NOT EXISTS idx_mandi_history_lookup ON mandi_price_history (commodity, market, arrival_date DESC);
+
+-- ------------------------------------------------------------------------------
+-- 1C. Market Geographic Coordinates (Mandis and APMC Yards)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS market_coordinates (
+    id BIGSERIAL PRIMARY KEY,
+    market VARCHAR(150) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    lat NUMERIC(10, 6) NOT NULL,
+    lon NUMERIC(10, 6) NOT NULL,
+    source VARCHAR(100) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_coords_unique ON market_coordinates (market, state);
+
 
 -- ------------------------------------------------------------------------------
 -- 2. Historical Price Trends (180-Day Slicer & Forecasting)
@@ -252,10 +294,11 @@ CREATE INDEX IF NOT EXISTS idx_price_alerts_crop ON price_alerts (crop_key, is_a
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS farmer_profiles (
     id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(150) UNIQUE,
+    firebase_uid VARCHAR(128) UNIQUE,
+    email VARCHAR(150),
     phone_number VARCHAR(20),
     farmer_name VARCHAR(150),
-    preferred_lang VARCHAR(10) DEFAULT 'en',
+    preferred_lang VARCHAR(10) DEFAULT 'te',
     location_id VARCHAR(100),
     location_name VARCHAR(150),
     district VARCHAR(100),
@@ -269,7 +312,8 @@ CREATE TABLE IF NOT EXISTS farmer_profiles (
     last_login_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_farmer_profiles_email ON farmer_profiles (email);
+ALTER TABLE farmer_profiles ADD COLUMN IF NOT EXISTS firebase_uid VARCHAR(128);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_farmer_profiles_uid ON farmer_profiles (firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_farmer_profiles_phone ON farmer_profiles (phone_number);
 
 -- ------------------------------------------------------------------------------
@@ -315,11 +359,16 @@ CREATE TABLE IF NOT EXISTS cibrc_pesticide_registry (
     is_approved BOOLEAN DEFAULT TRUE,
     payload JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cibrc_registry UNIQUE (pesticide_name, crop_key, target_pest_or_disease)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cibrc_crop_key ON cibrc_pesticide_registry (crop_key);
 CREATE INDEX IF NOT EXISTS idx_cibrc_active_ing ON cibrc_pesticide_registry (active_ingredient);
 CREATE INDEX IF NOT EXISTS idx_cibrc_category ON cibrc_pesticide_registry (category);
 CREATE INDEX IF NOT EXISTS idx_cibrc_payload_gin ON cibrc_pesticide_registry USING gin (payload);
+
+ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding vector(768);
+ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS tsv tsvector;
+CREATE INDEX IF NOT EXISTS idx_cibrc_tsv ON cibrc_pesticide_registry USING gin (tsv);
 

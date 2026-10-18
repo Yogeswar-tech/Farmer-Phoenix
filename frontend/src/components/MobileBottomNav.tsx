@@ -9,11 +9,9 @@ import {
   Leaf,
   Menu,
   Truck,
-  FlaskConical,
   TestTube2,
   Landmark,
   Warehouse,
-  BarChart3,
   X
 } from 'lucide-react';
 
@@ -39,7 +37,6 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
   ];
 
   const moreItems: { id: NavigationTab; label: string; icon: ReactNode }[] = [
-    { id: 'charts', label: t.tabCharts.split(' ')[0], icon: <BarChart3 size={22} color={activeTab === 'charts' ? '#2D5A27' : '#334155'} /> },
     { id: 'logistics', label: t.tabLogistics, icon: <Truck size={22} color={activeTab === 'logistics' ? '#2D5A27' : '#334155'} /> },
     { id: 'soildoctor', label: t.tabSoilDoctor, icon: <TestTube2 size={22} color={activeTab === 'soildoctor' ? '#2D5A27' : '#334155'} /> },
     { id: 'schemes', label: t.tabSchemes, icon: <Landmark size={22} color={activeTab === 'schemes' ? '#2D5A27' : '#334155'} /> },
@@ -51,7 +48,7 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
   return (
     <>
       {/* React Native Mobile Bottom Bar */}
-      <View style={styles.bottomBar}>
+      <View style={styles.bottomBar} role="navigation" aria-label="Bottom Navigation">
         {mainTabs.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -63,6 +60,10 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
               }}
               style={styles.tabBtn}
               activeOpacity={0.7}
+              accessibilityRole="link"
+              role="link"
+              aria-label={item.label}
+              accessibilityLabel={item.label}
             >
               <View style={styles.iconWrap}>{item.icon}</View>
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
@@ -78,6 +79,10 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
           onPress={() => setIsMoreOpen(!isMoreOpen)}
           style={styles.tabBtn}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          role="button"
+          aria-label={currentLang === 'hi' ? 'अन्य विकल्प' : currentLang === 'te' ? 'మరిన్ని ఎంపికలు' : 'More menu options'}
+          accessibilityLabel={currentLang === 'hi' ? 'अन्य विकल्प' : currentLang === 'te' ? 'మరిన్ని ఎంపికలు' : 'More menu options'}
         >
           <View style={styles.iconWrap}>
             <Menu size={20} color={isMoreActive || isMoreOpen ? '#2D5A27' : '#64748B'} />
@@ -104,6 +109,10 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
                 onPress={() => setIsMoreOpen(false)}
                 style={styles.closeBtn}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                role="button"
+                aria-label="Close menu drawer"
+                accessibilityLabel="Close menu drawer"
               >
                 <X size={18} color="#64748B" />
               </TouchableOpacity>
@@ -121,6 +130,10 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({
                     }}
                     style={[styles.gridItem, isActive && styles.gridItemActive]}
                     activeOpacity={0.7}
+                    accessibilityRole="link"
+                    role="link"
+                    aria-label={item.label}
+                    accessibilityLabel={item.label}
                   >
                     <View style={styles.gridIcon}>{item.icon}</View>
                     <Text style={[styles.gridLabel, isActive && styles.gridLabelActive]}>
@@ -157,6 +170,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 6,
     position: 'relative',
+    minHeight: 48,
+    minWidth: 48,
   },
   iconWrap: {
     alignItems: 'center',
@@ -203,7 +218,11 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   closeBtn: {
-    padding: 4,
+    padding: 12,
+    minHeight: 48,
+    minWidth: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   drawerGrid: {
     flexDirection: 'row',
@@ -220,6 +239,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    minHeight: 48,
   },
   gridItemActive: {
     backgroundColor: '#EFF7EE',

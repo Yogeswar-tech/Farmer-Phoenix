@@ -1020,7 +1020,7 @@ def seed_cibrc_registry():
     placeholder = "%s" if use_pg else "?"
     print(f"[*] Initializing CIBRC Pesticide Registry Table in {'PostgreSQL' if use_pg else 'SQLite'}...")
 
-    # Create table if not present
+    # Create table with unique constraint if not present
     if use_pg:
         create_sql = """
         CREATE TABLE IF NOT EXISTS cibrc_pesticide_registry (
@@ -1044,11 +1044,13 @@ def seed_cibrc_registry():
             is_approved BOOLEAN DEFAULT TRUE,
             payload JSONB DEFAULT '{}'::jsonb,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_cibrc_registry UNIQUE (pesticide_name, crop_key, target_pest_or_disease)
         );
         CREATE INDEX IF NOT EXISTS idx_cibrc_crop_key ON cibrc_pesticide_registry (crop_key);
         CREATE INDEX IF NOT EXISTS idx_cibrc_active_ing ON cibrc_pesticide_registry (active_ingredient);
         CREATE INDEX IF NOT EXISTS idx_cibrc_category ON cibrc_pesticide_registry (category);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_idx_cibrc_natural ON cibrc_pesticide_registry (pesticide_name, crop_key, target_pest_or_disease);
         """
     else:
         create_sql = """
@@ -1073,36 +1075,103 @@ def seed_cibrc_registry():
             is_approved INTEGER DEFAULT 1,
             payload TEXT DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_cibrc_registry UNIQUE (pesticide_name, crop_key, target_pest_or_disease)
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_idx_cibrc_natural ON cibrc_pesticide_registry (pesticide_name, crop_key, target_pest_or_disease);
         """
 
     with get_db_cursor() as cursor:
         cursor.execute(create_sql)
+        if use_pg:
+            # If constraint was missing on pre-existing table, create unique index
+            cursor.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'uq_cibrc_registry'
+                ) THEN
+                    BEGIN
+                        ALTER TABLE cibrc_pesticide_registry 
+                        ADD CONSTRAINT uq_cibrc_registry UNIQUE (pesticide_name, crop_key, target_pest_or_disease);
+                    EXCEPTION WHEN OTHERS THEN
+                        NULL;
+                    END;
+                END IF;
+            END $$;
+            """)
 
-    print("[*] Inserting CIBRC statutory approved pesticide entries...")
+    print("[*] Inserting/Upserting CIBRC statutory approved pesticide entries (Idempotent)...")
 
-    insert_sql = f"""
-    INSERT INTO cibrc_pesticide_registry (
-        category, pesticide_name, active_ingredient, formulation,
-        crop, crop_key, target_pest_or_disease, ai_dose,
-        formulation_dose, dilution_water_liters, waiting_period_days,
-        pump_dose_15l, application_method, toxicity_band, toxicity_label,
-        safety_warnings, is_approved, payload
-    ) VALUES (
-        {placeholder}, {placeholder}, {placeholder}, {placeholder},
-        {placeholder}, {placeholder}, {placeholder}, {placeholder},
-        {placeholder}, {placeholder}, {placeholder},
-        {placeholder}, {placeholder}, {placeholder}, {placeholder},
-        {placeholder}, {placeholder}, {placeholder}
-    )
-    """
+    if use_pg:
+        insert_sql = """
+        INSERT INTO cibrc_pesticide_registry (
+            category, pesticide_name, active_ingredient, formulation,
+            crop, crop_key, target_pest_or_disease, ai_dose,
+            formulation_dose, dilution_water_liters, waiting_period_days,
+            pump_dose_15l, application_method, toxicity_band, toxicity_label,
+            safety_warnings, is_approved, payload, updated_at
+        ) VALUES (
+            %s, %s, %s, %s,
+            %s, %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s, %s,
+            %s, %s, %s, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (pesticide_name, crop_key, target_pest_or_disease) DO UPDATE SET
+            category = EXCLUDED.category,
+            active_ingredient = EXCLUDED.active_ingredient,
+            formulation = EXCLUDED.formulation,
+            crop = EXCLUDED.crop,
+            ai_dose = EXCLUDED.ai_dose,
+            formulation_dose = EXCLUDED.formulation_dose,
+            dilution_water_liters = EXCLUDED.dilution_water_liters,
+            waiting_period_days = EXCLUDED.waiting_period_days,
+            pump_dose_15l = EXCLUDED.pump_dose_15l,
+            application_method = EXCLUDED.application_method,
+            toxicity_band = EXCLUDED.toxicity_band,
+            toxicity_label = EXCLUDED.toxicity_label,
+            safety_warnings = EXCLUDED.safety_warnings,
+            is_approved = EXCLUDED.is_approved,
+            payload = EXCLUDED.payload,
+            updated_at = CURRENT_TIMESTAMP;
+        """
+    else:
+        insert_sql = """
+        INSERT INTO cibrc_pesticide_registry (
+            category, pesticide_name, active_ingredient, formulation,
+            crop, crop_key, target_pest_or_disease, ai_dose,
+            formulation_dose, dilution_water_liters, waiting_period_days,
+            pump_dose_15l, application_method, toxicity_band, toxicity_label,
+            safety_warnings, is_approved, payload, updated_at
+        ) VALUES (
+            ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT(pesticide_name, crop_key, target_pest_or_disease) DO UPDATE SET
+            category = excluded.category,
+            active_ingredient = excluded.active_ingredient,
+            formulation = excluded.formulation,
+            crop = excluded.crop,
+            ai_dose = excluded.ai_dose,
+            formulation_dose = excluded.formulation_dose,
+            dilution_water_liters = excluded.dilution_water_liters,
+            waiting_period_days = excluded.waiting_period_days,
+            pump_dose_15l = excluded.pump_dose_15l,
+            application_method = excluded.application_method,
+            toxicity_band = excluded.toxicity_band,
+            toxicity_label = excluded.toxicity_label,
+            safety_warnings = excluded.safety_warnings,
+            is_approved = excluded.is_approved,
+            payload = excluded.payload,
+            updated_at = CURRENT_TIMESTAMP;
+        """
 
     count = 0
     with get_db_cursor() as cursor:
-        # Clear existing records to ensure fresh idempotent seed
-        cursor.execute("DELETE FROM cibrc_pesticide_registry;")
-
         for item in CIBRC_REGISTRY_DATA:
             payload_data = {
                 "common_brands": item.get("common_brands", []),
@@ -1139,7 +1208,7 @@ def seed_cibrc_registry():
             cursor.execute(insert_sql, params)
             count += 1
 
-    print(f"[+] Successfully seeded {count} official CIBRC pesticide records into PostgreSQL!")
+    print(f"[+] Successfully seeded/upserted {count} official CIBRC pesticide records into {'PostgreSQL' if use_pg else 'SQLite'}!")
 
 
 if __name__ == "__main__":

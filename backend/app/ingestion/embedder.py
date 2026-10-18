@@ -11,9 +11,9 @@ except ImportError:
     genai = None  # type: ignore
     types = None  # type: ignore
 
-from app.ingestion.models import PriceChunk
 from typing import Any
 
+from app.ingestion.models import PriceChunk
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -122,6 +122,10 @@ class VertexAIEmbedder:
 
         except Exception as exc:
             logger.warning("Could not generate Vertex AI embeddings: %s", exc)
+            if settings.env.lower() in ("prod", "production"):
+                raise RuntimeError(
+                    f"Production environment requires valid embedding credentials: {exc}"
+                ) from exc
             if fallback_to_mock:
                 logger.info(
                     "Falling back to deterministic mock embeddings (dimension %d).", EMBEDDING_DIM

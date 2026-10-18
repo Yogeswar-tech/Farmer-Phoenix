@@ -11,8 +11,7 @@ Audits EVERY module across:
 8. Cold Storage Directory & Space Booking
 9. Price Alert Subscriptions & Database Persistence
 10. Farmer Authentication & Persistent Profile Sync
-11. Educational Quality Grading & Moisture Dockage Schedules
-12. AI Multilingual Mitra RAG Voice/Text Assistant
+11. AI Multilingual Mitra RAG Voice/Text Assistant
 """
 
 import sys
@@ -84,9 +83,8 @@ def run_complete_audit():
             "district": "Guntur"
         }, "profile"),
         ("22. Farmer Profile Fetch", "GET", "/v1/farmer/profile?phone_number=9123456780", None, "profile"),
-        ("23. Educational Matrix", "GET", "/v1/db/educational/grading-matrix?crop_key=chilli&lang=en", None, "grades"),
-        ("24. Sync Freshness Telemetry", "GET", "/v1/db/sync-status", None, "total_records"),
-        ("25. AI Mitra Assistant", "POST", "/v1/ask", {"question": "Chilli price in Guntur", "lang": "en"}, "answer")
+        ("23. Sync Freshness Telemetry", "GET", "/v1/db/sync-status", None, "total_records"),
+        ("24. AI Mitra Assistant", "POST", "/v1/ask", {"question": "Chilli price in Guntur", "lang": "en"}, "answer")
     ]
 
     print("\n======================= KISAN SETHU PLATFORM AUDIT =======================")

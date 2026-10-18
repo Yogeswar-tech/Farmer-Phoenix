@@ -91,6 +91,50 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
         updated_at TEXT DEFAULT (datetime('now'))
     );
     """)
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_mandi_prices_unique ON mandi_prices (market, commodity, variety, arrival_date);
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS mandi_price_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        market TEXT NOT NULL,
+        district TEXT NOT NULL,
+        state TEXT NOT NULL,
+        commodity TEXT NOT NULL,
+        variety TEXT DEFAULT 'FAQ',
+        arrival_date TEXT NOT NULL,
+        min_price_qtl REAL NOT NULL,
+        max_price_qtl REAL NOT NULL,
+        modal_price_qtl REAL NOT NULL,
+        arrival_quintals REAL DEFAULT 0.0,
+        source TEXT NOT NULL,
+        fetched_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_mandi_history_unique ON mandi_price_history (market, commodity, variety, arrival_date);
+    """)
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_mandi_history_lookup ON mandi_price_history (commodity, market, arrival_date DESC);
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS market_coordinates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        market TEXT NOT NULL,
+        state TEXT NOT NULL,
+        lat REAL NOT NULL,
+        lon REAL NOT NULL,
+        source TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_market_coords_unique ON market_coordinates (market, state);
+    """)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS price_trends (
@@ -195,12 +239,27 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS price_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone_number TEXT NOT NULL,
+        crop_key TEXT NOT NULL,
+        crop_name TEXT,
+        target_price REAL NOT NULL,
+        channel TEXT DEFAULT 'whatsapp',
+        mandi_name TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS farmer_profiles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
+        firebase_uid TEXT UNIQUE,
+        email TEXT,
         phone_number TEXT,
         farmer_name TEXT,
-        preferred_lang TEXT DEFAULT 'en',
+        preferred_lang TEXT DEFAULT 'te',
         location_id TEXT,
         location_name TEXT,
         district TEXT,
@@ -215,7 +274,83 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     );
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS crop_diagnoses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        farmer_phone TEXT,
+        crop_name TEXT NOT NULL,
+        image_url TEXT,
+        symptom_description TEXT,
+        disease_detected TEXT,
+        confidence_score REAL,
+        recommended_treatment TEXT,
+        recommended_fungicide TEXT,
+        diagnosis_meta TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS soil_health_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        farmer_phone TEXT,
+        location_id TEXT NOT NULL,
+        district TEXT NOT NULL,
+        state TEXT NOT NULL,
+        ph_level REAL,
+        nitrogen_level TEXT,
+        phosphorus_level TEXT,
+        potassium_level TEXT,
+        organic_carbon_pct REAL,
+        recommended_fertilizer TEXT,
+        soil_report TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS rag_knowledge_chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        doc_id TEXT NOT NULL,
+        source_title TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        chunk_text TEXT NOT NULL,
+        language TEXT DEFAULT 'en',
+        embedding TEXT,
+        metadata TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cibrc_pesticide_registry (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        pesticide_name TEXT NOT NULL,
+        active_ingredient TEXT NOT NULL,
+        formulation TEXT,
+        crop TEXT NOT NULL,
+        crop_key TEXT NOT NULL,
+        target_pest_or_disease TEXT NOT NULL,
+        ai_dose TEXT,
+        formulation_dose TEXT,
+        dilution_water_liters TEXT,
+        waiting_period_days TEXT,
+        pump_dose_15l TEXT,
+        application_method TEXT DEFAULT 'Foliar Spray',
+        toxicity_band TEXT DEFAULT 'green',
+        toxicity_label TEXT,
+        safety_warnings TEXT,
+        is_approved INTEGER DEFAULT 1,
+        payload TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(pesticide_name, crop_key, target_pest_or_disease)
+    );
+    """)
+
     # Auto-migrate columns for existing SQLite databases
+    _ensure_column(cursor, "farmer_profiles", "firebase_uid", "TEXT")
     _ensure_column(cursor, "farmer_profiles", "email", "TEXT")
     _ensure_column(cursor, "farmer_profiles", "location_id", "TEXT")
     _ensure_column(cursor, "farmer_profiles", "location_name", "TEXT")
@@ -229,8 +364,11 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     _ensure_column(cursor, "price_trends", "trend_meta", "TEXT")
     _ensure_column(cursor, "cold_storages", "facility_meta", "TEXT")
     _ensure_column(cursor, "scraper_audit_logs", "execution_log", "TEXT")
+    _ensure_column(cursor, "cibrc_pesticide_registry", "embedding", "TEXT")
 
-    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_farmer_profiles_email ON farmer_profiles (email);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_farmer_profiles_uid ON farmer_profiles (firebase_uid);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_price_alerts_phone ON price_alerts (phone_number);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_price_alerts_crop ON price_alerts (crop_key, is_active);")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_policies_cat ON govt_policies_and_loans (category, is_active);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mandi_commodity ON mandi_prices (commodity, arrival_date);")

@@ -4,7 +4,6 @@
 3. Mandi Logistics calculation and corridors
 4. Price Alert subscription and retrieval
 5. Farmer Profile login and fetch
-6. Educational grading matrix
 """
 import sys
 from pathlib import Path
@@ -91,18 +90,14 @@ def test_new_endpoints():
         "district": "Guntur"
     })
     assert res.status_code == 200, f"Farmer login failed: {res.text}"
+    token = res.json().get("auth_token", "dev_token_ramu_9876543210")
     print("[PASS] POST /v1/farmer/login-otp:", res.json()["profile"]["farmer_name"])
 
-    res = client.get("/v1/farmer/profile?phone_number=9876543210")
+    res = client.get("/v1/farmer/profile", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200, f"Farmer profile fetch failed: {res.text}"
     print("[PASS] GET /v1/farmer/profile:", res.json()["profile"]["farmer_name"], "| Lang:", res.json()["profile"]["preferred_lang"])
 
-    # 6. Educational
-    res = client.get("/v1/db/educational/grading-matrix?crop_key=chilli&lang=en")
-    assert res.status_code == 200, f"Grading matrix failed: {res.text}"
-    print("[PASS] GET /v1/db/educational/grading-matrix:", len(res.json()["grades"]), "grades")
-
-    print("\nALL 10 NEW ENDPOINTS TESTED AND PASSED WITH 200 OK!")
+    print("\nALL NEW ENDPOINTS TESTED AND PASSED WITH 200 OK!")
 
 if __name__ == "__main__":
     test_new_endpoints()

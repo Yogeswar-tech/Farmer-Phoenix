@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FC, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type FC, type FormEvent } from 'react';
 import type { Language, LocationOption } from '../types';
 import { WEATHER_FORECAST, SEASONAL_CLIMATE, CROP_SUITABILITY_MAP } from '../data/mockData';
 import { translations } from '../data/i18n';
@@ -56,7 +56,7 @@ const ALL_INDIA_AGRI_BELTS = [
 type DayTypeFilter = 'all' | 'safe_spray' | 'rain_alert' | 'harvest_drying' | 'sowing_ready' | 'high_risk';
 
 // Universal helper to safely extract localized text from strings, numbers, or multi-language objects
-export const getLocText = (val: any, lang: Language): string => {
+const getLocText = (val: any, lang: Language): string => {
   if (val === undefined || val === null) return '';
   if (typeof val === 'string') return val;
   if (typeof val === 'number') return String(val);
@@ -146,6 +146,8 @@ const getActionBadgeLabel = (badge: string, lang: string): string => {
   return lang === 'hi' ? item.hi : lang === 'te' ? item.te : item.en;
 };
 
+const INITIAL_TODAY_STR = new Date().toISOString().split('T')[0];
+
 export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   currentLang,
   isLoggedIn,
@@ -190,7 +192,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   const [expandedDayIndex, setExpandedDayIndex] = useState<number | null>(0); // Default open today
 
   // Farmer-Centric Date & Range Control
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = INITIAL_TODAY_STR;
   const [selectedDatePreset, setSelectedDatePreset] = useState<'today' | 'tomorrow' | '3days' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState<string>(todayStr);
   const [customEndDate, setCustomEndDate] = useState<string>(todayStr);
@@ -224,7 +226,10 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   }, []);
 
   // Sync if global location changes from header
-  useEffect(() => {
+  const [prevLocKey, setPrevLocKey] = useState(`${currentLocation.id}-${currentLang}`);
+  const currentLocKey = `${currentLocation.id}-${currentLang}`;
+  if (currentLocKey !== prevLocKey) {
+    setPrevLocKey(currentLocKey);
     setActiveLocation({
       name: getLocText(currentLocation.name, currentLang),
       district: getLocText(currentLocation.district, currentLang),
@@ -235,10 +240,11 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
       zone: `${getLocText(currentLocation.state, currentLang)} Agricultural Zone`,
       id: currentLocation.id
     });
-  }, [currentLocation.id, currentLang]);
+  }
 
   // Main Unified Climate Fetch (Open-Meteo Satellite + IMD + Farm Decisions)
-  const fetchUnifiedClimate = async (loc: any, daysCount: number = horizonDays) => {
+  const fetchUnifiedClimate = useCallback(async (loc: any, daysCount: number = horizonDays) => {
+    await Promise.resolve();
     setIsLoading(true);
     const startTime = performance.now();
     try {
@@ -293,7 +299,7 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentLang, horizonDays]);
 
   // Decoupled LLM Weather Advisory Fetcher (Strict Schema, Silent Fail)
   const fetchLlmAdvisory = async (weatherData: any, locName: string, lang: Language) => {
@@ -328,15 +334,20 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
   };
 
   useEffect(() => {
-    fetchUnifiedClimate(activeLocation, horizonDays);
-  }, [activeLocation.lat, activeLocation.lon, horizonDays, currentLang]);
+    const run = async () => {
+      await fetchUnifiedClimate(activeLocation, horizonDays);
+    };
+    run();
+  }, [activeLocation, horizonDays, currentLang, fetchUnifiedClimate]);
 
   // All-India Dynamic Location Autocomplete
   useEffect(() => {
     if (!searchInput.trim() || searchInput.trim().length < 2) {
-      setSearchResults([]);
-      setShowSuggestions(false);
-      return;
+      const timer = setTimeout(() => {
+        setSearchResults([]);
+        setShowSuggestions(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const timer = setTimeout(async () => {
@@ -696,6 +707,26 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
                   ✕
                 </button>
               )}
+              <button
+                type="button"
+                onClick={handleDetectFarmGps}
+                disabled={isLocatingGps}
+                title={currentLang === 'hi' ? 'जीपीएस द्वारा स्थान खोजें' : currentLang === 'te' ? 'జీపీఎస్ ద్వారా స్థానం గుర్తించండి' : 'Detect Farm GPS'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: isLocatingGps ? '#059669' : '#64748B',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  minHeight: '40px'
+                }}
+              >
+                {isLocatingGps ? <Loader2 size={18} className="spin-icon" /> : <Navigation size={18} />}
+              </button>
             </div>
 
             <button

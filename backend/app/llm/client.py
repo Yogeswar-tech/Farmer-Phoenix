@@ -1,5 +1,14 @@
-"""Single LLM gateway interface adhering to repository boundaries."""
+"""Single LLM gateway interface adhering to repository boundaries.
 
+Key architectural properties:
+1. Pure async execution (client.aio.models.generate_content) without blocking the event loop.
+2. Consistent credential detection: Vertex AI when KS_GCP_PROJECT_ID is set, else Gemini API Key.
+3. Strict timeout (10s) and exactly 1 retry with exponential backoff on transient errors.
+4. Typed exception LLMUnavailableError raised on failure or lack of credentials (no fake text).
+5. Sanitized telemetry: NEVER logs farmer prompts, queries, or image payloads.
+"""
+
+import asyncio
 import logging
 from typing import Any
 
@@ -8,11 +17,16 @@ from google.genai import types
 
 from app.settings import settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("KisanSethuLLMGateway")
+
+
+class LLMUnavailableError(Exception):
+    """Raised when the LLM service (Vertex or Gemini) is unreachable, unconfigured, or failing."""
+    pass
 
 
 class LLMGateway:
-    """Central gateway for all Large Language Model interactions."""
+    """Central async gateway for all Large Language Model interactions."""
 
     def __init__(
         self,
@@ -27,36 +41,88 @@ class LLMGateway:
         self.model_strong = settings.model_strong or "gemini-3.8-flash"
         self._client: genai.Client | None = None
 
-    def _get_client(self) -> genai.Client | None:
-        """Lazily initialize genai Client if credentials exist."""
-        if self._client is not None:
-            return self._client
-
+    def is_available(self) -> bool:
+        """Check whether valid Vertex AI or Gemini API credentials are configured."""
         if (
             self.project_id
             and not self.project_id.startswith("your_")
             and "placeholder" not in self.project_id.lower()
         ):
-            logger.info("Initializing LLM Gateway in Vertex AI mode (%s)", self.project_id)
+            return True
+        if (
+            self.api_key
+            and not self.api_key.startswith("your_")
+            and "placeholder" not in self.api_key.lower()
+        ):
+            return True
+        return False
+
+    def _get_client(self) -> genai.Client | None:
+        """Lazily initialize genai Client with consistent credential detection."""
+        if self._client is not None:
+            return self._client
+
+        # Priority 1: Vertex AI when KS_GCP_PROJECT_ID is configured
+        if (
+            self.project_id
+            and not self.project_id.startswith("your_")
+            and "placeholder" not in self.project_id.lower()
+        ):
+            logger.info(
+                "Initializing LLM Gateway in Vertex AI mode (%s in %s)",
+                self.project_id,
+                self.location
+            )
             self._client = genai.Client(
                 vertexai=True,
                 project=self.project_id,
                 location=self.location,
             )
+        # Priority 2: Standalone Gemini API Key
         elif (
             self.api_key
             and not self.api_key.startswith("your_")
             and "placeholder" not in self.api_key.lower()
         ):
-            logger.info("Initializing LLM Gateway with Gemini API Key")
+            logger.info("Initializing LLM Gateway in Gemini API Key mode.")
             self._client = genai.Client(api_key=self.api_key)
         else:
-            logger.warning(
-                "No valid LLM credentials configured (KS_GEMINI_API_KEY / KS_GCP_PROJECT_ID)"
-            )
+            logger.warning("No valid LLM credentials found (project_id or api_key).")
             return None
 
         return self._client
+
+    async def _execute_with_retry(self, coro_factory: Any) -> Any:
+        """Executes an async LLM call with a 10s timeout and 1 retry with exponential backoff.
+        
+        Never logs prompt contents or farmer queries on failure or retry.
+        """
+        timeout_seconds = 10.0
+        last_exception: Exception | None = None
+
+        for attempt in range(2):
+            try:
+                # Wrap execution in timeout
+                return await asyncio.wait_for(coro_factory(), timeout=timeout_seconds)
+            except Exception as exc:
+                last_exception = exc
+                if attempt == 0:
+                    logger.warning(
+                        "LLM call attempt 1 failed (%s: %s); retrying in 1s with backoff...",
+                        exc.__class__.__name__,
+                        str(exc)[:100],
+                    )
+                    await asyncio.sleep(1.0)
+                else:
+                    logger.error(
+                        "LLM call failed after retry (%s: %s).",
+                        exc.__class__.__name__,
+                        str(exc)[:100],
+                    )
+
+        raise LLMUnavailableError(
+            f"LLM generation failed after retry: {last_exception.__class__.__name__}"
+        ) from last_exception
 
     async def generate_response(
         self,
@@ -64,34 +130,37 @@ class LLMGateway:
         system_instruction: str | None = None,
         use_strong_model: bool = False,
     ) -> str:
-        """Generate a grounded response for a prepared prompt."""
-        model = self.model_strong if use_strong_model else self.model_fast
+        """Generate a grounded response asynchronously via client.aio.models.generate_content.
+        
+        Raises LLMUnavailableError if unconfigured or if generation fails.
+        NEVER logs farmer query or prompt text.
+        """
         client = self._get_client()
-
         if client is None:
-            # Offline deterministic fallback for local testing without credentials
-            logger.info("Using offline deterministic fallback for LLM response generation.")
-            if "price" in prompt.lower() or "mandi" in prompt.lower():
-                return self._generate_offline_fallback(prompt)
-            return ""
+            raise LLMUnavailableError("LLM service is not configured (missing credentials)")
 
-        try:
-            config: dict[str, Any] = {"temperature": 0.2}
-            if system_instruction:
-                config["system_instruction"] = system_instruction
+        model = self.model_strong if use_strong_model else self.model_fast
+        config: dict[str, Any] = {"temperature": 0.2}
+        if system_instruction:
+            config["system_instruction"] = system_instruction
 
-            response = client.models.generate_content(
+        # Sanitized logging: log model and prompt length only, NEVER prompt content
+        logger.info(
+            "Executing async LLM generate_content (model=%s, prompt_len=%d)",
+            model,
+            len(prompt)
+        )
+
+        async def _call() -> str:
+            resp = await client.aio.models.generate_content(
                 model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(**config),
             )
-            return str(response.text or "").strip()
+            return str(resp.text or "").strip()
 
-        except Exception as exc:
-            logger.error("LLM generation call failed: %s; falling back to offline generator.", exc)
-            if "price" in prompt.lower() or "mandi" in prompt.lower():
-                return self._generate_offline_fallback(prompt)
-            return ""
+        result = await self._execute_with_retry(_call)
+        return str(result)
 
     async def generate_vision_response(
         self,
@@ -100,53 +169,41 @@ class LLMGateway:
         prompt: str,
         system_instruction: str | None = None,
     ) -> str:
-        """Generate response analyzing an uploaded leaf/crop image using Gemini Vision."""
+        """Generate response analyzing crop/leaf image asynchronously via client.aio.
+        
+        Raises LLMUnavailableError on failure.
+        NEVER logs image payloads or farmer instructions.
+        """
         client = self._get_client()
         if client is None:
-            return ""
+            raise LLMUnavailableError("LLM vision service is not configured (missing credentials)")
 
-        try:
-            config: dict[str, Any] = {"temperature": 0.2}
-            if system_instruction:
-                config["system_instruction"] = system_instruction
+        config: dict[str, Any] = {"temperature": 0.2}
+        if system_instruction:
+            config["system_instruction"] = system_instruction
 
-            contents = [
-                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                prompt,
-            ]
-            response = client.models.generate_content(
+        contents = [
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            prompt,
+        ]
+
+        logger.info(
+            "Executing async LLM vision generate_content (model=%s, image_bytes=%d, mime=%s)",
+            self.model_fast,
+            len(image_bytes),
+            mime_type,
+        )
+
+        async def _call() -> str:
+            resp = await client.aio.models.generate_content(
                 model=self.model_fast,
                 contents=contents,
                 config=types.GenerateContentConfig(**config),
             )
-            return str(response.text or "").strip()
-        except Exception as exc:
-            logger.error("Gemini Vision call failed: %s", exc)
-            return ""
+            return str(resp.text or "").strip()
 
-    @staticmethod
-    def _generate_offline_fallback(prompt: str) -> str:
-        """Generate a structured, fact-grounded response when running without active API keys."""
-        lines = prompt.splitlines()
-        facts_lines = [
-            line.strip()
-            for line in lines
-            if line.strip().startswith("[") or "modal price" in line.lower()
-        ]
-
-        if not facts_lines:
-            return (
-                "Namaste Kisan. Currently, no recent price records are available for this crop "
-                "in your nearby mandis. Please check again after the next market arrival update."
-            )
-
-        summary = facts_lines[0]
-        return (
-            f"Namaste Kisan! Based on today's official mandi reports:\n\n"
-            f"- {summary}\n\n"
-            f"Recommendation: If you have produce ready for harvest, compare prices with "
-            f"adjacent mandis to maximize your profit. Check local quality grades before transport."
-        )
+        result = await self._execute_with_retry(_call)
+        return str(result)
 
 
 _default_gateway: LLMGateway | None = None

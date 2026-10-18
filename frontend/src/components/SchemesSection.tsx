@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, useCallback, type FC } from 'react';
 import type { Language, LocationOption } from '../types';
 import { GOVT_SCHEMES } from '../data/mockData';
 import { KisanSethuApi } from '../services/api';
@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Sun,
   Coins,
-  RefreshCw,
   Search,
   X,
   FileQuestion,
@@ -27,53 +26,33 @@ interface SchemesSectionProps {
 
 export const SchemesSection: FC<SchemesSectionProps> = ({
   currentLang,
-  currentLocation,
+  currentLocation: _currentLocation,
   onOpenHelpline,
   onLockedFeatureClick: _onLockedFeatureClick
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [schemesData, setSchemesData] = useState<any[]>(GOVT_SCHEMES);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [isDbSynced, setIsDbSynced] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
-  const fetchScrapedSchemes = async () => {
+  const fetchScrapedSchemes = useCallback(async () => {
     try {
-      setLoading(true);
       // Fetch all schemes from PostgreSQL backend (or fallback)
-      const data = await KisanSethuApi.getGovtSchemes('ALL', currentLang);
+      const res = await KisanSethuApi.getGovtSchemes('ALL', currentLang);
+      const data = Array.isArray(res) ? res : res?.data;
       if (data && data.length > 0) {
         setSchemesData(data);
-        setIsDbSynced(true);
-        const now = new Date();
-        setLastSyncTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }
     } catch (err) {
       console.info('Backend syncing offline or error:', err);
-      setIsDbSynced(false);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchScrapedSchemes();
   }, [currentLang]);
 
-  const handleManualRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await KisanSethuApi.refreshGovtSchemes();
+  useEffect(() => {
+    const run = async () => {
       await fetchScrapedSchemes();
-    } catch (e) {
-      console.warn('Manual refresh failed, reloading current schemes:', e);
-      await fetchScrapedSchemes();
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    };
+    run();
+  }, [fetchScrapedSchemes]);
 
   const categories = [
     { id: 'ALL', label: { en: 'All Schemes', hi: 'सभी योजनाएं', te: 'అన్ని పథకాలు' }, icon: Landmark },
@@ -161,44 +140,13 @@ export const SchemesSection: FC<SchemesSectionProps> = ({
                   : 'Government Schemes, 4% Crop Loans & Subsidies'}
               </h2>
               <p className="schemes-sub">
-                {currentLocation
-                  ? (currentLang === 'hi'
-                      ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.state[currentLang]}) के किसानों हेतु 4% फसली ऋण, पीएम-किसान प्रत्यक्ष डीबीटी एवं 60% सौर पंप सब्सिडी`
-                      : currentLang === 'te'
-                      ? `📍 ${currentLocation.name[currentLang]} (${currentLocation.state[currentLang]}) రైతుల కోసం 4% వడ్డీ పంట రుణాలు, పీఎం-కిసాన్ సాయం & 60% సోలార్ సబ్సిడీ`
-                      : `📍 Verified central & state policies, 4% interest crop loans, direct income DBT, and 60% solar pump subsidies for farmers in ${currentLocation.name[currentLang]}`)
-                  : (currentLang === 'hi'
-                      ? 'सरकारी अनुदान, 4% रियायती फसली ऋण (KCC), फसल बीमा दावा एवं सोलर पंप सब्सिडी की सत्यापित जानकारी'
-                      : currentLang === 'te'
-                      ? 'ప్రభుత్వ రాయితీలు, 4% పంట రుణాలు (KCC), పంట బీమా & సోలార్ పంపు సెట్ల సమాచారం'
-                      : 'Verified government subsidies, 4% concessional crop loans (KCC), crop insurance & solar pump subsidies')}
+                {currentLang === 'hi'
+                  ? '4% फसली ऋण (KCC), पीएम-किसान एवं सौर पंप सब्सिडी'
+                  : currentLang === 'te'
+                  ? '4% పంట రుణాలు (KCC), పీఎం-కిసాన్ & సోలార్ పంపు సబ్సిడీలు'
+                  : '4% Concessional Crop Loans (KCC), PM-KISAN & Solar Pump Subsidies'}
               </p>
             </div>
-          </div>
-
-          <div className="schemes-header-actions">
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              disabled={refreshing || loading}
-              className={`live-db-badge ${isDbSynced ? 'synced' : 'disconnected'}`}
-              title="Click to sync fresh data from official government portals & PostgreSQL"
-            >
-              <RefreshCw size={12} className={(loading || refreshing) ? 'spin-icon' : ''} />
-              <span>
-                {isDbSynced
-                  ? (currentLang === 'hi'
-                      ? `● लाइव सिंक (<6 घंटे ताजा • ${lastSyncTime || 'सक्रिय'})`
-                      : currentLang === 'te'
-                      ? `● లైవ్ సింక్ (<6 గంటల తాజాది • ${lastSyncTime || 'కనెక్ట్ చేయబడింది'})`
-                      : `● Live Sync (<6h Fresh • ${lastSyncTime || 'Active'})`)
-                  : (currentLang === 'hi'
-                      ? '↻ पुनः प्रयास करें (बैकएंड जोड़ें)'
-                      : currentLang === 'te'
-                      ? '↻ మళ్లీ ప్రయత్నించండి (బ్యాకెండ్)'
-                      : '↻ Reconnect Backend')}
-              </span>
-            </button>
           </div>
         </div>
 

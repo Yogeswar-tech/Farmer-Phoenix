@@ -45,7 +45,8 @@ VALUES
 ('Karnataka', 'Kolar', 'Kolar APMC Yard', 'Tomato', 'Hybrid Red', 'Grade-A', CURRENT_DATE, 8900.00, 2100.00, 2750.00, 2450.00, 24.5, 'E_NAM_SCRAPER', '{"export_suitable": true}'::jsonb),
 ('Karnataka', 'Bangalore Urban', 'Yeshwanthpur Mandi', 'Potato', 'Hassan Jyoti', 'Grade-A', CURRENT_DATE, 5200.00, 1800.00, 2300.00, 2050.00, 20.5, 'E_NAM_SCRAPER', '{"sugar_content": "low"}'::jsonb),
 ('Madhya Pradesh', 'Indore', 'Indore Devi Ahilya APMC', 'Potato', 'Chipsona / Kufri', 'Processing Grade', CURRENT_DATE, 9400.00, 1600.00, 2100.00, 1900.00, 19.0, 'AGMARKNET_LIVE_SCRAPER', '{"wafer_grade": true}'::jsonb),
-('Gujarat', 'Gondal', 'Gondal APMC Market Yard', 'Chilli', 'Guntur Hybrid 4', 'Grade-A', CURRENT_DATE, 3600.00, 12800.00, 15400.00, 14200.00, 142.0, 'AGMARKNET_LIVE_SCRAPER', '{"pungency_shus": 35000}'::jsonb);
+('Gujarat', 'Gondal', 'Gondal APMC Market Yard', 'Chilli', 'Guntur Hybrid 4', 'Grade-A', CURRENT_DATE, 3600.00, 12800.00, 15400.00, 14200.00, 142.0, 'AGMARKNET_LIVE_SCRAPER', '{"pungency_shus": 35000}'::jsonb)
+ON CONFLICT (market, commodity, variety, arrival_date) DO NOTHING;
 
 -- 3. Historical Price Trends
 INSERT INTO price_trends (commodity, market, state, record_date, modal_price_qtl, modal_price_kg, trend_direction, confidence_score, trend_meta)

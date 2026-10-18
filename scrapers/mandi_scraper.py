@@ -198,53 +198,58 @@ BENCHMARK_MANDI_FEEDS = [
 
 
 def fetch_live_datagov_prices(api_key: str | None = None) -> list[dict[str, Any]]:
-    """Fetches real-time mandi prices from data.gov.in API if API key is provided."""
-    key = api_key or os.getenv("KS_DATA_GOV_API_KEY")
-    if not key or key == "your_data_gov_in_api_key_here":
-        logger.info("Using high-fidelity benchmark mandi feeds (no API key configured).")
-        return BENCHMARK_MANDI_FEEDS
+    """Fetches real-time mandi prices via active PriceSource.
+    Never returns mock/sample data in production.
+    """
+    from scrapers.price_sources import (
+        get_active_price_source,
+        get_tracked_crops,
+        ValidationStats,
+    )
 
-    resource_id = os.getenv("KS_DATA_GOV_RESOURCE_ID", "9ef84268-d588-465a-a308-a864a43d0070")
-    url = f"https://api.data.gov.in/resource/{resource_id}?api-key={key}&format=json&limit=50"
+    stats = ValidationStats()
+    source = get_active_price_source(stats)
+    tracked_crops = get_tracked_crops()
 
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "KisanSethu-AgriScraper/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            records = payload.get("records", [])
-            if not records:
-                return BENCHMARK_MANDI_FEEDS
+    records: list[dict[str, Any]] = []
+    for crop in tracked_crops:
+        try:
+            crop_records = source.fetch(crop)
+            for rec in crop_records:
+                records.append({
+                    "state": rec.state,
+                    "district": rec.district,
+                    "market": rec.market,
+                    "commodity": rec.commodity,
+                    "variety": rec.variety,
+                    "grade": rec.grade,
+                    "arrival_date": rec.arrival_date,
+                    "arrival_quintals": rec.arrival_quintals,
+                    "min_price_qtl": rec.min_price_qtl,
+                    "max_price_qtl": rec.max_price_qtl,
+                    "modal_price_qtl": rec.modal_price_qtl,
+                    "source": rec.source,
+                    "fetched_at": rec.fetched_at,
+                    "raw_payload": rec.raw_payload
+                })
+        except Exception as exc:
+            logger.warning("Failed fetching crop %s from source %s: %s", crop, getattr(source, "name", "unknown"), exc)
 
-            parsed = []
-            today_str = datetime.date.today().isoformat()
-            for r in records:
-                try:
-                    modal_price = float(r.get("modal_price", 0.0))
-                    if modal_price <= 0:
-                        continue
-                    parsed.append({
-                        "state": r.get("state", "India"),
-                        "district": r.get("district", "Generic"),
-                        "market": r.get("market", "APMC Yard"),
-                        "commodity": r.get("commodity", "Vegetables"),
-                        "variety": r.get("variety", "Standard"),
-                        "grade": r.get("grade", "FAQ"),
-                        "arrival_date": r.get("arrival_date", today_str),
-                        "arrival_quintals": float(r.get("arrival", 100.0)),
-                        "min_price_qtl": float(r.get("min_price", modal_price * 0.9)),
-                        "max_price_qtl": float(r.get("max_price", modal_price * 1.1)),
-                        "modal_price_qtl": modal_price,
-                        "source": "DATA_GOV_IN_API",
-                        "raw_payload": r
-                    })
-                except Exception:
-                    continue
-            return parsed if parsed else BENCHMARK_MANDI_FEEDS
-    except Exception as e:
-        logger.warning("Error fetching data.gov.in (%s). Falling back to benchmark feeds.", e)
-        return BENCHMARK_MANDI_FEEDS
+    if not records:
+        if os.getenv("KS_USE_SAMPLE_DATA", "").lower() in ("true", "1"):
+            logger.info("Using benchmark mandi feeds for local test (KS_USE_SAMPLE_DATA=true).")
+            return BENCHMARK_MANDI_FEEDS
+        logger.warning("No live mandi records retrieved from source %s. Returning empty list.", getattr(source, "name", "unknown"))
+        return []
+
+    logger.info(
+        "Mandi fetch complete: %d valid records, %d rejected (reasons: %s)",
+        len(records), stats.rejected_count, stats.rejections_by_reason
+    )
+    return records
 
 
 def scrape_mandi_prices() -> list[dict[str, Any]]:
     """Entrypoint for APMC mandi pricing scraping."""
     return fetch_live_datagov_prices()
+

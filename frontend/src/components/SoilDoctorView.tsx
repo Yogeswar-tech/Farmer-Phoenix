@@ -7,20 +7,12 @@ import {
   TestTube2,
   FileText,
   CheckCircle2,
-  AlertCircle,
   UploadCloud,
   ShieldCheck,
-  RefreshCw,
   Droplets,
-  Thermometer,
   Calendar,
-  Layers,
   Sparkles,
   Loader2,
-  X,
-  Phone,
-  User,
-  MapPin,
   Check
 } from 'lucide-react';
 
@@ -33,7 +25,7 @@ interface SoilDoctorViewProps {
 export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   currentLang,
   currentLocation,
-  onOpenBookingGate
+  onOpenBookingGate: _onOpenBookingGate
 }) => {
   const t = translations[currentLang];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +36,6 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   const [soilCard, setSoilCard] = useState<any | null>(null);
   const [soilRecs, setSoilRecs] = useState<any | null>(null);
   const [liveTelemetry, setLiveTelemetry] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // File Upload & Vision OCR State
   const [isScanningReport, setIsScanningReport] = useState<boolean>(false);
@@ -78,7 +69,6 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   useEffect(() => {
     let isMounted = true;
     async function loadInitialData() {
-      setIsLoading(true);
       try {
         // 1. Fetch regional baseline soil card
         const card = await KisanSethuApi.getSoilHealthCard(locId, currentLang);
@@ -109,14 +99,12 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
         }
       } catch (err) {
         console.warn('Soil Doctor loading error:', err);
-      } finally {
-        if (isMounted) setIsLoading(false);
       }
     }
 
     loadInitialData();
     return () => { isMounted = false; };
-  }, [locId, currentLang]);
+  }, [locId, currentLang, locLat, locLng, selectedCropKey, acres]);
 
   // Recalculate when crop or acres change
   const handleRecalculate = async (newCropKey: string, newAcres: number) => {

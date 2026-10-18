@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 
 import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
 import { CROP_CHIPS, AGRICULTURAL_LOCATIONS } from '../data/mockData';
-import { Search, Mic, Globe, User, MapPin, ChevronDown, Check, Building2 } from 'lucide-react';
+import { Search, Mic, Globe, User, MapPin, Sparkles, ChevronDown, Check, Building2 } from 'lucide-react';
 
 interface HeaderProps {
   currentLang: Language;
@@ -17,6 +17,8 @@ interface HeaderProps {
   currentLocation: LocationOption;
   onOpenLocationModal: () => void;
   onSelectLocation?: (loc: LocationOption) => void;
+  onOpenAiAssistant?: () => void;
+  isAiModeEnabled?: boolean;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -30,7 +32,9 @@ export const Header: FC<HeaderProps> = ({
   userName,
   currentLocation,
   onOpenLocationModal,
-  onSelectLocation
+  onSelectLocation,
+  onOpenAiAssistant,
+  isAiModeEnabled
 }) => {
   const t = translations[currentLang];
   const [isListening, setIsListening] = useState(false);
@@ -38,6 +42,20 @@ export const Header: FC<HeaderProps> = ({
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [locationSearchFilter, setLocationSearchFilter] = useState('');
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth <= 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const locationDropdownRef = useRef<any>(null);
   const langDropdownRef = useRef<any>(null);
@@ -132,19 +150,19 @@ export const Header: FC<HeaderProps> = ({
   const langDisplay = currentLang === 'hi' ? 'हिन्दी' : currentLang === 'te' ? 'తెలుగు' : 'EN';
 
   return (
-    <View style={styles.header}>
-      {/* Brand Row */}
-      <View style={styles.headerInner}>
-        <View style={styles.brandRow}>
+    <View style={[styles.header, isMobile && styles.headerMobile]}>
+      {/* Brand & Search Inner Wrapper */}
+      <View style={[styles.headerInner, isMobile && styles.headerInnerMobile]}>
+        <View style={[styles.brandRow, isMobile && styles.brandRowMobile]}>
           <Text style={styles.brandIcon}>🌾</Text>
           <View>
-            <Text style={styles.brandTitle}>{t.appName}</Text>
-            <Text style={styles.brandTagline}>{t.tagline}</Text>
+            <Text style={[styles.brandTitle, isMobile && styles.brandTitleMobile]}>{t.appName}</Text>
+            {!isMobile && <Text style={styles.brandTagline}>{t.tagline}</Text>}
           </View>
         </View>
 
         {/* Search Bar Wrap */}
-        <View style={styles.searchBarWrap}>
+        <View style={[styles.searchBarWrap, isMobile && styles.searchBarWrapMobile]}>
           <View style={styles.searchBox}>
             <Search size={18} color="#64748B" />
             <TextInput
@@ -207,7 +225,7 @@ export const Header: FC<HeaderProps> = ({
         </View>
 
         {/* Actions Wrap: Location, Language, AI Mode, and Login */}
-        <View style={styles.actionsWrap}>
+        <View style={[styles.actionsWrap, isMobile && styles.actionsWrapMobile]}>
           {/* Location Dropdown */}
           <View ref={locationDropdownRef} style={styles.dropdownContainer}>
             <TouchableOpacity
@@ -439,6 +457,22 @@ export const Header: FC<HeaderProps> = ({
             )}
           </View>
 
+          {/* AI Voice Assistant Mode Quick Launcher (Desktop Only; on mobile floating FAB handles it) */}
+          {!isMobile && onOpenAiAssistant && (
+            <TouchableOpacity
+              onPress={onOpenAiAssistant}
+              style={[styles.aiModeBtn, isAiModeEnabled ? styles.aiModeActive : styles.aiModeDisabled]}
+              activeOpacity={0.6}
+            >
+              <Sparkles size={14} color={isAiModeEnabled ? '#FFE600' : '#94A3B8'} />
+              <Text style={[styles.aiModeText, isAiModeEnabled && styles.aiModeTextActive]}>
+                {isAiModeEnabled
+                  ? (currentLang === 'hi' ? 'एआई चालू' : currentLang === 'te' ? 'AI ఆన్' : 'AI Mode')
+                  : (currentLang === 'hi' ? 'एआई बंद' : currentLang === 'te' ? 'AI ఆఫ్' : 'AI Off')}
+              </Text>
+              <View style={[styles.aiStatusDot, isAiModeEnabled ? styles.aiDotOn : styles.aiDotOff]} />
+            </TouchableOpacity>
+          )}
 
           {/* Profile / Login Button */}
           <TouchableOpacity
@@ -452,7 +486,7 @@ export const Header: FC<HeaderProps> = ({
             )}
             <Text style={[styles.authBtnText, isLoggedIn && styles.authBtnTextLoggedIn]}>
               {isLoggedIn
-                ? (userName || (currentLang === 'hi' ? 'किसान प्रोफाइल' : currentLang === 'te' ? 'రైతు ప్రొఫైల్' : 'Farmer Profile'))
+                ? (isMobile ? (userName?.split(' ')[0] || 'User') : (userName || (currentLang === 'hi' ? 'किसान प्रोफाइल' : currentLang === 'te' ? 'రైతు ప్రొఫైల్' : 'Farmer Profile')))
                 : (currentLang === 'hi' ? 'लॉगिन' : currentLang === 'te' ? 'లాగిన్' : 'Login')}
             </Text>
             {isLoggedIn && <View style={styles.authDot} />}
@@ -474,18 +508,32 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     position: 'sticky' as any,
     top: 0,
+    width: '100%',
+  },
+  headerMobile: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap' as any,
+    width: '100%',
+  },
+  headerInnerMobile: {
+    flexWrap: 'wrap' as any,
+    gap: 8,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
+  },
+  brandRowMobile: {
+    gap: 6,
   },
   brandIcon: {
     fontSize: 26,
@@ -496,6 +544,9 @@ const styles = StyleSheet.create({
     color: '#1E3F1A',
     letterSpacing: -0.3,
   },
+  brandTitleMobile: {
+    fontSize: 15,
+  },
   brandTagline: {
     fontSize: 10,
     color: '#64748B',
@@ -504,7 +555,16 @@ const styles = StyleSheet.create({
   searchBarWrap: {
     flex: 1,
     minWidth: 260,
+    maxWidth: 440,
     position: 'relative',
+    marginHorizontal: 16,
+  },
+  searchBarWrapMobile: {
+    width: '100%',
+    minWidth: '100%' as any,
+    maxWidth: '100%' as any,
+    marginHorizontal: 0,
+    marginTop: 6,
   },
   searchBox: {
     flexDirection: 'row',
@@ -607,7 +667,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'wrap',
+    flexShrink: 0,
+  },
+  actionsWrapMobile: {
+    gap: 6,
+    marginLeft: 'auto' as any,
   },
   locationBtn: {
     flexDirection: 'row',
@@ -641,6 +705,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#334155',
+  },
+  aiModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  aiModeActive: {
+    backgroundColor: '#2D5A27',
+    borderColor: '#2D5A27',
+  },
+  aiModeDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  aiModeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  aiModeTextActive: {
+    color: '#FFFFFF',
+  },
+  aiStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  aiDotOn: {
+    backgroundColor: '#00E676',
+  },
+  aiDotOff: {
+    backgroundColor: '#94A3B8',
   },
   authBtn: {
     flexDirection: 'row',

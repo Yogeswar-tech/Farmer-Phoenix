@@ -4,22 +4,16 @@ import { translations } from '../data/i18n';
 import { KisanSethuApi } from '../services/api';
 import {
   FlaskConical,
-  ShieldAlert,
-  AlertTriangle,
   Search,
   CheckCircle2,
-  XCircle,
   Volume2,
   VolumeX,
   Loader2,
   Sparkles,
-  ExternalLink,
-  ChevronRight,
   Check,
   Info,
   Bot,
   Send,
-  Bug,
   Sprout,
   HelpCircle,
   Flame
@@ -30,7 +24,7 @@ interface PesticideDosageViewProps {
   currentLocation?: LocationOption;
 }
 
-export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang, currentLocation }) => {
+export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang, currentLocation: _currentLocation }) => {
   const t = translations[currentLang] || translations.en;
 
   // View Mode: 'crop_first' | 'pesticide_search' | 'gemini_rag'
@@ -38,8 +32,7 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
 
   // --- 1. Crop-First State ---
   const [cropSearchInput, setCropSearchInput] = useState('');
-  const [selectedCropCategory, setSelectedCropCategory] = useState<string>('all');
-  const [cropList, setCropList] = useState<any[]>([]);
+  const selectedCropCategory = 'all';
   const [isSearchingCrops, setIsSearchingCrops] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState<any | null>(null);
 
@@ -53,7 +46,6 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
   const [pesticideSearchResults, setPesticideSearchResults] = useState<any[]>([]);
   const [isSearchingPesticides, setIsSearchingPesticides] = useState(false);
   const [showPesticideSuggestions, setShowPesticideSuggestions] = useState(false);
-  const [selectedPesticideRecord, setSelectedPesticideRecord] = useState<any | null>(null);
   const [suitabilityCropInput, setSuitabilityCropInput] = useState('Tomato');
   const [cibrcSuitabilityResult, setCibrcSuitabilityResult] = useState<any | null>(null);
   const [isLoadingSuitability, setIsLoadingSuitability] = useState(false);
@@ -121,12 +113,14 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
       try {
         const crops = await KisanSethuApi.searchCrops(cropSearchInput, selectedCropCategory, currentLang);
         if (isMounted) {
-          setCropList(crops);
-          if (!selectedCrop && crops.length > 0) {
-            setSelectedCrop(crops[0]);
-            setSuitabilityCropInput(crops[0].name_en || crops[0].name);
-            setRagCrop(crops[0].name_en || crops[0].name);
-          }
+          setSelectedCrop((prev: any) => {
+            if (!prev && crops.length > 0) {
+              setSuitabilityCropInput(crops[0].name_en || crops[0].name);
+              setRagCrop(crops[0].name_en || crops[0].name);
+              return crops[0];
+            }
+            return prev;
+          });
         }
       } catch (err) {
         console.warn('Crop load error:', err);
@@ -169,9 +163,11 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
   // 3. Search Specific Pesticides in CIBRC Database
   useEffect(() => {
     if (!pesticideSearchInput.trim() || pesticideSearchInput.trim().length < 2) {
-      setPesticideSearchResults([]);
-      setShowPesticideSuggestions(false);
-      return;
+      const timer = setTimeout(() => {
+        setPesticideSearchResults([]);
+        setShowPesticideSuggestions(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
     const timer = setTimeout(async () => {
       setIsSearchingPesticides(true);
@@ -204,9 +200,12 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
 
   useEffect(() => {
     if (activeTab === 'pesticide_search' && pesticideSearchInput && suitabilityCropInput) {
-      triggerSuitabilityCheck(pesticideSearchInput, suitabilityCropInput);
+      const timer = setTimeout(() => {
+        triggerSuitabilityCheck(pesticideSearchInput, suitabilityCropInput);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [activeTab, suitabilityCropInput]);
+  }, [activeTab, suitabilityCropInput, pesticideSearchInput]);
 
   // 5. Handle Outside Click for Suggestions
   useEffect(() => {
@@ -299,15 +298,6 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
   const displayedPresets = activePesticideCategory === 'ALL'
     ? allPresetsList
     : (cibrcPresets?.categories?.[activePesticideCategory] || []);
-
-  const categories = [
-    { id: 'all', label: t.allCropsCat || 'All Crops' },
-    { id: 'vegetable', label: t.vegetablesCat || 'Vegetables' },
-    { id: 'cereal', label: t.cerealsCat || 'Cereals' },
-    { id: 'fruit', label: t.fruitsCat || 'Fruits' },
-    { id: 'commercial', label: t.commercialCat || 'Commercial' },
-    { id: 'pulse', label: t.pulsesCat || 'Pulses' }
-  ];
 
   return (
     <div className="pesticide-dosage-container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px' }}>
@@ -910,7 +900,6 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
                           key={item.id}
                           onClick={() => {
                             setPesticideSearchInput(item.pesticide_name);
-                            setSelectedPesticideRecord(item);
                             setShowPesticideSuggestions(false);
                             triggerSuitabilityCheck(item.pesticide_name, suitabilityCropInput);
                           }}
@@ -1271,7 +1260,7 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
                   Ask CIBRC AI Doctor (Gemini RAG Engine)
                 </h3>
                 <span style={{ fontSize: '12px', color: '#6D28D9' }}>
-                  PostgreSQL CIBRC Database + Google Gemini 2.5 Flash Grounded Verification
+                  Official CIBRC Statutory Registry + Verified Agricultural AI Guide
                 </span>
               </div>
             </div>
@@ -1416,7 +1405,7 @@ export const PesticideDosageView: FC<PesticideDosageViewProps> = ({ currentLang,
             }}>
               <Loader2 size={36} className="spin-icon" style={{ color: '#7C3AED', margin: '0 auto 16px' }} />
               <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#1E1B4B', margin: '0 0 6px' }}>
-                Querying PostgreSQL CIBRC Registry & Consulting Gemini AI...
+                Consulting Official CIBRC Statutory Registry & Agricultural AI...
               </h4>
               <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
                 Retrieving official statutory doses, Pre-Harvest Intervals, and phytotoxicity rules.

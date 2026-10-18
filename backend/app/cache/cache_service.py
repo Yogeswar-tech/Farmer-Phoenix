@@ -6,10 +6,11 @@ Provides:
 - `@cached` route decorator for FastAPI endpoints with smart cache key generation.
 """
 
-import json
 import functools
+import json
 import logging
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from app.cache.redis_client import get_redis_client
 
@@ -19,10 +20,10 @@ logger = logging.getLogger("CacheService")
 class CacheService:
     """High-level caching service managing data serialization and TTLs."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = get_redis_client()
 
-    def get_json(self, key: str) -> Optional[Any]:
+    def get_json(self, key: str) -> Any | None:
         """Fetch and deserialize JSON from cache. Returns None on cache miss."""
         raw = self.client.get(key)
         if not raw:
@@ -72,15 +73,15 @@ class CacheService:
 cache_service = CacheService()
 
 
-def cached(prefix: str, ttl_seconds: int = 900):
+def cached(prefix: str, ttl_seconds: int = 900) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to cache API response in Redis with TTL.
     
     Generates deterministic cache key from route prefix and function keyword arguments.
     Adds `_cached: True` metadata to response dictionary.
     """
-    def decorator(func: Callable):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Build deterministic cache key from parameters
             sorted_args = "_".join(f"{k}={v}" for k, v in sorted(kwargs.items()) if v is not None)
             cache_key = f"{prefix}:{sorted_args}" if sorted_args else prefix

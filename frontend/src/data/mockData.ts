@@ -1,5 +1,8 @@
 import type { MandiItem, WeatherDay, CropDisease, GovtScheme, ColdStorageFacility, SoilReportData, SeasonalClimateOutlook, LocationOption, CropSuitability, PriceTrendDay, Language } from '../types';
 
+// Centralized verified Government of India Kisan Call Centre (KCC) config
+export { KISAN_CALL_CENTRE_NUMBER, KISAN_CALL_CENTRE_SHORTCODE } from '../config.ts';
+
 export const AGRICULTURAL_LOCATIONS: LocationOption[] = [
   {
     id: 'guntur',
@@ -1905,8 +1908,30 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   khammam: { lat: 17.2473, lng: 80.1514 },
   indore: { lat: 22.7196, lng: 75.8577 },
   nashik: { lat: 19.9975, lng: 73.7898 },
-  nagpur: { lat: 21.1458, lng: 79.0882 }
+  nagpur: { lat: 21.1458, lng: 79.0882 },
+  delhi: { lat: 28.7167, lng: 77.1734 },
+  khanna: { lat: 30.7046, lng: 76.2163 },
+  kolar: { lat: 13.1367, lng: 78.1292 },
+  pune: { lat: 18.5204, lng: 73.8567 },
+  chennai: { lat: 13.0694, lng: 80.1948 },
+  bengaluru: { lat: 12.9716, lng: 77.5946 },
+  ahmedabad: { lat: 23.0225, lng: 72.5714 }
 };
+
+export function calculateGeoDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const roadKm = Math.round(R * c * 1.25);
+  return Math.max(5, roadKm);
+}
 
 export function calculateLocationDistanceKm(fromId: string, toId: string): number {
   if (fromId === toId) return 0;

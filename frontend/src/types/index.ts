@@ -8,8 +8,7 @@ export type NavigationTab =
   | 'advisory'
   | 'soildoctor'
   | 'schemes'
-  | 'storage'
-  | 'charts';
+  | 'storage';
 
 export type LocationOption = {
   id: string;

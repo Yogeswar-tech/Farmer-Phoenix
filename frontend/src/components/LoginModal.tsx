@@ -5,6 +5,7 @@ import { X, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, Ale
 import { PhoneOtpSignIn } from './PhoneOtpSignIn';
 
 export interface FarmerProfile {
+  firebase_uid?: string;
   email: string;
   farmer_name: string;
   preferred_lang?: Language;

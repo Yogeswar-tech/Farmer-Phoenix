@@ -90,16 +90,7 @@ test("7. Today's Price & Location System Verification", () => {
   assert.ok(translations.en.selectLocationTitle, 'Select location title must exist');
 });
 
-test('8. Educational Charts Module & Multi-Grade Quality Structure', () => {
-  assert.ok(translations.en.tabCharts, 'English tabCharts must exist');
-  assert.strictEqual(translations.en.tabCharts, 'Educational Charts');
-  assert.ok(translations.hi.tabCharts, 'Hindi tabCharts must exist');
-  assert.ok(translations.te.tabCharts, 'Telugu tabCharts must exist');
-  assert.ok(translations.en.educationalChartsTitle, 'Educational charts title must exist');
-  assert.ok(translations.en.educationalChartsDesc, 'Educational charts description must exist');
-});
-
-test('9. AI Voice Assistant Mode & Enable Toggle Localization', () => {
+test('8. AI Voice Assistant Mode & Enable Toggle Localization', () => {
   assert.ok(translations.en.aiAssistantMode, 'aiAssistantMode must exist in English');
   assert.strictEqual(translations.en.aiAssistantMode, 'AI Voice Assistant Mode');
   assert.ok(translations.en.aiAssistantEnable, 'aiAssistantEnable must exist');

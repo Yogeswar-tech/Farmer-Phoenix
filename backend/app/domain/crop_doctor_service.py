@@ -9,8 +9,8 @@ Provides:
 """
 
 import logging
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger("CropDoctorService")
 
@@ -334,9 +334,9 @@ class CropDoctorEngine:
     def diagnose_crop(
         self,
         crop_key: str,
-        symptom_query: Optional[str] = None,
-        location_id: Optional[str] = None,
-        farmer_phone: Optional[str] = None,
+        symptom_query: str | None = None,
+        location_id: str | None = None,
+        farmer_phone: str | None = None,
         lang: str = "en"
     ) -> dict[str, Any]:
         """Perform pathology evaluation and cross-reference with live weather."""

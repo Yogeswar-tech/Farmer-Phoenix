@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ScraperScheduler")
 
-INTERVAL_SECONDS = 240 * 60 * 60  # 6 hours (21,600 seconds)
+INTERVAL_SECONDS = 6 * 60 * 60  # 6 hours (21,600 seconds)
 
 
 def run_forever():

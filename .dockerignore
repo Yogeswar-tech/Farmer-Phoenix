@@ -1,0 +1,50 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+
+# Quality & test caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+tests/
+evals/
+
+# Secrets & local env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+secrets/
+
+# Frontend & node artifacts (not needed in backend container)
+frontend/node_modules/
+frontend/dist/
+frontend/.expo/
+node_modules/
+
+# Local databases and logs
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.sqlite
+backend/data/chroma/
+*.log
+uploads/
+tmp/
+
+# Git and OS metadata
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

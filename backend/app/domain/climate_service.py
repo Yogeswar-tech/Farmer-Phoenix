@@ -22,7 +22,7 @@ import os
 import time
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, cast
 
 from app.cache.cache_service import CacheService
 from app.settings import settings
@@ -155,7 +155,7 @@ REGIONAL_CROP_PROFILES: dict[str, list[dict[str, Any]]] = {
 class ClimateEngine:
     """Unified Engine for Weather, All-India Google Maps and Locality Geocoding, Spray Decisions, and Farm Risk Advisories."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.google_weather_key = (
             getattr(settings, "google_weather_api_key", "") or
             getattr(settings, "google_maps_api_key", "") or
@@ -442,6 +442,38 @@ class ClimateEngine:
         except Exception as e:
             logger.debug("Open-Meteo Indian geocoding notice: %s", e)
 
+        # Fallback for common agricultural hubs if geocoding yields few results
+        if not results:
+            known_hubs = [
+                {"name": "Guntur", "district": "Guntur", "state": "Andhra Pradesh", "lat": 16.3067, "lon": 80.4365, "pin": "522004"},
+                {"name": "Madanapalle", "district": "Chittoor", "state": "Andhra Pradesh", "lat": 13.5560, "lon": 78.5010, "pin": "517325"},
+                {"name": "Nashik", "district": "Nashik", "state": "Maharashtra", "lat": 19.9975, "lon": 73.7898, "pin": "422001"},
+                {"name": "Ludhiana", "district": "Ludhiana", "state": "Punjab", "lat": 30.9010, "lon": 75.8573, "pin": "141001"},
+                {"name": "Kolar", "district": "Kolar", "state": "Karnataka", "lat": 13.1367, "lon": 78.1292, "pin": "563101"},
+                {"name": "Indore", "district": "Indore", "state": "Madhya Pradesh", "lat": 22.7196, "lon": 75.8577, "pin": "452001"},
+                {"name": "Varanasi", "district": "Varanasi", "state": "Uttar Pradesh", "lat": 25.3176, "lon": 82.9739, "pin": "221001"},
+                {"name": "Warangal", "district": "Warangal", "state": "Telangana", "lat": 17.9689, "lon": 79.5941, "pin": "506002"},
+                {"name": "Ahmedabad", "district": "Ahmedabad", "state": "Gujarat", "lat": 23.0225, "lon": 72.5714, "pin": "380001"},
+                {"name": "Patna", "district": "Patna", "state": "Bihar", "lat": 25.5941, "lon": 85.1376, "pin": "800001"},
+                {"name": "Thanjavur", "district": "Thanjavur", "state": "Tamil Nadu", "lat": 10.7870, "lon": 79.1378, "pin": "613001"},
+                {"name": "Jaipur", "district": "Jaipur", "state": "Rajasthan", "lat": 26.9124, "lon": 75.7873, "pin": "302001"},
+            ]
+            for hub in known_hubs:
+                h_name = str(hub["name"])
+                h_dist = str(hub["district"])
+                h_state = str(hub["state"])
+                if q in h_name.lower() or q in h_dist.lower() or q in h_state.lower():
+                    results.append({
+                        "id": f"{h_name.lower()}-{h_dist.lower()}",
+                        "name": h_name,
+                        "district": h_dist,
+                        "state": h_state,
+                        "latitude": hub["lat"],
+                        "longitude": hub["lon"],
+                        "pincode": hub["pin"],
+                        "zone": f"{h_state} Farm Zone",
+                        "source": "verified_hub"
+                    })
         return results[:10]
 
     def reverse_geocode_coordinates(self, lat: float, lon: float) -> dict[str, Any]:
@@ -995,12 +1027,12 @@ class ClimateEngine:
             f"&timezone=Asia%2FKolkata"
             f"&forecast_days={days_clamped}"
         )
-
         for attempt in range(2):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "KisanSethu-AgriClimateEngine/2.0"})
                 with urllib.request.urlopen(req, timeout=12) as response:
-                    return json.loads(response.read().decode("utf-8"))
+                    data = json.loads(response.read().decode("utf-8"))
+                    return cast(dict[str, Any], data) if isinstance(data, dict) else None
             except Exception as e:
                 if attempt == 0:
                     time.sleep(1.2)
@@ -1250,17 +1282,11 @@ class ClimateEngine:
     def get_unified_prediction(
 
         self,
-
         query: str | None = None,
-
         location_id: str = "guntur",
-
         district: str | None = None,
-
         lat: float | None = None,
-
         lon: float | None = None,
-
         days: int = 16,
 
         lang: str = "en"
@@ -1402,10 +1428,9 @@ class ClimateEngine:
         cached_payload = cache_service.get_json(cache_key)
 
         if cached_payload:
-
-            cached_payload["from_cache"] = True
-
-            return cached_payload
+            if isinstance(cached_payload, dict):
+                cached_payload["from_cache"] = True
+                return cast(dict[str, Any], cached_payload)
 
         # 2. Weather Fetch Strategy:
 
@@ -1466,7 +1491,6 @@ class ClimateEngine:
         daily = live_met.get("daily", {}) if live_met else {}
 
         current = live_met.get("current", {}) if live_met else {}
-
         hourly = live_met.get("hourly", {}) if live_met else {}
 
         dates = daily.get("time", [])

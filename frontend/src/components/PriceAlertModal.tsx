@@ -1,7 +1,7 @@
 import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
-import { X, Bell, MessageSquare, Phone, CheckCircle2, RefreshCw } from 'lucide-react';
+import { X, Bell, MessageSquare, Phone, CheckCircle2 } from 'lucide-react';
 
 interface PriceAlertModalProps {
   currentLang: Language;
@@ -163,8 +163,8 @@ export const PriceAlertModal: FC<PriceAlertModalProps> = ({
               </div>
 
               <div className="modal-actions">
-                <button type="submit" className="submit-alert-btn">
-                  {submitBtnText}
+                <button type="submit" disabled={submitting} className="submit-alert-btn">
+                  {submitting ? '...' : submitBtnText}
                 </button>
               </div>
             </form>

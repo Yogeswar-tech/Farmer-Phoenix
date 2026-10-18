@@ -96,8 +96,10 @@ export const LocationModal: FC<LocationModalProps> = ({
   // Debounced search with Google Maps API and Pan-India Agricultural Geocoder
   useEffect(() => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
-      setRemoteResults([]);
-      return;
+      const timer = setTimeout(() => {
+        setRemoteResults([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const timer = setTimeout(async () => {
