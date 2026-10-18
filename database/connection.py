@@ -216,6 +216,20 @@ def init_database() -> None:
                         cur.execute("ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding text;")
                 except Exception:
                     pass
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS demo_videos (
+                        id SERIAL PRIMARY KEY,
+                        title VARCHAR(200) NOT NULL,
+                        description TEXT,
+                        video_url VARCHAR(500),
+                        thumbnail_url VARCHAR(500),
+                        duration_seconds INTEGER DEFAULT 0,
+                        language VARCHAR(10) DEFAULT 'te',
+                        is_active BOOLEAN DEFAULT TRUE,
+                        sort_order INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
             logger.info("PostgreSQL schema successfully initialized from schema.sql.")
 
             if seed_file.exists():

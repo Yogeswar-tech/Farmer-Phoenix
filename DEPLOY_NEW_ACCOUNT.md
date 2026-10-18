@@ -381,7 +381,7 @@ gcloud run services add-iam-policy-binding kisan-sethu \
 
 ADMIN_KEY=$(gcloud secrets versions access latest --secret=KS_ADMIN_API_KEY)
 
-# Create 6-hour cron job
+# Job 1: 6-hour mandi price scraping
 gcloud scheduler jobs create http kisan-sethu-mandi-refresh \
   --location=asia-south1 \
   --schedule="0 */6 * * *" \
@@ -389,6 +389,17 @@ gcloud scheduler jobs create http kisan-sethu-mandi-refresh \
   --http-method=POST \
   --headers="Content-Type=application/json,X-Admin-Key=${ADMIN_KEY}" \
   --message-body='{"scraper":"agmarknet"}' \
+  --oidc-service-account-email="$SCHEDULER_SA" \
+  --time-zone="Asia/Kolkata"
+
+# Job 2: Daily DB cleanup at midnight IST (keeps only last 30 days of mandi prices)
+gcloud scheduler jobs create http kisan-sethu-db-cleanup \
+  --location=asia-south1 \
+  --schedule="0 0 * * *" \
+  --uri="$SERVICE_URL/v1/db/admin/cleanup-old-data?days_to_keep=30" \
+  --http-method=POST \
+  --headers="Content-Type=application/json,X-Admin-Key=${ADMIN_KEY}" \
+  --message-body='{}' \
   --oidc-service-account-email="$SCHEDULER_SA" \
   --time-zone="Asia/Kolkata"
 ```

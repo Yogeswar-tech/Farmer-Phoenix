@@ -201,19 +201,67 @@ export function App() {
     if (localStorage.getItem('ks_auth_profile') || localStorage.getItem('ks_loc_manual') === 'true') return;
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude } = pos.coords;
-        const nearest = getNearestLocationFromCoords(latitude, longitude);
-        const geoLang = getLanguageForLocation(nearest);
 
-        const hasManualLoc = localStorage.getItem('ks_loc_manual') === 'true';
-        if (!hasManualLoc) {
-          setCurrentLocation(nearest);
-          localStorage.setItem('ks_user_location_id', nearest.id);
+        // Try backend reverse geocode first for accurate village/district resolution
+        let resolved = false;
+        try {
+          const geoRes = await KisanSethuApi.reverseGeocodeLocation(latitude, longitude);
+          if (geoRes && (geoRes.district || geoRes.location_id)) {
+            const hasManualLoc = localStorage.getItem('ks_loc_manual') === 'true';
+            if (!hasManualLoc) {
+              const dynamicLoc: LocationOption = {
+                id: geoRes.location_id || `gps-${geoRes.district?.toLowerCase().replace(/\s+/g, '-')}`,
+                name: {
+                  en: geoRes.village || geoRes.district || 'My Location',
+                  hi: geoRes.village || geoRes.district || 'मेरा स्थान',
+                  te: geoRes.village || geoRes.district || 'నా స్థానం'
+                },
+                state: {
+                  en: geoRes.state || 'Andhra Pradesh',
+                  hi: geoRes.state || 'आंध्र प्रदेश',
+                  te: geoRes.state || 'ఆంధ్ర ప్రదేశ్'
+                },
+                district: {
+                  en: geoRes.district || 'Guntur',
+                  hi: geoRes.district || 'गुंटूर',
+                  te: geoRes.district || 'గుంటూర్'
+                },
+                mandiName: {
+                  en: `${geoRes.district || 'Local'} APMC Yard`,
+                  hi: `${geoRes.district || 'स्थानीय'} कृषि मंडी`,
+                  te: `${geoRes.district || 'స్థానిక'} మార్కెట్ యార్డ్`
+                },
+                pincode: geoRes.pincode || '',
+                lat: latitude,
+                lng: longitude
+              };
+              setCurrentLocation(dynamicLoc);
+              localStorage.setItem('ks_user_location_id', dynamicLoc.id);
+              localStorage.setItem('ks_gps_lat', String(latitude));
+              localStorage.setItem('ks_gps_lng', String(longitude));
+              resolved = true;
+            }
+          }
+        } catch {
+          // Backend geocode failed, fall back to local snap
+        }
+
+        if (!resolved) {
+          const nearest = getNearestLocationFromCoords(latitude, longitude);
+          const hasManualLoc = localStorage.getItem('ks_loc_manual') === 'true';
+          if (!hasManualLoc) {
+            setCurrentLocation(nearest);
+            localStorage.setItem('ks_user_location_id', nearest.id);
+            localStorage.setItem('ks_gps_lat', String(latitude));
+            localStorage.setItem('ks_gps_lng', String(longitude));
+          }
         }
 
         const hasManualLang = localStorage.getItem('ks_lang_manual') === 'true';
         if (!hasManualLang) {
+          const geoLang = getLanguageForLocation(currentLocation);
           setCurrentLang(geoLang);
           localStorage.setItem('ks_user_lang', geoLang);
         }
@@ -223,7 +271,7 @@ export function App() {
       },
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
     );
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLanguageChange = (lang: Language) => {
     setCurrentLang(lang);
@@ -272,6 +320,33 @@ export function App() {
     }
   }, [currentLang]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [liveSearchResults, setLiveSearchResults] = useState<Array<{cropKey: string; displayName: string; market?: string; price?: string}>>([]);
+
+  // Live search: debounced call to backend crop-search when query >= 3 chars
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 3) {
+      setLiveSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await KisanSethuApi.searchCropTodayPrice(searchQuery.trim(), undefined, currentLocation.state.en);
+        if (res && res.status === 'success' && res.commodity) {
+          setLiveSearchResults([{
+            cropKey: (res.commodity as string).toLowerCase().replace(/\s+/g, '_'),
+            displayName: res.commodity as string,
+            market: res.market as string | undefined,
+            price: res.modal_price_qtl ? `₹${res.modal_price_qtl}/qtl` : undefined
+          }]);
+        } else {
+          setLiveSearchResults([]);
+        }
+      } catch {
+        setLiveSearchResults([]);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentLocation.state.en]);
 
   // AI Voice Assistant State
   const [isAiModeEnabled, setIsAiModeEnabled] = useState(true);
@@ -732,14 +807,21 @@ export function App() {
   };
 
   const handleShareWhatsApp = () => {
-    const modalPrice = activeMandi.grades.find((g) => g.gradeCode === 'MODAL')?.modalPrice || 14200;
+    const modalPrice = activeMandi.grades.find((g) => g.gradeCode === 'MODAL')?.modalPrice
+      || (liveMandiRecord?.modal_price_qtl ? Number(liveMandiRecord.modal_price_qtl) : null)
+      || 0;
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://kisan-sethu.run.app';
+    const weatherNote = liveWeatherRecord?.spray_advisory
+      || liveWeatherRecord?.advisory_text
+      || (currentLang === 'hi' ? 'मौसम जाँचें' : currentLang === 'te' ? 'వాతావరణం తనిఖీ చేయండి' : 'Check weather advisory');
+    const priceStr = modalPrice > 0 ? `₹${modalPrice.toLocaleString()}` : (currentLang === 'hi' ? 'भाव जाँचें' : currentLang === 'te' ? 'ధర చూడండి' : 'Check price');
     let text = '';
     if (currentLang === 'hi') {
-      text = `🌾 *किसान सेतु (Kisan Setu) आज का मंडी भाव*\n📍 ${activeMandi.mandiName.hi} - ${activeMandi.cropName.hi} (${activeMandi.variety})\n💰 मुख्य भाव: ₹${modalPrice.toLocaleString()}/क्विंटल (▲ +₹${activeMandi.priceTrend.diffLastWeek} पिछले सप्ताह से अधिक)\n✅ सलाह: बेचने का उत्तम समय\n⚠️ मौसम चेतावनी: गुरुवार को भारी बारिश की संभावना (छिड़काव न करें)\n🔗 ताजा भाव व रसीद देखें: https://kisansetu.in`;
+      text = `🌾 *किसान सेतु — आज का मंडी भाव*\n📍 ${activeMandi.mandiName.hi} - ${activeMandi.cropName.hi}\n💰 मुख्य भाव: ${priceStr}/क्विंटल\n⚠️ मौसम: ${weatherNote}\n🔗 ताजा भाव: ${appUrl}`;
     } else if (currentLang === 'te') {
-      text = `🌾 *కిసాన్ సేతు (Kisan Setu) నేటి మార్కెట్ ధరలు*\n📍 ${activeMandi.mandiName.te} - ${activeMandi.cropName.te} (${activeMandi.variety})\n💰 ప్రధాన ధర: ₹${modalPrice.toLocaleString()}/క్వింటా (▲ +₹${activeMandi.priceTrend.diffLastWeek} పెరుగుదల)\n✅ సలహా: అమ్మడానికి మంచి సమయం\n⚠️ వాతావరణం: గురువారం భారీ వర్షం సూచన (పిచికారీ వాయిదా వేయండి)\n🔗 పూర్తి వివరాలు: https://kisansetu.in`;
+      text = `🌾 *కిసాన్ సేతు — నేటి మార్కెట్ ధరలు*\n📍 ${activeMandi.mandiName.te} - ${activeMandi.cropName.te}\n💰 ప్రధాన ధర: ${priceStr}/క్వింటా\n⚠️ వాతావరణం: ${weatherNote}\n🔗 పూర్తి వివరాలు: ${appUrl}`;
     } else {
-      text = `🌾 *Kisan Setu Live Mandi Prices*\n📍 ${activeMandi.mandiName.en} - ${activeMandi.cropName.en} (${activeMandi.variety})\n💰 Modal Price: ₹${modalPrice.toLocaleString()}/quintal (▲ +₹${activeMandi.priceTrend.diffLastWeek} higher above last week)\n✅ Advisory: Good time to sell\n⚠️ Weather: Heavy rain expected Thursday (delay spraying)\n🔗 View live rates & advisory: https://kisansetu.in`;
+      text = `🌾 *Kisan Sethu — Live Mandi Prices*\n📍 ${activeMandi.mandiName.en} - ${activeMandi.cropName.en}\n💰 Modal Price: ${priceStr}/quintal\n⚠️ Weather: ${weatherNote}\n🔗 View live rates: ${appUrl}`;
     }
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -865,6 +947,7 @@ export function App() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onSelectCrop={(key) => setSelectedCropKey(key)}
+          liveSearchResults={liveSearchResults}
           isLoggedIn={isLoggedIn}
           userName={userName}
           currentLocation={currentLocation}
@@ -894,6 +977,8 @@ export function App() {
             style={[styles.mainScrollView, isMobile && styles.mainScrollViewMobile]}
             contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}
           >
+            {/* Keyed wrapper triggers CSS fade-in animation on every tab change */}
+            <div key={activeTab} className="ks-tab-content" style={{ width: '100%' }}>
             {/* TAB 1: Home Dashboard - Clean Modern Farmer-First Interface */}
             {activeTab === 'home' && (
               <FarmerHomeDashboard
@@ -1015,6 +1100,7 @@ export function App() {
                 />
               </Suspense>
             )}
+            </div>{/* end ks-tab-content */}
           </ScrollView>
         </View>
 

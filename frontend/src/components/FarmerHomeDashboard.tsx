@@ -1,6 +1,7 @@
 import { useState, useMemo, type FC } from 'react';
 import './FarmerHomeDashboard.css';
 import type { Language, MandiItem, LocationOption, NavigationTab } from '../types';
+import { DemoVideoSection } from './DemoVideoSection';
 import { translations } from '../data/i18n';
 import { KISAN_CALL_CENTRE_NUMBER } from '../config';
 import {
@@ -510,6 +511,9 @@ export const FarmerHomeDashboard: FC<FarmerHomeDashboardProps> = ({
           </span>
         </div>
       </div>
+
+      {/* 6. Demo Video Section */}
+      <DemoVideoSection currentLang={currentLang} />
     </div>
   );
 };

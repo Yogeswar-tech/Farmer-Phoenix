@@ -1422,5 +1422,29 @@ export class KisanSethuApi {
       return null;
     }
   }
+
+  static async getDemoVideos(): Promise<Array<{
+    id: number;
+    title: string;
+    description?: string;
+    video_url?: string;
+    thumbnail_url?: string;
+    duration_seconds?: number;
+    language?: string;
+  }>> {
+    try {
+      return await this.request<any[]>('/db/demo-videos');
+    } catch {
+      return [{
+        id: 1,
+        title: 'Kisan Sethu Demo - Live Mandi Prices',
+        description: 'See how to get live crop prices, weather forecasts, and crop doctor advice.',
+        video_url: '',
+        thumbnail_url: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=640&q=80',
+        duration_seconds: 180,
+        language: 'te'
+      }];
+    }
+  }
 }
 

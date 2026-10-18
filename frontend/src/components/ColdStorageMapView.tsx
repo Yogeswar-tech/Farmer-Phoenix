@@ -312,7 +312,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           typeof cs.location === 'object'
             ? cs.location
             : { en: `${cs.district || ''}, ${cs.state || ''}`, hi: `${cs.district || ''}, ${cs.state || ''}`, te: `${cs.district || ''}, ${cs.state || ''}` },
-        district: cs.district || 'Guntur',
+        district: cs.district || '',
         state: cs.state || 'Andhra Pradesh',
         lat: coords.lat,
         lng: coords.lng,
@@ -642,10 +642,10 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
             type="text"
             placeholder={
               currentLang === 'hi'
-                ? 'गाँव, ज़िला, राज्य या कोल्ड स्टोरेज खोजें (उदा: गुंटूर, नासिक, आगरा, शिमला)...'
+                ? 'गाँव, ज़िला, राज्य या कोल्ड स्टोरेज खोजें (उदा: नासिक, आगरा, कोलार, शिमला)...'
                 : currentLang === 'te'
-                ? 'గ్రామం, జిల్లా, కోల్డ్ స్టోరేజ్ వెతకండి (ఉదా: గుంటూరు, నాసిక్, కోలార్, ఆగ్రా)...'
-                : 'Search town, district, state, or cold storage (e.g. Guntur, Nashik, Kolar, Agra, Shimla)...'
+                ? 'గ్రామం, జిల్లా, కోల్డ్ స్టోరేజ్ వెతకండి (ఉదా: నాసిక్, కోలార్, ఆగ్రా, శిమ్లా)...'
+                : 'Search town, district, state, or cold storage (e.g. Nashik, Kolar, Agra, Shimla)...'
             }
             value={mapQuery}
             onChange={(e) => setMapQuery(e.target.value)}
@@ -661,17 +661,19 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           </button>
         </form>
 
-        {/* GPS Live Auto-Detect Button */}
-        <button
-          type="button"
-          onClick={handleTriggerGps}
-          className={`radius-pill ${gpsActive ? 'active' : ''}`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: gpsActive ? '#059669' : '#FFFFFF', color: gpsActive ? '#FFFFFF' : '#065F46', borderColor: '#059669' }}
-          title="Auto-detect current GPS location"
-        >
-          <LocateFixed size={15} />
-          <span>{gpsActive ? (currentLang === 'hi' ? 'जीपीएस सक्रिय' : currentLang === 'te' ? 'జీపీఎస్ ఆన్‌లో ఉంది' : 'GPS Active') : (currentLang === 'hi' ? 'मेरा जीपीएस स्थान' : currentLang === 'te' ? 'నా జీపీఎస్' : 'Use My GPS')}</span>
-        </button>
+        {/* GPS Live Auto-Detect Button — only shown when GPS is not yet active */}
+        {!gpsActive && (
+          <button
+            type="button"
+            onClick={handleTriggerGps}
+            className="radius-pill"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFFFF', color: '#065F46', borderColor: '#059669' }}
+            title="Auto-detect current GPS location"
+          >
+            <LocateFixed size={15} />
+            <span>{currentLang === 'hi' ? 'मेरा जीपीएस स्थान' : currentLang === 'te' ? 'నా జీపీఎస్' : 'Use My GPS'}</span>
+          </button>
+        )}
 
         {/* Category Segment Tabs */}
         <div className="map-category-tabs">
@@ -1047,7 +1049,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           </div>
 
           {/* Leaflet Map Target DOM */}
-          <div ref={mapContainerRef} className="leaflet-map-target-dom" />
+          <div ref={mapContainerRef} className="leaflet-map-target-dom" style={{ height: '100%', minHeight: '400px' }} />
 
           {/* Map Bottom Legend Overlay */}
           <div className="leaflet-map-legend-bar">
