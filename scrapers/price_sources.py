@@ -348,7 +348,7 @@ class OpenMandiApiSource:
                 }
             )
             try:
-                with urllib.request.urlopen(req, timeout=10.0) as resp:
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
                     if resp.status == 200:
                         payload = json.loads(resp.read().decode("utf-8"))
                         if payload.get("success") and isinstance(payload.get("data"), list):

@@ -581,20 +581,24 @@ class TodaysLivePageScraper:
         tasks = [(crop, state) for state in _AP_TG_STATES for crop in _AP_TG_CROPS]
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
             futures = {pool.submit(_fetch_one, crop, state): (crop, state) for crop, state in tasks}
-            for fut in concurrent.futures.as_completed(futures, timeout=45):
-                try:
-                    rows_to_insert = fut.result()
-                    if not rows_to_insert:
-                        continue
-                    with get_live_today_db() as cur:
-                        for r in rows_to_insert:
-                            try:
-                                self._insert_row(cur, *r)
-                                live_fetched += 1
-                            except Exception as exc:
-                                logger.debug("Live API row insert skip: %s", exc)
-                except Exception as exc:
-                    logger.debug("Live API parallel fetch exception: %s", exc)
+            try:
+                completed = concurrent.futures.as_completed(futures, timeout=50)
+                for fut in completed:
+                    try:
+                        rows_to_insert = fut.result()
+                        if not rows_to_insert:
+                            continue
+                        with get_live_today_db() as cur:
+                            for r in rows_to_insert:
+                                try:
+                                    self._insert_row(cur, *r)
+                                    live_fetched += 1
+                                except Exception as exc:
+                                    logger.debug("Live API row insert skip: %s", exc)
+                    except Exception as exc:
+                        logger.debug("Live API parallel fetch exception: %s", exc)
+            except concurrent.futures.TimeoutError:
+                logger.warning("Live API parallel fetch timed out; using %d records fetched so far.", live_fetched)
 
         synced_count += live_fetched
         FastCache.invalidate("live_today:")
