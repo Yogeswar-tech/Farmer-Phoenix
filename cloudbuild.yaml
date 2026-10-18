@@ -45,6 +45,7 @@ steps:
       - --platform=managed
       - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
       - --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - --startup-probe=tcpSocket.port=8080,failureThreshold=3,periodSeconds=120,timeoutSeconds=120
       - --region=asia-south1
       - --quiet
 
@@ -60,6 +61,7 @@ steps:
       - --platform=managed
       - --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA
       - --labels=promoted-from=kisan-sethu,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - --startup-probe=tcpSocket.port=8080,failureThreshold=3,periodSeconds=120,timeoutSeconds=120
       - --region=asia-south1
       - --quiet
 
