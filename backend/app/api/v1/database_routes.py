@@ -1376,3 +1376,65 @@ def trigger_scraper_endpoint(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/demo-videos")
+def get_demo_videos() -> list[dict]:
+    """Returns list of demo/tutorial videos stored in PostgreSQL."""
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(
+                "SELECT id, title, description, video_url, thumbnail_url, duration_seconds, language, sort_order "
+                "FROM demo_videos WHERE is_active = TRUE ORDER BY sort_order ASC"
+            )
+            rows = cur.fetchall()
+            return [dict(r) for r in rows]
+    except Exception as exc:
+        logger.warning("Could not fetch demo videos: %s", exc)
+        return []
+
+
+@router.post("/admin/videos", dependencies=[Depends(verify_admin_key)])
+def upsert_demo_video(
+    video_data: dict = Body(default=...)
+) -> dict:
+    """Admin endpoint: Add or update a demo video record."""
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(
+                "INSERT INTO demo_videos (title, description, video_url, thumbnail_url, duration_seconds, language, sort_order) "
+                "VALUES (%(title)s, %(description)s, %(video_url)s, %(thumbnail_url)s, %(duration_seconds)s, %(language)s, %(sort_order)s) "
+                "RETURNING id",
+                {
+                    "title": video_data.get("title", ""),
+                    "description": video_data.get("description", ""),
+                    "video_url": video_data.get("video_url", ""),
+                    "thumbnail_url": video_data.get("thumbnail_url", ""),
+                    "duration_seconds": int(video_data.get("duration_seconds", 0)),
+                    "language": video_data.get("language", "te"),
+                    "sort_order": int(video_data.get("sort_order", 0)),
+                }
+            )
+            row = cur.fetchone()
+            return {"status": "success", "id": row["id"] if isinstance(row, dict) else row[0]}
+    except Exception as exc:
+        logger.error("Failed to upsert demo video: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/admin/cleanup-old-data", dependencies=[Depends(verify_admin_key)])
+def cleanup_old_mandi_data(
+    days_to_keep: int = 30
+) -> dict:
+    """Admin: Delete mandi price records older than N days to keep DB lean."""
+    try:
+        with get_db_cursor() as cur:
+            # Use format string for INTERVAL (safe: days_to_keep validated as int by FastAPI)
+            cur.execute(
+                f"DELETE FROM mandi_prices WHERE arrival_date < CURRENT_DATE - INTERVAL '{int(days_to_keep)} days'"
+            )
+            deleted = cur.rowcount
+        return {"status": "success", "deleted_rows": deleted, "days_kept": days_to_keep}
+    except Exception as exc:
+        logger.error("Cleanup failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+

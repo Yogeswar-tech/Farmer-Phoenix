@@ -301,10 +301,11 @@ export const MandiLogisticsView: FC<MandiLogisticsViewProps> = ({
     }
   };
 
-  // Calculations: Prioritize live backend values if available
+  // Calculations: Prioritize live backend values, then live mandi prop, then static fallback
   const ratePerKm = vehicle === 'tractor' ? 24 : 16;
   const baseFreight = backendRoi?.expenses?.total_transport_cost ?? (distanceKm * 2 * ratePerKm);
-  const localPrice = backendRoi?.rates?.local_mandi_modal_qtl ?? currentIntel.localPrice;
+  const livePropModalPrice = mandi?.grades?.find((g: any) => g.gradeCode === 'MODAL')?.modalPrice;
+  const localPrice = backendRoi?.rates?.local_mandi_modal_qtl ?? livePropModalPrice ?? currentIntel.localPrice;
   const distantMandiPrice = backendRoi?.rates?.destination_mandi_modal_qtl ?? currentIntel.destinationPrice;
   const priceDiffPerQt = backendRoi?.rates?.price_diff_per_qtl ?? Math.max(0, distantMandiPrice - localPrice);
   const grossGain = backendRoi?.financials?.gross_spread ?? (loadQuintals * priceDiffPerQt);
