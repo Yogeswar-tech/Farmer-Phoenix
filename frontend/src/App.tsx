@@ -402,20 +402,21 @@ export function App() {
         const isSample = Boolean(res?.isSample);
         setIsMandiSample(isSample);
 
-        if (isMounted && rates && rates.length > 0 && !isSample) {
+        if (isMounted && rates && rates.length > 0) {
           const keyLower = selectedCropKey.toLowerCase().replace(/_/g, ' ');
           const matched = rates.find((r: any) => {
-            const comm = (r.commodity || '').toLowerCase();
+            const comm = (r.commodity || r.cropKey || '').toLowerCase();
             const aliases = (r.payload?.aliases || '').toLowerCase();
             return comm.includes(keyLower) || keyLower.includes(comm) || aliases.includes(keyLower);
           }) || rates[0];
           setLiveMandiRecord(matched);
-          setIsLiveFromBackend(true);
+          setIsLiveFromBackend(!isSample);
           setIsMandiError(false);
+          setIsMandiSample(isSample);
         } else {
           // Direct fallback to live-today crop search
           const searchRes = await KisanSethuApi.searchCropTodayPrice(selectedCropKey, `${currentLocation.name.en} APMC Yard`, currentLocation.state.en);
-          if (isMounted && searchRes && searchRes.status === 'success') {
+          if (isMounted && searchRes && searchRes.status === 'success' && (searchRes.min_price_qtl || searchRes.modal_price_qtl)) {
             setLiveMandiRecord(searchRes);
             setIsLiveFromBackend(true);
             setIsMandiError(false);
@@ -458,9 +459,10 @@ export function App() {
         const isSample = Boolean(res?.isSample);
         setIsWeatherSample(isSample);
 
-        if (isMounted && weatherList && weatherList.length > 0 && !isSample) {
+        if (isMounted && weatherList && weatherList.length > 0) {
           setLiveWeatherRecord(weatherList[0]);
           setIsWeatherError(false);
+          setIsWeatherSample(isSample);
         } else {
           if (isMounted) {
             setLiveWeatherRecord(null);

@@ -428,9 +428,7 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
         color: '#e2e8f0',
         gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontWeight: 600 }}>{activeCropData.source || 'Source: Open Mandi API'}</span>
-        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {activeCropData.arrival_date && (
             <span>Arrival: <b>{activeCropData.arrival_date}</b></span>

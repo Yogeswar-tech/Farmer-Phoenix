@@ -27,13 +27,7 @@ const getApiBaseUrl = (): string => {
     const raw = custom.replace(/\/+$/, '');
     return raw.endsWith('/v1') ? raw : `${raw}/v1`;
   }
-  if (typeof window !== 'undefined') {
-    if (window.location.port === '5173' || window.location.port === '3000') {
-      return 'http://127.0.0.1:8000/v1';
-    }
-    return '/v1';
-  }
-  return 'http://127.0.0.1:8000/v1';
+  return '/v1';
 };
 
 const API_BASE_URL = getApiBaseUrl();

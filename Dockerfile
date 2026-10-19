@@ -32,7 +32,6 @@ ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
     VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 
 # Install dependencies using lockfile caching
-COPY frontend/package.json ./
 COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 
@@ -78,8 +77,9 @@ RUN ln -s /app/backend/app /app/app && \
     ln -s /app/backend/data /app/data && \
     ln -s /app/backend/scripts /app/scripts
 
-# 3. Copy compiled Frontend SPA bundle from Stage 1 into /app/static
+# 3. Copy compiled Frontend SPA bundle from Stage 1 into /app/static and mirror to /app/backend/static
 COPY --from=frontend-builder /app/frontend/dist /app/static
+RUN ln -s /app/static /app/backend/static
 
 # Ensure non-root user owns the application directory
 RUN chown -R appuser:appuser /app

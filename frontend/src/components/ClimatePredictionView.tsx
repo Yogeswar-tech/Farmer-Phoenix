@@ -978,6 +978,20 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
                 <ShieldCheck size={14} />
                 <span>{getLocText(currentConditions.sprayWindowToday, currentLang)}</span>
               </div>
+              <div style={{
+                background: unifiedData?.engine?.is_google_weather ? '#EFF6FF' : '#F1F5F9',
+                color: unifiedData?.engine?.is_google_weather ? '#1D4ED8' : '#475569',
+                border: `1px solid ${unifiedData?.engine?.is_google_weather ? '#BFDBFE' : '#CBD5E1'}`,
+                padding: '6px 12px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                fontWeight: '800'
+              }}>
+                <span>{unifiedData?.engine?.is_google_weather ? '🌐 Google Weather API' : '🛰️ Satellite & IMD'}</span>
+              </div>
             </div>
           </div>
         )}

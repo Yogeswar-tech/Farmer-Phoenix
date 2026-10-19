@@ -96,6 +96,32 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS live_today_mandi_prices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        commodity TEXT NOT NULL,
+        market TEXT,
+        district TEXT,
+        state TEXT,
+        variety TEXT DEFAULT 'FAQ',
+        grade TEXT DEFAULT 'Standard',
+        arrival_date TEXT,
+        session TEXT DEFAULT 'LIVE_CYCLE',
+        arrival_quintals REAL DEFAULT 0.0,
+        min_price_qtl REAL,
+        max_price_qtl REAL,
+        modal_price_qtl REAL,
+        modal_price_kg REAL,
+        trend TEXT DEFAULT 'STABLE',
+        source TEXT DEFAULT 'AGMARKNET',
+        payload TEXT,
+        scraped_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_ltp_commodity ON live_today_mandi_prices (commodity);")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ltp_dedup ON live_today_mandi_prices (commodity, market, arrival_date);")
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS mandi_price_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         market TEXT NOT NULL,
@@ -416,6 +442,34 @@ def init_sqlite_tables(db_path: Path | str = DB_FILE) -> None:
     );
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_verifications (phone_number);")
+
+    # Baseline benchmark seeding for SQLite mode so primary crops are never empty
+    cursor.execute("SELECT COUNT(*) FROM mandi_prices WHERE LOWER(commodity) LIKE '%chilli%';")
+    row = cursor.fetchone()
+    chilli_count = row[0] if row else 0
+    if chilli_count == 0:
+        import json
+        from scrapers.mandi_scraper import BENCHMARK_MANDI_FEEDS
+        for r in BENCHMARK_MANDI_FEEDS:
+            try:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO mandi_prices (
+                        state, district, market, commodity, variety, grade,
+                        arrival_date, arrival_quintals, min_price_qtl, max_price_qtl,
+                        modal_price_qtl, modal_price_kg, source, raw_payload
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """, (
+                    r["state"], r["district"], r["market"], r["commodity"],
+                    r.get("variety", "FAQ"), r.get("grade", "Standard"),
+                    r.get("arrival_date", datetime.date.today().isoformat()),
+                    float(r.get("arrival_quintals", 0.0)),
+                    float(r["min_price_qtl"]), float(r["max_price_qtl"]),
+                    float(r["modal_price_qtl"]), round(float(r["modal_price_qtl"]) / 100.0, 1),
+                    r.get("source", "AGMARKNET_LIVE_SCRAPER"),
+                    json.dumps(r.get("raw_payload", {}))
+                ))
+            except Exception:
+                pass
 
     conn.close()
 

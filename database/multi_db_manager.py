@@ -196,7 +196,10 @@ def query_live_today(
         if cached is not None:
             return cached
 
+    from database.connection import is_postgres_active
     with get_live_today_db() as cur:
+        if not is_postgres_active() and not _USING_DEDICATED_PG:
+            query = query.replace("%s", "?")
         cur.execute(query, params)
         rows = cur.fetchall()
         results = [dict(r) for r in rows] if rows else []

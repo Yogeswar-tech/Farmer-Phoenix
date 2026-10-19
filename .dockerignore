@@ -33,6 +33,7 @@ node_modules/
 
 # Local databases and logs
 *.db
+!database/cibrc_pesticide_registry.db
 *.sqlite
 *.sqlite3
 backend/data/*.sqlite

@@ -56,8 +56,8 @@ def get_mandi_rates(
     params: list[Any] = []
 
     if commodity:
-        query += f" AND LOWER(commodity) = LOWER({placeholder})"
-        params.append(commodity)
+        query += f" AND (LOWER(commodity) = LOWER({placeholder}) OR LOWER(commodity) LIKE {placeholder})"
+        params.extend([commodity, f"%{commodity.lower()}%"])
     if state:
         query += f" AND LOWER(state) = LOWER({placeholder})"
         params.append(state)
@@ -69,6 +69,17 @@ def get_mandi_rates(
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
         items = [dict(r) for r in rows]
+
+    # If state-filtered query produced 0 records, fallback to matching commodity nationwide
+    if not items and state and commodity:
+        fallback_query = (
+            f"SELECT * FROM mandi_prices WHERE (LOWER(commodity) = LOWER({placeholder}) OR LOWER(commodity) LIKE {placeholder}) "
+            f"ORDER BY arrival_date DESC, modal_price_qtl DESC LIMIT {placeholder}"
+        )
+        with get_db_cursor() as cursor:
+            cursor.execute(fallback_query, (commodity, f"%{commodity.lower()}%", limit))
+            rows = cursor.fetchall()
+            items = [dict(r) for r in rows]
 
     return {
         "status": "success",
@@ -104,6 +115,26 @@ def get_weather_advisories(
         rows = cursor.fetchall()
         items = [dict(r) for r in rows]
 
+    # If location is custom GPS or unlisted, fall back to nearest agricultural hub
+    if not items and location_id:
+        loc_lower = location_id.lower()
+        if any(k in loc_lower for k in ["karnataka", "bengaluru", "bangalore", "kolar", "mysore"]):
+            fallback_hub = "kolar"
+        elif any(k in loc_lower for k in ["maharashtra", "nashik", "pune", "mumbai"]):
+            fallback_hub = "nashik"
+        elif any(k in loc_lower for k in ["telangana", "warangal", "hyderabad", "khammam"]):
+            fallback_hub = "warangal"
+        elif any(k in loc_lower for k in ["chittoor", "madanapalle", "tirupati", "kadapa", "rayalaseema"]):
+            fallback_hub = "madanapalle"
+        else:
+            fallback_hub = "guntur"
+
+        fallback_query = f"SELECT * FROM weather_advisories WHERE LOWER(location_id) = LOWER({placeholder}) ORDER BY forecast_date ASC LIMIT {placeholder}"
+        with get_db_cursor() as cursor:
+            cursor.execute(fallback_query, (fallback_hub, limit))
+            rows = cursor.fetchall()
+            items = [dict(r) for r in rows]
+
     return {
         "status": "success",
         "location": location_id,
@@ -111,6 +142,7 @@ def get_weather_advisories(
         "database_engine": "PostgreSQL" if use_pg else "SQLite (Fallback)",
         "data": items
     }
+
 
 
 def _haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -1244,20 +1276,26 @@ def get_live_today_prices(
     """Retrieve today's live scraped mandi prices from dedicated PostgreSQL `kisan_live_today_db`."""
     from database.multi_db_manager import query_live_today
 
+    use_pg = is_postgres_active()
+    placeholder = "%s" if use_pg else "?"
+
     query = "SELECT * FROM live_today_mandi_prices WHERE 1=1"
     params: list[Any] = []
 
     if commodity:
-        query += " AND (LOWER(commodity) LIKE %s OR LOWER(COALESCE(payload->>'aliases', '')) LIKE %s)"
+        if use_pg:
+            query += f" AND (LOWER(commodity) LIKE {placeholder} OR LOWER(COALESCE(payload->>'aliases', '')) LIKE {placeholder})"
+        else:
+            query += f" AND (LOWER(commodity) LIKE {placeholder} OR LOWER(COALESCE(payload, '')) LIKE {placeholder})"
         params.extend([f"%{commodity.lower().strip()}%", f"%{commodity.lower().strip()}%"])
     if state:
-        query += " AND LOWER(state) LIKE %s"
+        query += f" AND LOWER(state) LIKE {placeholder}"
         params.append(f"%{state.lower().strip()}%")
     if session:
-        query += " AND session = %s"
+        query += f" AND session = {placeholder}"
         params.append(session.upper())
 
-    query += " ORDER BY id DESC LIMIT %s"
+    query += f" ORDER BY id DESC LIMIT {placeholder}"
     params.append(limit)
 
     rows = query_live_today(query, tuple(params), use_cache=True)
