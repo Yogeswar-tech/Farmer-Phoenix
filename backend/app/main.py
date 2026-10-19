@@ -102,8 +102,14 @@ async def add_security_headers(
     response.headers["X-Content-Type-Options"] = "nosniff"
     csp_img = (
         "img-src 'self' data: blob: "
-        "https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com "
-        "https://images.unsplash.com; "
+        "https://*.tile.openstreetmap.org "
+        "https://*.basemaps.cartocdn.com "
+        "https://*.google.com "
+        "https://*.googleapis.com "
+        "https://*.gstatic.com "
+        "https://images.unsplash.com "
+        "https://i.ytimg.com "
+        "https://img.youtube.com; "
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -116,7 +122,7 @@ async def add_security_headers(
         "font-src 'self' https://fonts.gstatic.com data:; "
         + csp_img
         # Firebase reCAPTCHA renders in an iframe from google.com or recaptcha.net
-        + "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; "
+        + "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net https://www.youtube.com https://www.youtube-nocookie.com; "
         + "connect-src 'self' "
         "https://identitytoolkit.googleapis.com "
         "https://securetoken.googleapis.com "

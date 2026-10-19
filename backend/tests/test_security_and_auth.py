@@ -209,6 +209,8 @@ def test_security_headers_present():
     csp = headers["Content-Security-Policy"]
     assert "tile.openstreetmap.org" in csp
     assert "basemaps.cartocdn.com" in csp
+    assert "*.google.com" in csp
+    assert "*.googleapis.com" in csp
     assert "google.com" in csp
     assert "recaptcha.net" in csp
     assert "recaptcha.google.com" in csp
