@@ -904,6 +904,7 @@ export function App() {
         <div style={{ maxWidth: '520px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoginModal
             currentLang={currentLang}
+            onLanguageChange={handleLanguageChange}
             isOpen={true}
             onClose={() => {}}
             onLoginSuccess={handleGmailLoginSuccess}
@@ -1184,6 +1185,7 @@ export function App() {
         <Suspense fallback={null}>
           <LoginModal
             currentLang={currentLang}
+            onLanguageChange={handleLanguageChange}
             isOpen={isLoginModalOpen}
             onClose={() => setIsLoginModalOpen(false)}
             onLoginSuccess={handleGmailLoginSuccess}

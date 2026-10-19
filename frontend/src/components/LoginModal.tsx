@@ -1,4 +1,4 @@
-import { useState, type FC, type FormEvent } from 'react';
+import { useState, useEffect, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
 import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, Phone, UserCheck } from 'lucide-react';
@@ -27,6 +27,7 @@ export interface FarmerProfile {
 
 interface LoginModalProps {
   currentLang: Language;
+  onLanguageChange?: (lang: Language) => void;
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (profile: FarmerProfile) => void;
@@ -39,7 +40,8 @@ interface LoginModalProps {
 }
 
 export const LoginModal: FC<LoginModalProps> = ({
-  currentLang,
+  currentLang: propLang,
+  onLanguageChange,
   isOpen,
   onClose,
   onLoginSuccess,
@@ -50,6 +52,25 @@ export const LoginModal: FC<LoginModalProps> = ({
   currentState,
   selectedCropKey
 }) => {
+  const [internalLang, setInternalLang] = useState<Language>(propLang);
+
+  useEffect(() => {
+    setInternalLang(propLang);
+  }, [propLang]);
+
+  const currentLang = onLanguageChange ? propLang : internalLang;
+
+  const handleSelectLanguage = (lang: Language) => {
+    setInternalLang(lang);
+    if (onLanguageChange) {
+      onLanguageChange(lang);
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ks_user_lang', lang);
+      localStorage.setItem('ks_lang_manual', 'true');
+    }
+  };
+
   const [modalView, setModalView] = useState<'auth' | 'farmer_details'>('auth');
   const [pendingPhone, setPendingPhone] = useState<string>('');
   const [firstName, setFirstName] = useState<string>('');
@@ -216,6 +237,52 @@ export const LoginModal: FC<LoginModalProps> = ({
         <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Close">
           <X size={18} />
         </button>
+
+        {/* In-Modal Language Switcher Bar */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          padding: '6px 10px',
+          marginBottom: '16px',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '15px' }}>🌐</span>
+            <span style={{ fontSize: '12px', fontWeight: '800', color: '#334155' }}>
+              {currentLang === 'hi' ? 'भाषा चुनें' : currentLang === 'te' ? 'భాషను ఎంచుకోండి' : 'Choose Language'}:
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {(['te', 'hi', 'en'] as Language[]).map((lang) => {
+              const isActive = currentLang === lang;
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang)}
+                  style={{
+                    background: isActive ? '#065F46' : '#FFFFFF',
+                    color: isActive ? '#FFFFFF' : '#334155',
+                    border: isActive ? '1.5px solid #065F46' : '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isActive ? '0 2px 4px rgba(6, 95, 70, 0.25)' : 'none'
+                  }}
+                >
+                  {lang === 'te' ? 'తెలుగు' : lang === 'hi' ? 'हिन्दी' : 'English'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Header */}
         <div className="gmail-login-header">
