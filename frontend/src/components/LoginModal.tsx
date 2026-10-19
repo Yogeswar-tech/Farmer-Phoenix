@@ -266,7 +266,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               </div>
             </div>
 
-            <div className="user-session-actions">
+            <div className="user-session-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 type="button"
                 onClick={onClose}
@@ -275,6 +275,72 @@ export const LoginModal: FC<LoginModalProps> = ({
                 <span>Continue to Dashboard</span>
                 <ArrowRight size={16} />
               </button>
+
+              {currentUserProfile.is_guest ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    KisanSethuApi.setAuthToken(null);
+                    onLogout?.();
+                    setModalView('auth');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #15803D',
+                    background: '#F0FDF4',
+                    color: '#166534',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Phone size={15} color="#166534" />
+                  <span>
+                    {currentLang === 'hi'
+                      ? 'फ़ोन नंबर से लॉगिन करें (डेटा सहेजें)'
+                      : currentLang === 'te'
+                      ? 'ఫోన్ నంబర్‌తో లాగిన్ అవ్వండి (డేటా సేవ్ చేయండి)'
+                      : 'Sign In with Phone Number (Save Data)'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleGuestLogin();
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #D97706',
+                    background: '#FFFBEB',
+                    color: '#92400E',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <UserCheck size={15} color="#92400E" />
+                  <span>
+                    {currentLang === 'hi'
+                      ? 'अतिथि मोड में बदलें'
+                      : currentLang === 'te'
+                      ? 'అతిథి మోడ్‌కి మారండి'
+                      : 'Switch to Guest Mode'}
+                  </span>
+                </button>
+              )}
 
               {onLogout && (
                 <button
@@ -490,7 +556,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               )}
             </button>
 
-            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <div style={{ textAlign: 'center', marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
               <button
                 type="button"
                 onClick={() => setModalView('auth')}
@@ -506,18 +572,87 @@ export const LoginModal: FC<LoginModalProps> = ({
               >
                 {currentLang === 'hi' ? '← फ़ोन नंबर बदलें' : currentLang === 'te' ? '← ఫోన్ నంబర్ మార్చండి' : '← Change Phone Number'}
               </button>
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#D97706',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                {currentLang === 'hi' ? 'अतिथि के रूप में जारी रखें' : currentLang === 'te' ? 'అతిథిగా కొనసాగించండి' : 'Continue as Guest'}
+              </button>
             </div>
           </form>
         ) : (
           <div>
+            {/* Top Quick Guest Access Banner */}
+            <div style={{
+              background: '#FFFBEB',
+              border: '1.5px solid #F59E0B',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🌾</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#92400E' }}>
+                    {currentLang === 'hi'
+                      ? 'बिना ओटीपी सीधे शुरू करें'
+                      : currentLang === 'te'
+                      ? 'ఓటీపీ లేకుండా నేరుగా ప్రారంభించండి'
+                      : 'Instant Access (No OTP Required)'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#B45309' }}>
+                    {currentLang === 'hi'
+                      ? 'सभी मंडी भाव और सुविधाएं मुफ्त'
+                      : currentLang === 'te'
+                      ? 'అన్ని మార్కెట్ ధరలు & ఫీచర్లు ఉచితం'
+                      : 'All live prices & features available'}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                style={{
+                  background: '#D97706',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 14px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 4px rgba(217, 119, 6, 0.25)',
+                  flexShrink: 0
+                }}
+              >
+                <span>{currentLang === 'hi' ? 'अतिथि मोड →' : currentLang === 'te' ? 'అతిథి మోడ్ →' : 'Guest Mode →'}</span>
+              </button>
+            </div>
+
             <PhoneOtpSignIn
               currentLang={currentLang}
               onLoginSuccess={handlePhoneLoginSuccess}
               onCancel={onClose}
             />
 
-            {/* Guest Login — visible when not authenticated */}
-            <div style={{ marginTop: '12px' }}>
+            {/* Bottom Guest Login Button */}
+            <div style={{ marginTop: '14px' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -542,34 +677,35 @@ export const LoginModal: FC<LoginModalProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  padding: '11px 18px',
-                  background: '#F8FAFC',
-                  border: '1.5px dashed #CBD5E1',
-                  borderRadius: '10px',
-                  color: '#475569',
+                  padding: '12px 18px',
+                  background: '#FEF3C7',
+                  border: '1.5px solid #F59E0B',
+                  borderRadius: '12px',
+                  color: '#92400E',
                   fontSize: '14px',
-                  fontWeight: '700',
+                  fontWeight: '800',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
                 }}
-                onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F1F5F9'; }}
-                onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F8FAFC'; }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FDE68A'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FEF3C7'; }}
               >
-                <UserCheck size={16} color="#64748B" />
+                <UserCheck size={18} color="#92400E" />
                 <span>
                   {currentLang === 'hi'
-                    ? 'अतिथि के रूप में जारी रखें'
+                    ? 'अतिथि के रूप में जारी रखें (Guest Mode)'
                     : currentLang === 'te'
-                    ? 'అతిథిగా కొనసాగించండి'
+                    ? 'అతిథిగా కొనసాగించండి (Guest Mode)'
                     : 'Continue as Guest'}
                 </span>
               </button>
-              <p style={{ textAlign: 'center', fontSize: '11px', color: '#94A3B8', margin: '6px 0 0' }}>
+              <p style={{ textAlign: 'center', fontSize: '11px', color: '#92400E', margin: '6px 0 0', fontWeight: '600' }}>
                 {currentLang === 'hi'
-                  ? 'सभी सुविधाएं मुफ्त में उपलब्ध • डेटा सहेजा नहीं जाता'
+                  ? '✓ 1-क्लिक एक्सेस • कोई फ़ोन नंबर या ओटीपी आवश्यक नहीं'
                   : currentLang === 'te'
-                  ? 'అన్ని ఫీచర్లు ఉచితం • డేటా సేవ్ కాదు'
-                  : 'All features available free • No data saved'}
+                  ? '✓ 1-క్లిక్ యాక్సెస్ • ఫోన్ నంబర్ లేదా ఓటీపీ అవసరం లేదు'
+                  : '✓ 1-Click Access • No phone number or OTP required'}
               </p>
             </div>
           </div>
