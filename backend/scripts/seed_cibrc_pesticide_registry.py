@@ -1013,7 +1013,7 @@ CIBRC_REGISTRY_DATA = [
 ]
 
 
-def seed_cibrc_registry():
+def seed_cibrc_registry() -> int:
     use_pg = is_postgres_active()
     print(f"[*] Initializing CIBRC Pesticide Registry Table in {'PostgreSQL' if use_pg else 'SQLite'}...")
 
@@ -1211,6 +1211,7 @@ def seed_cibrc_registry():
             count += 1
 
     print(f"[+] Successfully seeded/upserted {count} official CIBRC pesticide records into {'PostgreSQL' if use_pg else 'SQLite'}!")
+    return count
 
 
 if __name__ == "__main__":

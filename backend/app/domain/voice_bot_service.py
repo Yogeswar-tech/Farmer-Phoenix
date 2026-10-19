@@ -25,7 +25,7 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from database.connection import get_db_cursor, is_postgres_active  # type: ignore[import-not-found]
+from database.connection import get_db_cursor, is_postgres_active
 
 from app.domain.climate_service import ClimateEngine
 from app.domain.logistics_service import DEFAULT_CORRIDORS
@@ -34,7 +34,7 @@ from app.location.mandi_finder import MandiFinder
 from app.rag.retriever import PriceRetriever
 
 logger = logging.getLogger("VoiceBotService")
-climate_service = ClimateEngine()  # type: ignore[no-untyped-call]
+climate_service = ClimateEngine()
 
 
 class VoiceBotResponse(BaseModel):

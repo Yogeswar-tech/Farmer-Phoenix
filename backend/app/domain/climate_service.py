@@ -311,7 +311,7 @@ class ClimateEngine:
         results: list[dict[str, Any]] = []
         seen_coords: set[tuple[float, float]] = set()
 
-        def add_result(item: dict[str, Any]):
+        def add_result(item: dict[str, Any]) -> None:
             lat_r = round(float(item["latitude"]), 2)
             lon_r = round(float(item["longitude"]), 2)
             coord_key = (lat_r, lon_r)
@@ -321,7 +321,7 @@ class ClimateEngine:
             results.append(item)
 
         # 0. Fast Instant Match against Known Localities, Layouts, Tech & Agri Hubs
-        known_localities = [
+        known_localities: list[dict[str, Any]] = [
             # Bengaluru Layouts & Localities
             {"name": "HSR Layout", "match": ["hsr", "hsr layout"], "fullName": "HSR Layout, Sector 1-7, Bengaluru South, Karnataka - 560102", "district": "Bengaluru Urban", "state": "Karnataka", "lat": 12.9116, "lon": 77.6389, "pin": "560102"},
             {"name": "Silk Board", "match": ["silk board", "central silk board"], "fullName": "Silk Board Junction, Outer Ring Road, Bengaluru South, Karnataka - 560068", "district": "Bengaluru Urban", "state": "Karnataka", "lat": 12.9169, "lon": 77.6223, "pin": "560068"},
@@ -349,15 +349,17 @@ class ClimateEngine:
 
         q_lower = q.lower()
         for loc in known_localities:
-            if any(m in q_lower or q_lower in m for m in loc["match"]):
+            match_list = [str(m) for m in loc["match"]]
+            if any(m in q_lower or q_lower in m for m in match_list):
+                loc_name = str(loc["name"])
                 add_result({
-                    "id": f"fast-{loc['name'].lower().replace(' ', '-')}",
-                    "name": loc["name"],
-                    "fullName": loc["fullName"],
-                    "district": loc["district"],
-                    "state": loc["state"],
-                    "latitude": loc["lat"],
-                    "longitude": loc["lon"],
+                    "id": f"fast-{loc_name.lower().replace(' ', '-')}",
+                    "name": loc_name,
+                    "fullName": str(loc["fullName"]),
+                    "district": str(loc["district"]),
+                    "state": str(loc["state"]),
+                    "latitude": float(loc["lat"]),
+                    "longitude": float(loc["lon"]),
                     "pincode": loc["pin"],
                     "zone": f"{loc['state']} Agricultural & Urban Zone",
                     "source": "google_maps"

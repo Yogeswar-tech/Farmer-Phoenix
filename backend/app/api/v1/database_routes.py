@@ -1385,7 +1385,7 @@ def trigger_scraper_endpoint(
 
 
 @router.get("/demo-videos")
-def get_demo_videos() -> list[dict]:
+def get_demo_videos() -> list[dict[str, Any]]:
     """Returns list of demo/tutorial videos stored in PostgreSQL."""
     try:
         use_pg = is_postgres_active()
@@ -1404,8 +1404,8 @@ def get_demo_videos() -> list[dict]:
 
 @router.post("/admin/videos", dependencies=[Depends(verify_admin_key)])
 def upsert_demo_video(
-    video_data: dict = Body(default=...)
-) -> dict:
+    video_data: dict[str, Any] = Body(default=...)
+) -> dict[str, Any]:
     """Admin endpoint: Add or update a demo video record."""
     try:
         with get_db_cursor() as cur:
@@ -1433,7 +1433,7 @@ def upsert_demo_video(
 @router.post("/admin/cleanup-old-data", dependencies=[Depends(verify_admin_key)])
 def cleanup_old_mandi_data(
     days_to_keep: int = 30
-) -> dict:
+) -> dict[str, Any]:
     """Admin: Delete mandi price records older than N days to keep DB lean."""
     try:
         with get_db_cursor() as cur:

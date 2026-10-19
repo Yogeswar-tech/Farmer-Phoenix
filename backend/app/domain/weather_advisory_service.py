@@ -62,7 +62,7 @@ def extract_known_numbers_from_weather_data(weather_json: dict[str, Any]) -> set
     """Recursively collect all numeric values present in the source weather JSON."""
     nums: set[float] = set()
 
-    def _traverse(item: Any):
+    def _traverse(item: Any) -> None:
         if isinstance(item, (int, float)) and not isinstance(item, bool):
             nums.add(round(float(item), 1))
             nums.add(float(int(item)))

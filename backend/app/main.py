@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("CIBRC seed skipped: %s", exc)
 
-    def background_scraper_daemon():
+    def background_scraper_daemon() -> None:
         import time
         # Allow initial server startup to complete
         time.sleep(3)
