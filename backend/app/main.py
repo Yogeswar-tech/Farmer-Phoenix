@@ -110,6 +110,8 @@ async def add_security_headers(
         # Firebase Phone Auth: reCAPTCHA scripts from gstatic, Google APIs, google.com, and recaptcha.net
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
         "https://www.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net https://recaptcha.google.com; "
+        "script-src-elem 'self' 'unsafe-inline' "
+        "https://www.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net https://recaptcha.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         + csp_img

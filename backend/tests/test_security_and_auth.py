@@ -212,3 +212,4 @@ def test_security_headers_present():
     assert "google.com" in csp
     assert "recaptcha.net" in csp
     assert "recaptcha.google.com" in csp
+    assert "script-src-elem" in csp
