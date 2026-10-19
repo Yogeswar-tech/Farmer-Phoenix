@@ -107,17 +107,20 @@ async def add_security_headers(
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        # Firebase Phone Auth: reCAPTCHA scripts from gstatic + Google APIs
+        # Firebase Phone Auth: reCAPTCHA scripts from gstatic, Google APIs, google.com, and recaptcha.net
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "https://www.gstatic.com https://apis.google.com; "
+        "https://www.gstatic.com https://apis.google.com https://www.google.com https://www.recaptcha.net https://recaptcha.google.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         + csp_img
-        # Firebase reCAPTCHA renders in a hidden iframe from google.com
-        + "frame-src 'self' https://www.google.com; "
+        # Firebase reCAPTCHA renders in an iframe from google.com or recaptcha.net
+        + "frame-src 'self' https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; "
         + "connect-src 'self' "
         "https://identitytoolkit.googleapis.com "
         "https://securetoken.googleapis.com "
+        "https://www.google.com "
+        "https://www.recaptcha.net "
+        "https://recaptchaenterprise.googleapis.com "
         "http: https:;"
     )
     return response
