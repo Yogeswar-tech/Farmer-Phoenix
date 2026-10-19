@@ -6,7 +6,6 @@ Ensures the module has an independent, unlinked database file for 100% strict gr
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -16,12 +15,12 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.scripts.seed_cibrc_full_dataset import CIBRC_FULL_DATASET
 from database.cibrc_isolated_db import (
     get_cibrc_cursor,
     get_cibrc_db_path,
     init_isolated_cibrc_db,
 )
-from backend.scripts.seed_cibrc_full_dataset import CIBRC_FULL_DATASET
 
 
 def seed_isolated_cibrc_db():

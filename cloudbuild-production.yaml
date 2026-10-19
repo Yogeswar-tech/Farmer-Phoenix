@@ -1,0 +1,31 @@
+steps:
+  # ─────────────────────────────────────────────────────────────
+  # Deploy to farmer-phoenix (PRODUCTION)
+  # This build only runs after both approvers have approved it.
+  # Approvers: ibrahimsaheb108@gmail.com  |  pyogeswar7673@gmail.com
+  # ─────────────────────────────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: DeployProduction
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        echo "============================================================"
+        echo "PRODUCTION DEPLOY APPROVED — deploying farmer-phoenix"
+        echo "  Commit : $COMMIT_SHA"
+        echo "  Image  : asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA"
+        echo "============================================================"
+        gcloud run services update farmer-phoenix \
+          --platform=managed \
+          --image=asia-south1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/kisan-sethu/kisan-sethu:$COMMIT_SHA \
+          --labels=promoted-from=kisan-sethu,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID \
+          --startup-probe=tcpSocket.port=8080,failureThreshold=3,periodSeconds=120,timeoutSeconds=120 \
+          --region=asia-south1 \
+          --quiet
+        echo "Production deploy complete."
+        echo "  URL: https://farmer-phoenix-87141270089.asia-south1.run.app"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 600s

@@ -13,7 +13,7 @@ import {
   Calendar,
   Sparkles,
   Loader2,
-  Check
+  ExternalLink
 } from 'lucide-react';
 
 interface SoilDoctorViewProps {
@@ -41,17 +41,18 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
   const [isScanningReport, setIsScanningReport] = useState<boolean>(false);
   const [scannedReportMeta, setScannedReportMeta] = useState<any | null>(null);
 
-  // KVK Booking Modal State
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
-  const [bookingName, setBookingName] = useState<string>('');
-  const [bookingPhone, setBookingPhone] = useState<string>('');
-  const [bookingVillage, setBookingVillage] = useState<string>('');
-  const [isSubmittingBooking, setIsSubmittingBooking] = useState<boolean>(false);
-  const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
+  // Government portal URL — state-aware
+  const getGovSoilPortalUrl = () => {
+    const stateId = currentLocation?.state?.en?.toLowerCase() || '';
+    if (stateId.includes('andhra')) return 'https://soilhealth.dac.gov.in/';
+    if (stateId.includes('telangana')) return 'https://soilhealth.dac.gov.in/';
+    return 'https://soilhealth.dac.gov.in/';
+  };
 
   const locId = currentLocation?.id || 'guntur';
   const locLat = currentLocation?.lat || 16.3067;
   const locLng = currentLocation?.lng || 80.4365;
+  const isDefaultLocation = !currentLocation?.lat || (currentLocation?.lat === 16.3067 && currentLocation?.lng === 80.4365);
 
   // Crops list for fertilizer calculation
   const supportedCrops = [
@@ -182,39 +183,36 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Handle Government KVK Soil Test Booking Submit
-  const handleBookingSubmit = async (e: any) => {
-    e.preventDefault();
-    if (!bookingPhone || bookingPhone.length < 10) {
-      alert(currentLang === 'hi' ? 'कृपया वैध 10-अंकीय मोबाइल नंबर दर्ज करें' : 'Please enter a valid 10-digit mobile number');
-      return;
-    }
-
-    setIsSubmittingBooking(true);
-    try {
-      const res = await KisanSethuApi.bookKvkSoilTest({
-        farmerName: bookingName || 'Kisan Farmer',
-        farmerPhone: bookingPhone,
-        locationId: locId,
-        crop: selectedCropKey,
-        acres: acres,
-        address: bookingVillage,
-        lang: currentLang
-      });
-      if (res && res.status === 'success') {
-        setConfirmedBooking(res);
-      }
-    } catch (err) {
-      console.warn('KVK booking error:', err);
-    } finally {
-      setIsSubmittingBooking(false);
-    }
-  };
-
   const sampleId = soilCard?.sample_id || `SHC-${locId.toUpperCase()}-2026-88`;
 
   return (
     <div className="soil-doctor-view-container" style={{ maxWidth: '1240px', margin: '0 auto', padding: '16px' }}>
+      {/* Default Location Notice */}
+      {isDefaultLocation && (
+        <div style={{
+          background: '#FEF9C3',
+          border: '1.5px solid #FDE047',
+          borderLeft: '5px solid #CA8A04',
+          borderRadius: '10px',
+          padding: '9px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#854D0E'
+        }}>
+          <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '📍 డిఫాల్ట్ స్థానం (గుంటూరు) ఉపయోగించబడుతోంది — మీ నిజమైన స్థానానికి మారండి'
+              : currentLang === 'hi'
+                ? '📍 डिफ़ॉल्ट स्थान (गुंटूर) उपयोग हो रहा है — अपना सही स्थान चुनें'
+                : '📍 Using default location (Guntur) — select your actual location for accurate soil data'}
+          </span>
+        </div>
+      )}
       {/* 1. View Header Strip */}
       <div className="view-header-strip" style={{
         background: 'linear-gradient(135deg, #1E3A8A 0%, #1E40AF 60%, #172554 100%)',
@@ -243,10 +241,7 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              setConfirmedBooking(null);
-              setIsBookingModalOpen(true);
-            }}
+            onClick={() => window.open(getGovSoilPortalUrl(), '_blank', 'noopener,noreferrer')}
             style={{
               background: '#059669',
               color: '#FFFFFF',
@@ -264,6 +259,7 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
           >
             <Calendar size={16} />
             <span>{currentLang === 'hi' ? 'निःशुल्क सरकारी लैब जांच बुक करें' : currentLang === 'te' ? 'ఉచిత ప్రభుత్వ నేల పరీక్ష బుక్ చేయండి' : 'Book Free KVK Soil Test'}</span>
+            <ExternalLink size={12} style={{ opacity: 0.8 }} />
           </button>
         </div>
       </div>
@@ -707,201 +703,6 @@ export const SoilDoctorView: FC<SoilDoctorViewProps> = ({
         </div>
       </div>
 
-      {/* 4. KVK Government Soil Test Booking Modal */}
-      {isBookingModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 100,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '20px',
-            maxWidth: '540px',
-            width: '100%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #CBD5E1',
-            overflow: 'hidden'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              background: 'linear-gradient(135deg, #064E3B 0%, #047857 100%)',
-              color: '#FFFFFF',
-              padding: '16px 20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#FFFFFF' }}>
-                  {currentLang === 'hi' ? 'निःशुल्क सरकारी मृदा जांच पंजीकरण' : 'Government KVK Soil Test Registration'}
-                </h3>
-                <span style={{ fontSize: '11px', color: '#A7F3D0' }}>
-                  Ministry of Agriculture & Farmers Welfare • ₹0 Free Scheme
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsBookingModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ padding: '20px' }}>
-              {confirmedBooking ? (
-                <div>
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    <div style={{ background: '#DCFCE7', color: '#15803D', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
-                      <Check size={26} />
-                    </div>
-                    <h4 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
-                      {currentLang === 'hi' ? 'नमूना जांच टोकन जनरेट हुआ!' : 'Sample Token Generated!'}
-                    </h4>
-                    <span style={{ fontSize: '16px', fontWeight: '900', color: '#059669', display: 'block', marginTop: '4px' }}>
-                      {confirmedBooking.booking_token}
-                    </span>
-                  </div>
-
-                  <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px', fontSize: '12px', color: '#334155', marginBottom: '14px' }}>
-                    <p style={{ margin: '0 0 6px' }}>📍 <strong>KVK Lab:</strong> {confirmedBooking.kvk_center}</p>
-                    <p style={{ margin: '0 0 6px' }}>🌾 <strong>Crop / Area:</strong> {confirmedBooking.target_crop} ({confirmedBooking.acres} Acres)</p>
-                    <p style={{ margin: '0 0 6px' }}>💰 <strong>Fee:</strong> <span style={{ color: '#16A34A', fontWeight: '800' }}>₹0 (Free Government Scheme)</span></p>
-                    <p style={{ margin: 0 }}>💡 <strong>Instructions:</strong> {confirmedBooking.instructions[currentLang] || confirmedBooking.instructions.en}</p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsBookingModalOpen(false)}
-                    style={{
-                      width: '100%',
-                      background: '#047857',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '10px',
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Done
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleBookingSubmit}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                      {currentLang === 'hi' ? 'किसान का पूरा नाम:' : 'Farmer Full Name:'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={bookingName}
-                      onChange={(e) => setBookingName(e.target.value)}
-                      placeholder="e.g. Ramesh Kumar"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #CBD5E1',
-                        fontSize: '13px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                      {currentLang === 'hi' ? 'मोबाइल नंबर (10 अंक):' : 'Mobile Number (10 digits):'}
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      maxLength={10}
-                      value={bookingPhone}
-                      onChange={(e) => setBookingPhone(e.target.value.replace(/\D/g, ''))}
-                      placeholder="e.g. 9876543210"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #CBD5E1',
-                        fontSize: '13px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                      {currentLang === 'hi' ? 'गांव / पता:' : 'Village / Address:'}
-                    </label>
-                    <input
-                      type="text"
-                      value={bookingVillage}
-                      onChange={(e) => setBookingVillage(e.target.value)}
-                      placeholder="e.g. Lam Village, Guntur"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #CBD5E1',
-                        fontSize: '13px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setIsBookingModalOpen(false)}
-                      style={{
-                        background: '#F1F5F9',
-                        color: '#475569',
-                        border: '1px solid #CBD5E1',
-                        borderRadius: '8px',
-                        padding: '8px 16px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingBooking}
-                      style={{
-                        background: '#047857',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '8px 18px',
-                        fontSize: '13px',
-                        fontWeight: '800',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {isSubmittingBooking ? <Loader2 size={14} className="spin-icon" /> : null}
-                      <span>{currentLang === 'hi' ? 'टोकन जनरेट करें' : 'Confirm Registration'}</span>
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

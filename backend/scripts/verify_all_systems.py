@@ -17,7 +17,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 def run_system_verification():
     client = TestClient(app)
@@ -42,7 +44,6 @@ def run_system_verification():
                     passed = False
                     detail = f"Validator error: {ex}"
 
-            status_str = "PASS" if passed else "FAIL"
             res_entry = {
                 "name": name,
                 "endpoint": f"{method} {url}",

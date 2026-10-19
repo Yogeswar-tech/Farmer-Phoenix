@@ -2,44 +2,59 @@ import { useState, useRef, useEffect, type FC } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import type { Language, LocationOption } from '../types';
 import { translations } from '../data/i18n';
-import { CROP_CHIPS } from '../data/mockData';
-import { Search, Mic, Globe, User, MapPin, Sparkles, ChevronDown, Check } from 'lucide-react';
+import { CROP_CHIPS, AGRICULTURAL_LOCATIONS } from '../data/mockData';
+import { Search, Mic, Globe, MapPin, ChevronDown, Check, Building2, Phone } from 'lucide-react';
+
+interface LiveSearchResult {
+  cropKey: string;
+  displayName: string;
+  market?: string;
+  price?: string;
+}
 
 interface HeaderProps {
   currentLang: Language;
   onLanguageChange: (lang: Language) => void;
+  isAiModeEnabled?: boolean;
+  onToggleAiMode?: (enabled: boolean) => void;
+  onOpenAiAssistant?: () => void;
   onOpenLogin: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSelectCrop: (cropKey: string) => void;
+  liveSearchResults?: LiveSearchResult[];
   isLoggedIn: boolean;
   userName?: string;
+  isGuest?: boolean;
   currentLocation: LocationOption;
   onOpenLocationModal: () => void;
   onSelectLocation?: (loc: LocationOption) => void;
-  onOpenAiAssistant?: () => void;
-  isAiModeEnabled?: boolean;
 }
 
 export const Header: FC<HeaderProps> = ({
   currentLang,
   onLanguageChange,
+  isAiModeEnabled: _isAiModeEnabled,
+  onToggleAiMode: _onToggleAiMode,
+  onOpenAiAssistant: _onOpenAiAssistant,
   onOpenLogin,
   searchQuery,
   onSearchChange,
   onSelectCrop,
+  liveSearchResults = [],
   isLoggedIn,
   userName,
+  isGuest,
   currentLocation,
   onOpenLocationModal,
-  onSelectLocation,
-  onOpenAiAssistant,
-  isAiModeEnabled
+  onSelectLocation
 }) => {
   const t = translations[currentLang];
   const [isListening, setIsListening] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [locationSearchFilter, setLocationSearchFilter] = useState('');
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth <= 768;
@@ -55,11 +70,15 @@ export const Header: FC<HeaderProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const locationDropdownRef = useRef<any>(null);
   const langDropdownRef = useRef<any>(null);
 
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(target)) {
+        setShowLocationDropdown(false);
+      }
       if (langDropdownRef.current && !langDropdownRef.current.contains(target)) {
         setShowLanguageDropdown(false);
       }
@@ -126,6 +145,17 @@ export const Header: FC<HeaderProps> = ({
       )
     : CROP_CHIPS.slice(0, 5);
 
+  const filteredLocations = AGRICULTURAL_LOCATIONS.filter((loc) => {
+    if (!locationSearchFilter.trim()) return true;
+    const term = locationSearchFilter.toLowerCase();
+    return (
+      loc.name[currentLang].toLowerCase().includes(term) ||
+      loc.state[currentLang].toLowerCase().includes(term) ||
+      loc.district[currentLang].toLowerCase().includes(term) ||
+      loc.mandiName[currentLang].toLowerCase().includes(term) ||
+      loc.pincode.includes(term)
+    );
+  });
 
   const verifiedBadgeText =
     currentLang === 'hi' ? 'सत्यापित किसान' : currentLang === 'te' ? 'ధృవీకరించిన రైతు' : 'Verified Farmer';
@@ -180,11 +210,38 @@ export const Header: FC<HeaderProps> = ({
           {showSuggestions && (
             <View style={styles.suggestionsDropdown}>
               <View style={styles.suggestionsHeader}>
-                <Text style={styles.suggestionsHeaderText}>{t.popularCropsLabel}</Text>
+                <Text style={styles.suggestionsHeaderText}>
+                  {liveSearchResults.length > 0
+                    ? (currentLang === 'hi' ? '🔴 लाइव बाजार परिणाम:' : currentLang === 'te' ? '🔴 లైవ్ మార్కెట్ ఫలితాలు:' : '🔴 Live Market Results:')
+                    : t.popularCropsLabel}
+                </Text>
                 <TouchableOpacity onPress={() => setShowSuggestions(false)} style={styles.closeSuggBtn}>
                   <Text style={styles.closeSuggText}>✕</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Live backend results (shown when query >= 3 chars and backend responds) */}
+              {liveSearchResults.length > 0 && (
+                <View style={styles.liveResultsRow}>
+                  {liveSearchResults.map((r) => (
+                    <TouchableOpacity
+                      key={r.cropKey}
+                      onPress={() => {
+                        onSelectCrop(r.cropKey);
+                        onSearchChange(r.displayName);
+                        setShowSuggestions(false);
+                      }}
+                      style={styles.liveResultItem}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.liveResultName}>📊 {r.displayName}</Text>
+                      {r.price && <Text style={styles.liveResultPrice}>{r.price}</Text>}
+                      {r.market && <Text style={styles.liveResultMarket}>{r.market}</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               <View style={styles.suggestionsGrid}>
                 {filteredCrops.map((c) => (
                   <TouchableOpacity
@@ -210,22 +267,166 @@ export const Header: FC<HeaderProps> = ({
         {/* Actions Wrap: Location, Language, AI Mode, and Login */}
         <View style={[styles.actionsWrap, isMobile && styles.actionsWrapMobile]}>
           {/* Location Dropdown */}
-          {/* Location Trigger: Directly opens Auto GPS & Location Modal */}
-          <TouchableOpacity
-            onPress={onOpenLocationModal}
-            style={styles.locationBtn}
-            activeOpacity={0.7}
-            accessibilityLabel={t.selectLocationTitle}
-          >
-            <MapPin size={14} color="#2D5A27" />
-            <Text style={styles.locName}>{currentLocation.name[currentLang]}</Text>
-          </TouchableOpacity>
+          <View ref={locationDropdownRef} style={styles.dropdownContainer}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLocationDropdown((prev) => !prev);
+                setShowLanguageDropdown(false);
+              }}
+              style={[styles.locationBtn, showLocationDropdown && styles.dropdownBtnActive]}
+              activeOpacity={0.7}
+              accessibilityLabel={t.selectLocationTitle}
+            >
+              <MapPin size={14} color="#2D5A27" />
+              <Text style={styles.locName}>{currentLocation.name[currentLang]}</Text>
+              <ChevronDown
+                size={13}
+                color="#2D5A27"
+                style={{
+                  transform: showLocationDropdown ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s ease'
+                }}
+              />
+            </TouchableOpacity>
+
+            {showLocationDropdown && (
+              <View style={styles.locationMenuDropdown}>
+                <View style={styles.dropdownHeaderRow}>
+                  <View style={styles.dropdownTitleWrap}>
+                    <MapPin size={14} color="#2D5A27" />
+                    <Text style={styles.dropdownHeaderTitle}>
+                      {currentLang === 'hi'
+                        ? 'मंडी व स्थान चुनें'
+                        : currentLang === 'te'
+                        ? 'మార్కెట్ యార్డ్ ఎంచుకోండి'
+                        : 'Select Mandi Yard'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowLocationDropdown(false)}
+                    style={styles.closeDropdownBtn}
+                    accessibilityLabel="Close"
+                  >
+                    <Text style={styles.closeDropdownText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Auto GPS Trigger Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowLocationDropdown(false);
+                    onOpenLocationModal();
+                  }}
+                  style={styles.dropdownGpsActionRow}
+                  activeOpacity={0.8}
+                >
+                  <MapPin size={13} color="#15803D" />
+                  <Text style={styles.dropdownGpsActionText}>
+                    {currentLang === 'hi' ? '🛰️ ऑटो जीपीएस व अखिल भारतीय खोज' : currentLang === 'te' ? '🛰️ ఆటో జీపీఎస్ & అఖిల భారత శోధన' : '🛰️ Auto GPS & All-India Search'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Quick Search inside Location Dropdown */}
+                <View style={styles.locSearchBox}>
+                  <Search size={13} color="#64748B" />
+                  <TextInput
+                    style={styles.locSearchInput}
+                    placeholder={
+                      currentLang === 'hi'
+                        ? 'मंडी, जिला या पिन खोजें...'
+                        : currentLang === 'te'
+                        ? 'యార్డ్ లేదా పిన్ కోడ్...'
+                        : 'Filter mandi or PIN...'
+                    }
+                    placeholderTextColor="#94A3B8"
+                    value={locationSearchFilter}
+                    onChangeText={setLocationSearchFilter}
+                  />
+                  {locationSearchFilter ? (
+                    <TouchableOpacity onPress={() => setLocationSearchFilter('')}>
+                      <Text style={styles.locClearFilterText}>✕</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* Scrollable list of Mandi Locations */}
+                <ScrollView
+                  style={styles.locListScroll}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+                  {filteredLocations.map((loc) => {
+                    const isSelected = loc.id === currentLocation.id;
+                    const handleSelectThisLocation = () => {
+                      if (onSelectLocation) {
+                        onSelectLocation(loc);
+                      }
+                      setShowLocationDropdown(false);
+                      setLocationSearchFilter('');
+                    };
+                    return (
+                      <TouchableOpacity
+                        key={loc.id}
+                        onPress={handleSelectThisLocation}
+                        {...({
+                          onClick: (e: any) => {
+                            e.stopPropagation();
+                            handleSelectThisLocation();
+                          }
+                        } as any)}
+                        style={[styles.locMenuItem, isSelected && styles.locMenuItemActive]}
+                        activeOpacity={0.7}
+                      >
+                        <Building2 size={14} color={isSelected ? '#2D5A27' : '#64748B'} />
+                        <View style={styles.locTextColumn}>
+                          <Text
+                            style={[styles.locItemMandi, isSelected && styles.locItemMandiActive]}
+                            numberOfLines={1}
+                          >
+                            {loc.mandiName[currentLang]}
+                          </Text>
+                          <Text style={styles.locItemSub} numberOfLines={1}>
+                            {loc.name[currentLang]} · {loc.district[currentLang]}, {loc.state[currentLang]} ({loc.pincode})
+                          </Text>
+                        </View>
+                        {isSelected && <Check size={14} color="#2D5A27" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {filteredLocations.length === 0 && (
+                    <Text style={styles.noLocFoundText}>
+                      {currentLang === 'hi'
+                        ? 'कोई मंडी नहीं मिली'
+                        : currentLang === 'te'
+                        ? 'ఫలితాలు లేవు'
+                        : 'No mandi found'}
+                    </Text>
+                  )}
+                </ScrollView>
+
+                {/* Footer to open advanced modal search */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowLocationDropdown(false);
+                    onOpenLocationModal();
+                  }}
+                  style={styles.locMenuFooter}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.locMenuFooterText}>
+                    🔍 {currentLang === 'hi' ? 'सभी मंडियां व नक्शा देखें...' : currentLang === 'te' ? 'మరిన్ని మార్కెట్లు & మ్యాప్...' : 'All Mandis & Map search...'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
           {/* Language Dropdown */}
           <View ref={langDropdownRef} style={styles.dropdownContainer}>
             <TouchableOpacity
               onPress={() => {
                 setShowLanguageDropdown((prev) => !prev);
+                setShowLocationDropdown(false);
               }}
               style={[styles.langBtn, showLanguageDropdown && styles.dropdownBtnActive]}
               activeOpacity={0.7}
@@ -296,39 +497,22 @@ export const Header: FC<HeaderProps> = ({
             )}
           </View>
 
-          {/* AI Voice Assistant Mode Quick Launcher (Desktop Only; on mobile floating FAB handles it) */}
-          {!isMobile && onOpenAiAssistant && (
-            <TouchableOpacity
-              onPress={onOpenAiAssistant}
-              style={[styles.aiModeBtn, isAiModeEnabled ? styles.aiModeActive : styles.aiModeDisabled]}
-              activeOpacity={0.6}
-            >
-              <Sparkles size={14} color={isAiModeEnabled ? '#FFE600' : '#94A3B8'} />
-              <Text style={[styles.aiModeText, isAiModeEnabled && styles.aiModeTextActive]}>
-                {isAiModeEnabled
-                  ? (currentLang === 'hi' ? 'एआई चालू' : currentLang === 'te' ? 'AI ఆన్' : 'AI Mode')
-                  : (currentLang === 'hi' ? 'एआई बंद' : currentLang === 'te' ? 'AI ఆఫ్' : 'AI Off')}
-              </Text>
-              <View style={[styles.aiStatusDot, isAiModeEnabled ? styles.aiDotOn : styles.aiDotOff]} />
-            </TouchableOpacity>
-          )}
-
-          {/* Profile / Login Button */}
+          {/* Profile / Phone Login Button */}
           <TouchableOpacity
             onPress={onOpenLogin}
-            style={[styles.authBtn, isLoggedIn && styles.authBtnLoggedIn]}
+            style={[styles.authBtn, isLoggedIn && (isGuest ? styles.authBtnGuest : styles.authBtnLoggedIn)]}
             activeOpacity={0.8}
-            accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Login'}
+            accessibilityLabel={isLoggedIn ? verifiedBadgeText : 'Login with Phone OTP'}
           >
-            {isLoggedIn && (
-              <User size={15} color="#2D5A27" />
-            )}
-            <Text style={[styles.authBtnText, isLoggedIn && styles.authBtnTextLoggedIn]}>
+            <Phone size={14} color={isLoggedIn ? (isGuest ? '#92400E' : '#2D5A27') : '#FFFFFF'} />
+            <Text style={[styles.authBtnText, isLoggedIn && (isGuest ? styles.authBtnTextGuest : styles.authBtnTextLoggedIn)]}>
               {isLoggedIn
-                ? (isMobile ? (userName?.split(' ')[0] || 'User') : (userName || (currentLang === 'hi' ? 'किसान प्रोफाइल' : currentLang === 'te' ? 'రైతు ప్రొఫైల్' : 'Farmer Profile')))
+                ? (isGuest
+                    ? (currentLang === 'hi' ? 'अतिथि' : currentLang === 'te' ? 'అతిథి' : 'Guest')
+                    : (isMobile ? (userName?.split(' ')[0] || 'User') : (userName || (currentLang === 'hi' ? 'प्रोफाइल' : currentLang === 'te' ? 'ప్రొఫైల్' : 'Profile'))))
                 : (currentLang === 'hi' ? 'लॉगिन' : currentLang === 'te' ? 'లాగిన్' : 'Login')}
             </Text>
-            {isLoggedIn && <View style={styles.authDot} />}
+            {isLoggedIn && <View style={[styles.authDot, isGuest && styles.authDotGuest]} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -476,6 +660,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
   },
+  liveResultsRow: {
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 8,
+  },
+  liveResultItem: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  liveResultName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  liveResultPrice: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#166534',
+    marginTop: 2,
+  },
+  liveResultMarket: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
   suggestionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -586,30 +801,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#2D5A27',
-    paddingVertical: 9,
-    paddingHorizontal: 22,
-    borderRadius: 22,
-    minHeight: 38,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
   },
   authBtnLoggedIn: {
     backgroundColor: '#EFF7EE',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#2D5A27',
   },
+  authBtnGuest: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#D97706',
+  },
   authBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
   authBtnTextLoggedIn: {
     color: '#2D5A27',
+  },
+  authBtnTextGuest: {
+    color: '#92400E',
   },
   authDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#16A34A',
+  },
+  authDotGuest: {
+    backgroundColor: '#F59E0B',
+  },
+  googleBadgePill: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EA4335',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleGLetter: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  googleBadgeWhite: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleGLetterWhite: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#EA4335',
   },
   dropdownGpsActionRow: {
     flexDirection: 'row',

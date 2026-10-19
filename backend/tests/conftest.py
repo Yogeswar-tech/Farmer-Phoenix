@@ -1,5 +1,9 @@
-"""Session-scoped test fixtures for CI: initialize DB tables and seed minimal CIBRC data."""
 import pytest
+
+from app.settings import settings
+
+if not settings.admin_api_key:
+    settings.admin_api_key = "ci-test-admin-key"
 
 
 @pytest.fixture(autouse=True, scope="session")

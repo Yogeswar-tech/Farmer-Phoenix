@@ -681,6 +681,32 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
 
   return (
     <div className="climate-prediction-view-container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px' }}>
+      {/* Sample Data Warning Banner — shown when backend is unreachable */}
+      {!isLiveSynced && !isLoading && (
+        <div style={{
+          background: '#FEF3C7',
+          border: '1.5px solid #F59E0B',
+          borderLeft: '5px solid #D97706',
+          borderRadius: '10px',
+          padding: '10px 16px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#92400E'
+        }}>
+          <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '⚠ నమూనా వాతావరణ డేటా చూపబడుతోంది — లైవ్ డేటా అందుబాటులో లేదు'
+              : currentLang === 'hi'
+                ? '⚠ नमूना मौसम डेटा दिखाया जा रहा है — लाइव डेटा उपलब्ध नहीं'
+                : '⚠ Sample Data — live weather data unavailable'}
+          </span>
+        </div>
+      )}
       {/* Universal Search Bar & Farm Selector */}
       <div style={{
         background: '#FFFFFF',
@@ -916,6 +942,11 @@ export const ClimatePredictionView: FC<ClimatePredictionViewProps> = ({
                 </strong>
                 <span style={{ fontSize: '12px', color: '#047857' }}>
                   {activeLocation.pincode ? `PIN ${activeLocation.pincode} • ` : ''}Lat {Number(activeLocation.lat || 0).toFixed(2)}°N, Lon {Number(activeLocation.lon || 0).toFixed(2)}°E
+                  {(!activeLocation.lat || activeLocation.lat === 16.3067) && (!activeLocation.lon || activeLocation.lon === 80.4365) && (
+                    <span style={{ marginLeft: '8px', color: '#D97706', fontWeight: '700', fontSize: '11px' }}>
+                      {currentLang === 'te' ? '(డిఫాల్ట్ స్థానం: గుంటూరు)' : currentLang === 'hi' ? '(डिफ़ॉल्ट स्थान: गुंटूर)' : '(Using default location: Guntur)'}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>

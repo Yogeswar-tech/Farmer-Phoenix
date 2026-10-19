@@ -8,9 +8,8 @@ target pests/diseases, dilution rates, 15L pump formulas, waiting periods (PHI),
 and safety/toxicity classifications.
 """
 
-import sys
-import os
 import json
+import sys
 from pathlib import Path
 
 # Ensure project root is in sys.path
@@ -21,7 +20,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from database.connection import get_db_cursor, is_postgres_active
-
 
 CIBRC_REGISTRY_DATA = [
     # =========================================================================
@@ -1017,7 +1015,6 @@ CIBRC_REGISTRY_DATA = [
 
 def seed_cibrc_registry():
     use_pg = is_postgres_active()
-    placeholder = "%s" if use_pg else "?"
     print(f"[*] Initializing CIBRC Pesticide Registry Table in {'PostgreSQL' if use_pg else 'SQLite'}...")
 
     # Create table with unique constraint if not present

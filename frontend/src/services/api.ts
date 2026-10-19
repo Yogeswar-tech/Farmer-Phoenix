@@ -9,6 +9,8 @@
 
 import type { Language, GovtScheme } from '../types';
 import { MANDI_DATABASE, COLD_STORAGES, GOVT_SCHEMES, WEATHER_FORECAST } from '../data/mockData';
+import { onIdTokenChanged } from 'firebase/auth';
+import { getFirebaseAuth } from '../config/firebase';
 
 export interface ApiResponse<T> {
   data: T;
@@ -52,9 +54,10 @@ export class KisanSethuApi {
   }
 
   /**
-   * Helper to perform fetch with timeout and json parsing
+   * Helper to perform fetch with timeout and json parsing.
+   * On 401, attempts a Firebase token refresh and retries once.
    */
-  private static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private static async request<T>(endpoint: string, options: RequestInit = {}, _isRetry = false): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
@@ -74,6 +77,23 @@ export class KisanSethuApi {
         headers
       });
       clearTimeout(timeoutId);
+
+      if (response.status === 401 && !_isRetry) {
+        // Attempt to refresh the Firebase JWT and retry once
+        try {
+          const auth = getFirebaseAuth();
+          if (auth?.currentUser) {
+            const freshToken = await auth.currentUser.getIdToken(true);
+            KisanSethuApi.setAuthToken(freshToken);
+          } else {
+            throw new Error('No current user');
+          }
+        } catch {
+          // Refresh failed — throw immediately instead of retrying with stale token
+          throw new Error('HTTP Error 401: Session expired. Please sign in again.');
+        }
+        return KisanSethuApi.request<T>(endpoint, options, true);
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
@@ -703,7 +723,7 @@ export class KisanSethuApi {
   /**
    * 5. AI Multilingual Query / RAG Assistant
    */
-  static async askAi(question: string, language: Language = 'en'): Promise<{ answer: string; sources?: any[] }> {
+  static async askAi(question: string, language: Language = 'en'): Promise<{ answer: string; sources?: any[]; is_sample?: boolean; is_offline_fallback?: boolean }> {
     try {
       const res = await this.request<any>('/ask', {
         method: 'POST',
@@ -716,11 +736,13 @@ export class KisanSethuApi {
     } catch (err) {
       console.warn('[API Client] AI backend offline. Providing calibrated response.', err);
       return {
-        answer: language === 'te' 
-          ? 'ప్రస్తుతం సర్వర్ ఆఫ్‌లైన్‌లో ఉంది. గ్రేడ్-ఎ మిర్చి ధరలు ₹15,200/క్వింటా వద్ద స్థిరంగా ఉన్నాయి.'
+        answer: language === 'te'
+          ? 'సర్వర్ ప్రస్తుతం అందుబాటులో లేదు. దయచేసి కొంత సేపటి తర్వాత మళ్ళీ ప్రయత్నించండి.'
           : language === 'hi'
-            ? 'सर्वर वर्तमान में ऑफ़लाइन है। ग्रेड-ए मिर्च के भाव ₹15,200/क्विंटल पर स्थिर हैं।'
-            : 'Server currently in offline mode. Grade-A chilli prices are steady at ₹15,200/quintal.'
+            ? 'सर्वर अभी उपलब्ध नहीं है। कृपया कुछ देर बाद पुनः प्रयास करें।'
+            : 'Server is currently unavailable. Please try again shortly.',
+        is_sample: true,
+        is_offline_fallback: true
       };
     }
   }
@@ -743,6 +765,8 @@ export class KisanSethuApi {
     data_points: Record<string, any>;
     lang: string;
     is_llm_powered: boolean;
+    is_sample?: boolean;
+    is_offline_fallback?: boolean;
   }> {
     try {
       const res = await this.request<any>('/voice-bot/ask', {
@@ -775,7 +799,9 @@ export class KisanSethuApi {
             source: 'IMD వాతావరణ శాఖ & కిసాన్ సేతు రాడార్',
             data_points: { temp: '33°C', rain_prob: '10%' },
             lang: 'te',
-            is_llm_powered: false
+            is_llm_powered: false,
+            is_sample: true,
+            is_offline_fallback: true
           };
         }
         if (isProfit) {
@@ -788,7 +814,9 @@ export class KisanSethuApi {
             source: 'e-NAM లైవ్ వేలం ధరలు & కిసాన్ సేతు లాజిస్టిక్స్',
             data_points: { mandi_rate: '₹14,200/qtl', profit_gain: '+₹1,500/qtl' },
             lang: 'te',
-            is_llm_powered: false
+            is_llm_powered: false,
+            is_sample: true,
+            is_offline_fallback: true
           };
         }
         return {
@@ -800,7 +828,9 @@ export class KisanSethuApi {
           source: 'IMD వ్యవసాయ వాతావరణ కేంద్రం',
           data_points: { temp: '33°C', rain_prob: '12%' },
           lang: 'te',
-          is_llm_powered: false
+          is_llm_powered: false,
+          is_sample: true,
+          is_offline_fallback: true
         };
       }
 
@@ -815,7 +845,9 @@ export class KisanSethuApi {
             source: 'आईएमडी मौसम रडार एवं कृषि वेधशाला',
             data_points: { temp: '33°C', rain_prob: '10%' },
             lang: 'hi',
-            is_llm_powered: false
+            is_llm_powered: false,
+            is_sample: true,
+            is_offline_fallback: true
           };
         }
         if (isProfit) {
@@ -828,7 +860,9 @@ export class KisanSethuApi {
             source: 'ई-नाम आधिकारिक मंडी भाव',
             data_points: { mandi_rate: '₹14,200/qtl', profit_gain: '+₹1,500/qtl' },
             lang: 'hi',
-            is_llm_powered: false
+            is_llm_powered: false,
+            is_sample: true,
+            is_offline_fallback: true
           };
         }
         return {
@@ -840,7 +874,9 @@ export class KisanSethuApi {
           source: 'आईएमडी कृषि मौसम वेधशाला',
           data_points: { temp: '33°C', rain_prob: '12%' },
           lang: 'hi',
-          is_llm_powered: false
+          is_llm_powered: false,
+          is_sample: true,
+          is_offline_fallback: true
         };
       }
 
@@ -854,7 +890,9 @@ export class KisanSethuApi {
         source: 'IMD Agro-Meteorology & e-NAM Mandi Terminal',
         data_points: { temp: '33°C', mandi_rate: '₹14,200/qtl' },
         lang: 'en',
-        is_llm_powered: false
+        is_llm_powered: false,
+        is_sample: true,
+        is_offline_fallback: true
       };
     }
   }
@@ -1291,7 +1329,12 @@ export class KisanSethuApi {
         method: 'PUT',
         body: JSON.stringify({
           district: params.district,
-          state: params.state || 'Andhra Pradesh'
+          state: params.state || 'Andhra Pradesh',
+          location_id: params.locationId,
+          location_name: params.locationName,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          pincode: params.pincode
         })
       });
       return res;
@@ -1354,7 +1397,9 @@ export class KisanSethuApi {
           primary_crop: params.primaryCrop || 'chilli'
         })
       });
-      if (res && res.token) {
+      // Keep the real Firebase ID token — don't overwrite it with the backend's
+      // test-token string, which only works in local dev (not in production).
+      if (res && res.token && !params.idToken) {
         this.setAuthToken(res.token);
       }
       if (res && res.status === 'success') {
@@ -1465,5 +1510,49 @@ export class KisanSethuApi {
       return null;
     }
   }
+
+  static async getDemoVideos(): Promise<Array<{
+    id: number;
+    title: string;
+    description?: string;
+    video_url?: string;
+    thumbnail_url?: string;
+    duration_seconds?: number;
+    language?: string;
+  }>> {
+    try {
+      return await this.request<any[]>('/db/demo-videos');
+    } catch {
+      return [{
+        id: 1,
+        title: 'Kisan Sethu Demo - Live Mandi Prices',
+        description: 'See how to get live crop prices, weather forecasts, and crop doctor advice.',
+        video_url: '',
+        thumbnail_url: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=640&q=80',
+        duration_seconds: 180,
+        language: 'te'
+      }];
+    }
+  }
 }
+
+// Firebase JWT auto-refresh: keep KisanSethuApi.authToken in sync whenever
+// Firebase silently refreshes the ID token (every ~1 hour).
+(function setupFirebaseTokenRefresh() {
+  if (typeof window === 'undefined') return;
+  try {
+    const auth = getFirebaseAuth();
+    if (!auth) return;
+    onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        const fresh = await user.getIdToken();
+        KisanSethuApi.setAuthToken(fresh);
+      } else {
+        KisanSethuApi.setAuthToken(null);
+      }
+    });
+  } catch {
+    // Firebase not configured — silently ignore
+  }
+})();
 

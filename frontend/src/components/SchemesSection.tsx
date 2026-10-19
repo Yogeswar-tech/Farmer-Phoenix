@@ -33,17 +33,21 @@ export const SchemesSection: FC<SchemesSectionProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [schemesData, setSchemesData] = useState<any[]>(GOVT_SCHEMES);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isSampleSchemes, setIsSampleSchemes] = useState<boolean>(false);
 
   const fetchScrapedSchemes = useCallback(async () => {
     try {
       // Fetch all schemes from PostgreSQL backend (or fallback)
       const res = await KisanSethuApi.getGovtSchemes('ALL', currentLang);
       const data = Array.isArray(res) ? res : res?.data;
+      const isSampleData = Array.isArray(res) ? false : (res?.isSample ?? false);
       if (data && data.length > 0) {
         setSchemesData(data);
+        setIsSampleSchemes(isSampleData);
       }
     } catch (err) {
       console.info('Backend syncing offline or error:', err);
+      setIsSampleSchemes(true);
     }
   }, [currentLang]);
 
@@ -124,6 +128,32 @@ export const SchemesSection: FC<SchemesSectionProps> = ({
 
   return (
     <div className="schemes-container">
+      {/* Sample Data Warning Banner */}
+      {isSampleSchemes && (
+        <div style={{
+          background: '#FEF3C7',
+          border: '1.5px solid #F59E0B',
+          borderLeft: '5px solid #D97706',
+          borderRadius: '10px',
+          padding: '10px 16px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#92400E'
+        }}>
+          <Sparkles size={15} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '⚠ నమూనా ప్రభుత్వ పథకాలు చూపబడుతున్నాయి — లైవ్ డేటా అందుబాటులో లేదు'
+              : currentLang === 'hi'
+                ? '⚠ नमूना सरकारी योजनाएं दिखाई जा रही हैं — लाइव डेटा उपलब्ध नहीं'
+                : '⚠ Sample government schemes shown — live data unavailable'}
+          </span>
+        </div>
+      )}
       {/* Header Strip */}
       <div className="schemes-header-strip">
         <div className="schemes-title-row">

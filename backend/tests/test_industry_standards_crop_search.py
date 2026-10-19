@@ -8,12 +8,11 @@ Standards Covered:
 5. Data Integrity & Database Quarantine (Ensuring no junk data in PostgreSQL/SQLite)
 """
 
+import concurrent.futures
+import statistics
 import sys
 import time
-import statistics
-import concurrent.futures
 from pathlib import Path
-from typing import Any
 
 # Path setup
 CURRENT_FILE = Path(__file__).resolve()
@@ -29,8 +28,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from scrapers.todays_live_page_scraper import search_live_today_crop
 from database.multi_db_manager import query_live_today
+from scrapers.todays_live_page_scraper import search_live_today_crop
 
 # Color formatting
 GREEN = "\033[92m"
@@ -147,7 +146,7 @@ def run_earth_produce_coverage_tests(report: TestReport):
         ("Sugarcane", "Commercial", 300),
     ]
 
-    for crop, cat, min_expected in test_crops:
+    for crop, cat, _min_expected in test_crops:
         try:
             res = search_live_today_crop(crop)
             is_success = res.get("status") == "success"
@@ -163,7 +162,7 @@ def run_earth_produce_coverage_tests(report: TestReport):
             c_min = grade_c.get("min_qtl", 0)
             
             has_valid_grades = (a_min > 0 and a_max >= a_min and a_min >= b_min and b_min >= c_min)
-            is_genuine_catalog = not ("Standard / Premium" in res.get("variety", ""))
+            is_genuine_catalog = "Standard / Premium" not in res.get("variety", "")
 
             if is_success and has_valid_grades:
                 if is_genuine_catalog:

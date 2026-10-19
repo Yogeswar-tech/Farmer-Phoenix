@@ -9,9 +9,8 @@ extracted from official Government of India DPPQS / CIBRC gazette certificates:
 - Category 5: Bio-Pesticides & Bio-Fungicides
 """
 
-import sys
-import os
 import json
+import sys
 from pathlib import Path
 
 CURRENT_FILE = Path(__file__).resolve()

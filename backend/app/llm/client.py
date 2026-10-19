@@ -34,9 +34,9 @@ class LLMGateway:
         project_id: str | None = None,
         location: str | None = None,
     ) -> None:
-        self.api_key = api_key or settings.gemini_api_key
-        self.project_id = project_id or settings.gcp_project_id
-        self.location = location or settings.gcp_location
+        self.api_key = api_key if api_key is not None else settings.gemini_api_key
+        self.project_id = project_id if project_id is not None else settings.gcp_project_id
+        self.location = location if location is not None else settings.gcp_location
         self.model_fast = settings.model_fast or "gemini-3.8-flash"
         self.model_strong = settings.model_strong or "gemini-3.8-flash"
         self._client: genai.Client | None = None

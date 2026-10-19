@@ -211,8 +211,9 @@ export const FarmerTerminalForm: FC = () => {
 
       const totalNet = Math.round(netPerQtl * quintalMultiplier);
 
-      // 3. Fetch real weather data
-      const weatherRes = await KisanSethuApi.getWeatherAdvisories(formData.district);
+      // 3. Fetch real weather data — use location_id slug, not display name
+      const locationSlug = (formData as any).location_id || formData.district?.toLowerCase().replace(/\s+/g, '-') || 'guntur';
+      const weatherRes = await KisanSethuApi.getWeatherAdvisories(locationSlug);
       const weatherList = (weatherRes as any)?.data || (Array.isArray(weatherRes) ? weatherRes : []);
       const liveWeather = weatherList && weatherList.length > 0 ? weatherList[0] : null;
 

@@ -209,3 +209,16 @@ ON CONFLICT (email) DO UPDATE SET
     primary_crop = EXCLUDED.primary_crop,
     last_login_at = CURRENT_TIMESTAMP;
 
+-- Demo/Tutorial Videos seed record
+INSERT INTO demo_videos (title, description, video_url, thumbnail_url, duration_seconds, language, sort_order)
+VALUES (
+    'Kisan Sethu Demo - How to Check Live Mandi Prices',
+    'Learn how to get live mandi prices, weather advisories, and crop doctor guidance on Kisan Sethu.',
+    '',
+    'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=640&q=80',
+    180,
+    'te',
+    1
+)
+ON CONFLICT DO NOTHING;
+

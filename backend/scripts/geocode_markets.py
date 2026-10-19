@@ -9,12 +9,12 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import sys
-import logging
-import urllib.request
 import urllib.parse
-import json
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +25,8 @@ BACKEND_DIR = PROJECT_ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from database.connection import get_db_cursor, is_postgres_active, init_database
+from database.connection import get_db_cursor, init_database, is_postgres_active
+
 from app.location.geocoder import KNOWN_LOCATIONS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

@@ -26,7 +26,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 def run_complete_audit():
     client = TestClient(app)

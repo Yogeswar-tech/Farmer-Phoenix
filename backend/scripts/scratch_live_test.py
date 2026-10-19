@@ -7,7 +7,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 def test_endpoints():
     client = TestClient(app)

@@ -17,7 +17,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 def test_new_endpoints():
     client = TestClient(app)

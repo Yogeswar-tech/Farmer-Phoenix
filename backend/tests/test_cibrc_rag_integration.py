@@ -1,7 +1,6 @@
 """Automated Integration Test for CIBRC PostgreSQL Database & Gemini RAG Doctor."""
 
 import sys
-import os
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -17,6 +16,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -88,7 +88,7 @@ def test_cibrc_endpoints():
         print(f"PASSED: Gemini RAG Doctor returned grounded advisory using {data6['llm_engine']} with {data6['rag_context_count']} CIBRC context rows.")
     else:
         assert data6["advisory"] is None
-        print(f"PASSED: CIBRC AI Advisor safely returned unavailable advisory without network.")
+        print("PASSED: CIBRC AI Advisor safely returned unavailable advisory without network.")
 
     print("\n--- 7. Testing Gemini RAG AI Advisor (Hindi) ---")
     res7 = client.post(

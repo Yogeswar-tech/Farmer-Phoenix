@@ -43,6 +43,12 @@ def resolve_postgres_url() -> str:
     """
     url = os.getenv("KS_DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
     if url:
+        if os.getenv("KS_ENV", "").lower() == "production":
+            if "neon" in url.lower() or "neondb" in url.lower():
+                logger.warning(
+                    "WARNING: KS_DATABASE_URL points to Neon in production! "
+                    "Expected Cloud SQL socket via KS_CLOUD_SQL_CONNECTION_NAME."
+                )
         return url
 
     # Cloud SQL via Unix socket (Cloud Run built-in Cloud SQL connection)
@@ -76,7 +82,11 @@ def resolve_postgres_url() -> str:
         ssl = "?sslmode=require" if needs_ssl else ""
         return f"postgresql://{auth}@{server}:{port}/{db}{ssl}"
 
-    return "postgresql://postgres:postgres@localhost:5432/kisan_sethu"
+    if os.getenv("KS_ENV", "").lower() == "production":
+        raise ValueError(
+            "No database configuration found (set KS_CLOUD_SQL_CONNECTION_NAME or KS_DATABASE_URL)"
+        )
+    return "postgresql://postgres:postgres@localhost:5432/kisan_sethu"  # dev only fallback
 
 
 # PostgreSQL Configuration
@@ -111,11 +121,17 @@ def _init_pg_pool():
     except Exception as e:
         _USING_POSTGRES = False
         _PG_POOL = None
-        logger.warning(
-            "PostgreSQL is offline or unavailable (%s). Falling back to resilient SQLite database at %s.",
-            str(e),
-            LOCAL_DB_PATH
-        )
+        if os.getenv("KS_ENV", "").lower() == "production":
+            logger.critical(
+                "FATAL: PostgreSQL connection failed in production! Cloud SQL unreachable. Refusing SQLite fallback."
+            )
+            raise RuntimeError("PostgreSQL unavailable in production — refusing SQLite fallback.") from e
+        else:
+            logger.warning(
+                "PostgreSQL unavailable. Falling back to SQLite (dev only). Error: %s. SQLite path: %s",
+                str(e),
+                LOCAL_DB_PATH
+            )
 
 
 # Initialize on import
@@ -152,6 +168,7 @@ def get_db_cursor() -> Generator[Any, None, None]:
                 _PG_POOL.putconn(conn)
     else:
         # SQLite fallback
+        logger.warning("SQLite fallback active — data will not persist across restarts.")
         import sqlite3
         conn = sqlite3.connect(
             str(LOCAL_DB_PATH),
@@ -216,6 +233,53 @@ def init_database() -> None:
                         cur.execute("ALTER TABLE cibrc_pesticide_registry ADD COLUMN IF NOT EXISTS embedding text;")
                 except Exception:
                     pass
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS demo_videos (
+                        id SERIAL PRIMARY KEY,
+                        title VARCHAR(200) NOT NULL,
+                        description TEXT,
+                        video_url VARCHAR(500),
+                        thumbnail_url VARCHAR(500),
+                        duration_seconds INTEGER DEFAULT 0,
+                        language VARCHAR(10) DEFAULT 'te',
+                        is_active BOOLEAN DEFAULT TRUE,
+                        sort_order INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS live_today_mandi_prices (
+                        id SERIAL PRIMARY KEY,
+                        commodity VARCHAR(120) NOT NULL,
+                        market VARCHAR(180),
+                        district VARCHAR(120),
+                        state VARCHAR(80),
+                        variety VARCHAR(80) DEFAULT 'FAQ',
+                        grade VARCHAR(50) DEFAULT 'Standard',
+                        arrival_date DATE,
+                        session VARCHAR(30) DEFAULT 'LIVE_CYCLE',
+                        arrival_quintals NUMERIC(12,2) DEFAULT 0,
+                        min_price_qtl NUMERIC(10,2),
+                        max_price_qtl NUMERIC(10,2),
+                        modal_price_qtl NUMERIC(10,2),
+                        modal_price_kg NUMERIC(10,2),
+                        trend VARCHAR(20) DEFAULT 'STABLE',
+                        source VARCHAR(60) DEFAULT 'AGMARKNET',
+                        payload JSONB,
+                        scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ltp_commodity ON live_today_mandi_prices (LOWER(commodity));"
+                )
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ltp_state ON live_today_mandi_prices (state);"
+                )
+                cur.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_ltp_dedup
+                    ON live_today_mandi_prices (LOWER(commodity), LOWER(COALESCE(market,'')), arrival_date);
+                """)
             logger.info("PostgreSQL schema successfully initialized from schema.sql.")
 
             if seed_file.exists():

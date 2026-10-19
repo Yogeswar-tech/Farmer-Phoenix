@@ -1,19 +1,15 @@
 import { useState, type FC, type FormEvent } from 'react';
 import type { Language } from '../types';
 import { KisanSethuApi } from '../services/api';
-import { X, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, AlertCircle, ShieldCheck } from 'lucide-react';
+import { X, ShieldCheck, CheckCircle2, User, MapPin, Sprout, ArrowRight, Loader2, LogOut, Phone, UserCheck } from 'lucide-react';
 import { PhoneOtpSignIn } from './PhoneOtpSignIn';
 
 export interface FarmerProfile {
   firebase_uid?: string;
-  email: string;
+  email?: string;
+  phone_number?: string;
   farmer_name: string;
   preferred_lang?: Language;
-  phone_number?: string;
-  first_name?: string;
-  last_name?: string;
-  mail_id?: string;
-  crop_name?: string;
   location_id?: string;
   location_name?: string;
   district?: string;
@@ -22,6 +18,11 @@ export interface FarmerProfile {
   longitude?: number;
   pincode?: string;
   primary_crop?: string;
+  is_guest?: boolean;
+  first_name?: string;
+  last_name?: string;
+  mail_id?: string;
+  crop_name?: string;
 }
 
 interface LoginModalProps {
@@ -32,7 +33,9 @@ interface LoginModalProps {
   onLogout?: () => void;
   currentUserProfile?: FarmerProfile | null;
   lockedFeatureName?: string;
-  isMandatoryGate?: boolean;
+  currentDistrict?: string;
+  currentState?: string;
+  selectedCropKey?: string;
 }
 
 export const LoginModal: FC<LoginModalProps> = ({
@@ -43,7 +46,9 @@ export const LoginModal: FC<LoginModalProps> = ({
   onLogout,
   currentUserProfile,
   lockedFeatureName,
-  isMandatoryGate = false
+  currentDistrict,
+  currentState,
+  selectedCropKey
 }) => {
   const [modalView, setModalView] = useState<'auth' | 'farmer_details'>('auth');
   const [pendingPhone, setPendingPhone] = useState<string>('');
@@ -54,6 +59,8 @@ export const LoginModal: FC<LoginModalProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  if (!isOpen) return null;
 
   const handlePhoneLoginSuccess = async (_userCredential: any, phone: string) => {
     setLoading(true);
@@ -84,13 +91,13 @@ export const LoginModal: FC<LoginModalProps> = ({
           return;
         }
       }
-    } catch (err) {
-      console.warn('[Phone Login] User lookup error:', err);
+    } catch (e) {
+      console.warn('[User Lookup Error] Transitioning to farmer registration details form:', e);
     } finally {
       setLoading(false);
     }
 
-    // 2. New user or missing profile details: ask farmer details
+    // 2. New user or incomplete profile: Transition to Farmer Details form
     setPendingPhone(phone);
     setFirstName('');
     setLastName('');
@@ -132,7 +139,9 @@ export const LoginModal: FC<LoginModalProps> = ({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         mailId: mailId.trim() || undefined,
-        cropName: cropName.trim() || 'Chilli',
+        cropName: cropName.trim() || 'Tomato',
+        district: currentDistrict || 'Local District',
+        state: currentState || 'Local State',
         preferredLang: currentLang
       });
 
@@ -140,39 +149,58 @@ export const LoginModal: FC<LoginModalProps> = ({
         onLoginSuccess(res.profile);
         onClose();
       } else {
-        throw new Error(res?.detail || 'Failed to save details');
+        throw new Error(res?.detail || 'Failed to save farmer details to database');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Could not save farmer profile to database.');
+      console.error('[Save Farmer Details Error]:', err);
+      setErrorMessage(
+        err?.message ||
+          (currentLang === 'hi'
+            ? 'विवरण सहेजने में विफल। कृपया पुनः प्रयास करें।'
+            : 'Failed to save details. Please try again.')
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  const handleGuestLogin = () => {
+    const guestName =
+      currentLang === 'hi' ? 'अतिथि किसान' : currentLang === 'te' ? 'అతిథి రైతు' : 'Guest Farmer';
+    const guestProfile: FarmerProfile = {
+      firebase_uid: `guest_${Date.now()}`,
+      farmer_name: guestName,
+      preferred_lang: currentLang,
+      district: currentDistrict || 'Guntur',
+      state: currentState || 'Andhra Pradesh',
+      primary_crop: selectedCropKey || 'chilli',
+      is_guest: true,
+    };
+    onLoginSuccess(guestProfile);
+    onClose();
+  };
 
-
-  const titleText = modalView === 'farmer_details'
-    ? currentLang === 'hi'
-      ? 'किसान विवरण दर्ज करें'
-      : currentLang === 'te'
-      ? 'రైతు వివరాలు నమోదు చేయండి'
-      : 'Complete Farmer Details'
-    : lockedFeatureName
+  const titleText = lockedFeatureName
     ? currentLang === 'hi'
       ? `🔒 ${lockedFeatureName} अनलॉक करें`
       : currentLang === 'te'
       ? `🔒 ${lockedFeatureName} కొరకు లాగిన్ అవ్వండి`
       : `🔒 Log in to access ${lockedFeatureName}`
+    : modalView === 'farmer_details'
+    ? currentLang === 'hi'
+      ? '👨‍🌾 किसान विवरण (Users Data)'
+      : currentLang === 'te'
+      ? '👨‍🌾 రైతు వివరాలు (వినియోగదారుల సమాచారం)'
+      : '👨‍🌾 Farmer Profile Registration'
     : currentLang === 'hi'
-    ? 'किसान सेतु लॉगिन'
+    ? '🌾 किसान सेतु — मोबाइल ओटीपी लॉगिन'
     : currentLang === 'te'
-    ? 'కిసాన్ సేతు లాగిన్'
-    : 'Kisan Setu Login';
+    ? '🌾 కిసాన్ సేతు — మొబైల్ ఓటీపీ లాగిన్'
+    : '🌾 Kisan Sethu — Mobile OTP Sign In';
 
   const subtitleText = modalView === 'farmer_details'
     ? currentLang === 'hi'
-      ? 'अपनी जानकारी दर्ज करें। फ़ोन नंबर आपका प्राथमिक पहचानकर्ता (Primary Key) है।'
+      ? 'अपना विवरण दर्ज करें। फ़ोन नंबर आपकी प्राथमिक कुंजी (Primary Key) है।'
       : currentLang === 'te'
       ? 'మీ వివరాలు నమోదు చేయండి. ఫోన్ నంబర్ మీ ప్రాథమిక కీ (Primary Key).'
       : 'Enter your details below. Phone number serves as your unique primary identifier.'
@@ -182,52 +210,17 @@ export const LoginModal: FC<LoginModalProps> = ({
     ? 'మీ మొబైల్ నంబర్ (OTP)తో సురక్షితంగా లాగిన్ అవ్వండి'
     : 'Sign in securely with Phone Number (OTP) to sync your farm profile and data';
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className={isMandatoryGate ? "login-gate-card-container" : "modal-backdrop"}
-      onClick={isMandatoryGate ? undefined : onClose}
-      style={isMandatoryGate ? { width: '100%', display: 'flex', justifyContent: 'center' } : undefined}
-    >
-      <div
-        className="modal-card login-modal-gmail"
-        style={isMandatoryGate ? {
-          position: 'static',
-          margin: 0,
-          maxWidth: '520px',
-          width: '100%',
-          boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.25)',
-          borderRadius: '20px',
-          border: '1px solid #E2E8F0'
-        } : undefined}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {!isMandatoryGate && (
-          <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Close">
-            <X size={18} />
-          </button>
-        )}
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card login-modal-gmail" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Close">
+          <X size={18} />
+        </button>
 
         {/* Header */}
         <div className="gmail-login-header">
-          <div
-            className="login-icon-badge"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: '#F0FDF4',
-              border: '1px solid #BBF7D0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 22,
-              flexShrink: 0,
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)'
-            }}
-          >
-            {modalView === 'farmer_details' ? '👨‍🌾' : '🌾'}
+          <div className="google-icon-circle" style={{ background: '#DCFCE7' }}>
+            <Phone size={22} color="#15803D" />
           </div>
           <div className="gmail-login-title-col">
             <h3 className="gmail-login-title">{titleText}</h3>
@@ -236,21 +229,25 @@ export const LoginModal: FC<LoginModalProps> = ({
         </div>
 
         {/* If user is already authenticated */}
-        {currentUserProfile && currentUserProfile.email && modalView !== 'farmer_details' ? (
+        {currentUserProfile && (currentUserProfile.phone_number || currentUserProfile.firebase_uid || currentUserProfile.email) ? (
           <div className="active-user-session-card">
             <div className="user-session-top">
               <div className="user-avatar-badge">
                 <User size={20} color="#15803D" />
               </div>
               <div className="user-session-info">
-                <span className="user-session-name">{currentUserProfile.farmer_name || 'Respected Farmer'}</span>
+                <span className="user-session-name">{currentUserProfile.farmer_name || 'రైతు మిత్ర'}</span>
                 <span className="user-session-email">
-                  {currentUserProfile.phone_number ? `📱 ${currentUserProfile.phone_number}` : currentUserProfile.email}
+                  {currentUserProfile.phone_number
+                    ? `+91 ${currentUserProfile.phone_number}`
+                    : currentUserProfile.is_guest
+                    ? 'Guest Mode Session'
+                    : currentUserProfile.firebase_uid || 'Verified Farmer'}
                 </span>
               </div>
-              <span className="user-verified-pill">
-                <CheckCircle2 size={12} />
-                <span>{currentLang === 'hi' ? 'सक्रिय' : currentLang === 'te' ? 'యాక్టివ్' : 'Active'}</span>
+              <span className="user-verified-pill" style={currentUserProfile.is_guest ? { background: '#FEF3C7', color: '#92400E' } : undefined}>
+                <CheckCircle2 size={12} color={currentUserProfile.is_guest ? '#D97706' : '#16A34A'} />
+                <span>{currentUserProfile.is_guest ? 'Guest Farmer' : 'Verified Farmer'}</span>
               </span>
             </div>
 
@@ -264,7 +261,7 @@ export const LoginModal: FC<LoginModalProps> = ({
               <div className="session-meta-chip">
                 <Sprout size={13} color="#16A34A" />
                 <span style={{ textTransform: 'capitalize' }}>
-                  {currentUserProfile.primary_crop || currentUserProfile.crop_name || 'Tomato'} Cultivator
+                  {currentUserProfile.primary_crop || 'Tomato'} Cultivator
                 </span>
               </div>
             </div>
@@ -283,6 +280,7 @@ export const LoginModal: FC<LoginModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    KisanSethuApi.setAuthToken(null);
                     onLogout();
                     setModalView('auth');
                   }}
@@ -329,23 +327,22 @@ export const LoginModal: FC<LoginModalProps> = ({
                 color: '#FFFFFF',
                 fontSize: '11px',
                 fontWeight: '800',
-                padding: '4px 10px',
-                borderRadius: '12px'
+                padding: '4px 8px',
+                borderRadius: '6px'
               }}>
-                ✓ Verified
+                ✓ {currentLang === 'hi' ? 'सत्यापित' : currentLang === 'te' ? 'ధృవీకరించబడింది' : 'Phone Verified'}
               </span>
             </div>
 
             {errorMessage && (
-              <div className="auth-error-box">
-                <AlertCircle size={16} color="#DC2626" />
+              <div className="auth-error-box" style={{ marginBottom: '14px' }}>
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* Row: First Name & Last Name */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
-              <div style={{ flex: 1 }}>
+            {/* Name Fields Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', marginBottom: '6px', display: 'block' }}>
                   {currentLang === 'hi' ? 'पहला नाम (First Name) *' : currentLang === 'te' ? 'మొదటి పేరు *' : 'First Name *'}
                 </label>
@@ -354,13 +351,14 @@ export const LoginModal: FC<LoginModalProps> = ({
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder={currentLang === 'hi' ? 'उदा: रमेश' : currentLang === 'te' ? 'ఉదా: రమేష్' : 'e.g. Ramesh'}
+                  placeholder={currentLang === 'hi' ? 'उदा: राजेश' : currentLang === 'te' ? 'ఉదా: వెంకట్' : 'e.g. Rajesh'}
                   className="form-input"
                   style={{ width: '100%', boxSizing: 'border-box' }}
+                  autoFocus
                 />
               </div>
 
-              <div style={{ flex: 1 }}>
+              <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: '700', fontSize: '12px', color: '#334155', marginBottom: '6px', display: 'block' }}>
                   {currentLang === 'hi' ? 'उपनाम (Last Name) *' : currentLang === 'te' ? 'చివరి పేరు *' : 'Last Name *'}
                 </label>
@@ -511,17 +509,80 @@ export const LoginModal: FC<LoginModalProps> = ({
             </div>
           </form>
         ) : (
-          <PhoneOtpSignIn
-            currentLang={currentLang}
-            onLoginSuccess={handlePhoneLoginSuccess}
-            onCancel={isMandatoryGate ? undefined : onClose}
-          />
+          <div>
+            <PhoneOtpSignIn
+              currentLang={currentLang}
+              onLoginSuccess={handlePhoneLoginSuccess}
+              onCancel={onClose}
+            />
+
+            {/* Guest Login — visible when not authenticated */}
+            <div style={{ marginTop: '12px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                margin: '0 0 12px',
+                color: '#94A3B8',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+                <span>
+                  {currentLang === 'hi' ? 'या' : currentLang === 'te' ? 'లేదా' : 'OR'}
+                </span>
+                <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+              </div>
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '11px 18px',
+                  background: '#F8FAFC',
+                  border: '1.5px dashed #CBD5E1',
+                  borderRadius: '10px',
+                  color: '#475569',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F1F5F9'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F8FAFC'; }}
+              >
+                <UserCheck size={16} color="#64748B" />
+                <span>
+                  {currentLang === 'hi'
+                    ? 'अतिथि के रूप में जारी रखें'
+                    : currentLang === 'te'
+                    ? 'అతిథిగా కొనసాగించండి'
+                    : 'Continue as Guest'}
+                </span>
+              </button>
+              <p style={{ textAlign: 'center', fontSize: '11px', color: '#94A3B8', margin: '6px 0 0' }}>
+                {currentLang === 'hi'
+                  ? 'सभी सुविधाएं मुफ्त में उपलब्ध • डेटा सहेजा नहीं जाता'
+                  : currentLang === 'te'
+                  ? 'అన్ని ఫీచర్లు ఉచితం • డేటా సేవ్ కాదు'
+                  : 'All features available free • No data saved'}
+              </p>
+            </div>
+          </div>
         )}
+
         {/* Security & Farmer Privacy Guarantee Footer */}
         <div className="auth-db-security-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '11px', color: '#64748B', marginTop: '16px' }}>
           <ShieldCheck size={14} color="#059669" />
           <span>Firebase Phone Auth • Minimal Data Stored (Language, District, Crop)</span>
         </div>
+
+        {/* Invisible reCAPTCHA mount point */}
+        <div id="recaptcha-container" style={{ display: 'none' }} />
       </div>
     </div>
   );

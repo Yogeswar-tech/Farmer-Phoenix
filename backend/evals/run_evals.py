@@ -30,11 +30,11 @@ if str(PROJECT_ROOT) not in sys.path:
 # Set test environment to avoid live network requirement during CI
 os.environ.setdefault("KS_ENV", "test")
 
+from database.cibrc_isolated_db import get_cibrc_cursor
 from fastapi.testclient import TestClient
 
 from app.core.security import default_ask_limiter
 from app.main import app
-from database.cibrc_isolated_db import get_cibrc_cursor
 
 # Allow eval harness to run all 150 queries without hitting 429
 default_ask_limiter.requests_limit = 100000
@@ -100,9 +100,9 @@ def run_evaluations() -> dict[str, Any]:
     with open(dataset_path, encoding="utf-8") as f:
         cases = [json.loads(line) for line in f if line.strip()]
 
-    print(f"\n================================================================================")
+    print("\n================================================================================")
     print(f"🚀 Running Kisan Sethu Crop Doctor Evals on {len(cases)} cases")
-    print(f"================================================================================\n")
+    print("================================================================================\n")
 
     client = TestClient(app)
 

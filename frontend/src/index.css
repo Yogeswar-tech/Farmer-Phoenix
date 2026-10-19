@@ -61,6 +61,28 @@ body {
   flex-direction: column;
 }
 
+/* Page transition animation: fade-in + slight upward slide on tab change */
+@keyframes ks-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ks-tab-content {
+  animation: ks-page-enter 0.22s ease-out both;
+}
+
+/* Touch-friendly button press feedback */
+button:active, [role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
 @media (min-width: 769px) {
   html, body, #root {
     height: 100%;

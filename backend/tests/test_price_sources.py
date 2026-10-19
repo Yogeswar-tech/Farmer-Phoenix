@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import sys
 import json
+import sys
 import time
-from datetime import date, datetime, timedelta, timezone
-from io import BytesIO
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,13 +19,13 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from scrapers.price_sources import (
-    DataGovInSource,
     OpenMandiApiSource,
     RateLimiter,
     ValidationStats,
     validate_price_record,
 )
 from scrapers.todays_live_page_scraper import search_live_today_crop
+
 from app.main import app
 
 client = TestClient(app)
@@ -167,7 +165,7 @@ def test_rate_limiter_throttles():
 
 def test_open_mandi_api_mocked_http():
     """Verify OpenMandiApiSource fetches and validates without hitting live network."""
-    today_str = datetime.now(timezone.utc).date().isoformat()
+    today_str = datetime.now(UTC).date().isoformat()
     fake_api_response = {
         "success": True,
         "data": [

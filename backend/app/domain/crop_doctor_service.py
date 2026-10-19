@@ -307,13 +307,35 @@ DISEASE_DATABASE: dict[str, list[dict[str, Any]]] = {
 class CropDoctorEngine:
     """Intelligent crop diagnostic and advisory engine."""
 
-    def get_crop_diseases(self, crop_key: str, lang: str = "en") -> list[dict[str, Any]]:
+    def get_crop_diseases(self, crop_key: str, lang: str = "en") -> list[dict[str, Any]] | dict[str, Any]:
         """Return all catalogued diseases for a crop, formatted for the requested language."""
         key = crop_key.lower().strip()
-        diseases = DISEASE_DATABASE.get(key)
-        if not diseases:
-            # Fallback to chilli if unlisted
-            diseases = DISEASE_DATABASE["chilli"]
+        if key not in DISEASE_DATABASE:
+            from app.domain.crop_guide_rag import get_crop_guide_data
+            guide = get_crop_guide_data(key)
+            if guide:
+                return {
+                    "crop_key": key,
+                    "is_supported": True,
+                    "is_sample": False,
+                    "crop_name": guide["crop_name"],
+                    "overview": guide["overview"],
+                    "disease_advisories": guide["disease_advisories"],
+                    "advisory_note": guide["advisory_note"],
+                    "is_cibrc_validated": False,
+                    "data_source": "crop_guide_pdf",
+                    "source_pdf": guide["source_pdf"],
+                }
+            return {
+                "crop_key": key,
+                "is_supported": False,
+                "is_sample": True,
+                "message": f"Crop '{key}' not found in disease database or crop guide.",
+                "diseases": [],
+                "is_cibrc_validated": False,
+                "data_source": "internal_registry",
+            }
+        diseases = DISEASE_DATABASE[key]
 
         results = []
         for d in diseases:
@@ -328,6 +350,8 @@ class CropDoctorEngine:
                 "chemical_treatment": d["chemical_treatment"].get(lang, d["chemical_treatment"]["en"]),
                 "organic_treatment": d["organic_treatment"].get(lang, d["organic_treatment"]["en"]),
                 "spraying_warning": d["spraying_warning"].get(lang, d["spraying_warning"]["en"]),
+                "is_cibrc_validated": False,
+                "data_source": "internal_registry",
             })
         return results
 
@@ -341,7 +365,33 @@ class CropDoctorEngine:
     ) -> dict[str, Any]:
         """Perform pathology evaluation and cross-reference with live weather."""
         key = crop_key.lower().strip()
-        crop_diseases = DISEASE_DATABASE.get(key, DISEASE_DATABASE["chilli"])
+        if key not in DISEASE_DATABASE:
+            from app.domain.crop_guide_rag import get_crop_guide_data
+            guide = get_crop_guide_data(key, symptom_query=symptom_query)
+            if guide:
+                return {
+                    "status": "crop_guide",
+                    "crop_key": key,
+                    "is_supported": True,
+                    "is_sample": False,
+                    "crop_name": guide["crop_name"],
+                    "overview": guide["overview"],
+                    "disease_advisories": guide["disease_advisories"],
+                    "advisory_note": guide["advisory_note"],
+                    "is_cibrc_validated": False,
+                    "data_source": "crop_guide_pdf",
+                    "source_pdf": guide["source_pdf"],
+                }
+            return {
+                "status": "not_found",
+                "crop_key": key,
+                "is_supported": False,
+                "is_sample": True,
+                "message": f"Crop '{key}' not found in disease database or crop guide.",
+                "is_cibrc_validated": False,
+                "data_source": "internal_registry",
+            }
+        crop_diseases = DISEASE_DATABASE[key]
 
         # Simple semantic selection if symptom query provided
         selected_disease = crop_diseases[0]
@@ -352,6 +402,16 @@ class CropDoctorEngine:
                     if any(word in text_val.lower() for word in sq.split() if len(word) > 3):
                         selected_disease = d
                         break
+
+        # Calculate confidence based on keyword matches vs total query keywords
+        keywords = [w for w in (symptom_query or "").lower().split() if len(w) > 3]
+        total_keywords = len(keywords)
+        if total_keywords > 0:
+            all_symptom_text = " ".join(selected_disease["symptoms"].values()).lower()
+            match_count = sum(1 for w in keywords if w in all_symptom_text)
+            confidence_pct = min(94.0, round(match_count / total_keywords * 100, 1))
+        else:
+            confidence_pct = 50.0
 
         # Check weather conditions if location provided
         weather_alert = None
@@ -424,7 +484,7 @@ class CropDoctorEngine:
             "disease_id": selected_disease["id"],
             "disease_name": selected_disease["name"].get(lang, selected_disease["name"]["en"]),
             "disease_name_multilingual": selected_disease["name"],
-            "confidence_pct": 98.4,
+            "confidence_pct": confidence_pct,
             "severity": selected_disease["severity"],
             "pathogen_type": selected_disease["pathogen_type"],
             "symptoms": selected_disease["symptoms"].get(lang, selected_disease["symptoms"]["en"]),
@@ -432,7 +492,9 @@ class CropDoctorEngine:
             "organic_treatment": selected_disease["organic_treatment"].get(lang, selected_disease["organic_treatment"]["en"]),
             "spraying_warning": selected_disease["spraying_warning"].get(lang, selected_disease["spraying_warning"]["en"]),
             "weather_spray_risk": weather_alert,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "is_cibrc_validated": False,
+            "data_source": "internal_registry",
         }
 
 

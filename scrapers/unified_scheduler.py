@@ -7,7 +7,7 @@ Orchestrates background scrapers:
    - Action: Live APMC mandi arrivals, min/max/modal prices (₹/qtl & ₹/kg)
 2. "Government Policies Python Scraper"
    - Schedule: Weekly (Every 7 Days)
-   - Target Database: `neondb` / `govt_policies_and_loans` (PostgreSQL)
+   - Target Database: `main_postgresql` / `govt_policies_and_loans` (PostgreSQL)
    - Action: Central/State schemes, 4% KCC concessional loans, PM-KISAN, PM-KUSUM
 
 Features:
@@ -52,7 +52,7 @@ SCRAPER_TELEMETRY: dict[str, dict[str, Any]] = {
     },
     "Government Policies Python Scraper": {
         "schedule": "Weekly (Every 7 Days)",
-        "target_database": "neondb (govt_policies_and_loans)",
+        "target_database": "main_postgresql (govt_policies_and_loans)",
         "last_run": None,
         "next_run": None,
         "last_status": "READY",

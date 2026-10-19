@@ -8,7 +8,9 @@ project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
 
 from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 def run_tests():
     client = TestClient(app)

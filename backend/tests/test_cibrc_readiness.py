@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]

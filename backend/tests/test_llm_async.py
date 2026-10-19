@@ -65,7 +65,7 @@ async def test_llm_gateway_retries_once_before_raising():
 async def test_llm_credential_detection():
     """Consistent credential detection: Vertex when project_id is set, else API Key."""
     # 1. Vertex AI mode
-    vertex_gw = LLMGateway(project_id="kisan-sethu-prod", api_key="test-api-key")
+    vertex_gw = LLMGateway(project_id="kisan-sethu-prod", api_key="")
     with patch("google.genai.Client") as mock_genai_cls:
         vertex_gw._get_client()
         mock_genai_cls.assert_called_with(

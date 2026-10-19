@@ -841,7 +841,9 @@ class PesticideEngine:
                     "active_ingredient": p["active_ingredient"],
                     "brands": p["common_brands"],
                     "toxicity_band": p["toxicity_band"],
-                    "matched_as": p["common_brands"][0]
+                    "matched_as": p["common_brands"][0],
+                    "is_cibrc_validated": False,
+                    "data_source": "internal_registry",
                 }
                 for p in self.pesticides[:6]
             ]
@@ -860,7 +862,9 @@ class PesticideEngine:
                     "toxicity_band": p["toxicity_band"],
                     "matched_as": matched_brand or p["active_ingredient"],
                     "is_banned": p.get("is_banned_in_india", False),
-                    "chemical_class": p.get("chemical_class", "")
+                    "chemical_class": p.get("chemical_class", ""),
+                    "is_cibrc_validated": False,
+                    "data_source": "internal_registry",
                 })
 
         return results
@@ -892,7 +896,14 @@ class PesticideEngine:
                 pesticide = self.get_pesticide_by_id(matches[0]["id"])
 
         if not pesticide:
-            pesticide = self.pesticides[0] # Fallback to Coragen
+            return {
+                "found": False,
+                "is_sample": True,
+                "message": "No matching pesticide found. Please try a different search term.",
+                "results": [],
+                "is_cibrc_validated": False,
+                "data_source": "internal_registry",
+            }
 
         # Crop matching logic
         selected_crop_clean = (crop_query or "").strip().lower()
@@ -990,7 +1001,9 @@ class PesticideEngine:
                 "water_liters_per_acre": 150,
                 "tanks_per_acre": round(150 / tank_liters, 1)
             },
-            "ai_summary": pesticide["ai_summary"].get(lang, pesticide["ai_summary"]["en"])
+            "ai_summary": pesticide["ai_summary"].get(lang, pesticide["ai_summary"]["en"]),
+            "is_cibrc_validated": False,
+            "data_source": "internal_registry",
         }
 
         # Cache in Redis / In-Memory for sub-5ms UI responses

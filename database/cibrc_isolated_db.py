@@ -61,6 +61,7 @@ def get_cibrc_cursor() -> Generator[Any, None, None]:
         use_pg = False
 
     if use_pg:
+        logger.info("CIBRC: Using PostgreSQL (production mode)")
         with get_db_cursor() as cursor:
             yield cursor
         return

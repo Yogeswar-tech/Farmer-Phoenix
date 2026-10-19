@@ -615,8 +615,12 @@ export const MandiHeroCard: FC<MandiHeroCardProps> = ({
               </span>
             ))
           ) : (
-            <span className="nearest-mkt-segment">
-              Warangal Mandi: <b>₹14,100/qnt</b> (2.5 hrs away) | Kurnool Mandi: <b>₹13,800/qnt</b> (4.0 hrs away)
+            <span className="nearest-mkt-segment" style={{ color: '#94A3B8', fontStyle: 'italic' }}>
+              {currentLang === 'te'
+                ? 'ఈ స్థానానికి సమీప మార్కెట్లు అందుబాటులో లేవు'
+                : currentLang === 'hi'
+                  ? 'इस स्थान के पास कोई बाज़ार उपलब्ध नहीं'
+                  : 'No nearby markets found for this location'}
             </span>
           )}
         </div>

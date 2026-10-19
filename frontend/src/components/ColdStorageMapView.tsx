@@ -246,6 +246,8 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
     return REGION_COORDINATES.guntur;
   }, [userGpsCoords, currentLocation?.id]);
 
+  const isDefaultGunturCoords = !gpsActive && !(currentLocation?.id && REGION_COORDINATES[currentLocation?.id?.toLowerCase() || '']);
+
   // Fetch Pan-India Cold Storages from PostgreSQL backend with GPS proximity
   const fetchFacilities = useCallback(async () => {
     try {
@@ -312,7 +314,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           typeof cs.location === 'object'
             ? cs.location
             : { en: `${cs.district || ''}, ${cs.state || ''}`, hi: `${cs.district || ''}, ${cs.state || ''}`, te: `${cs.district || ''}, ${cs.state || ''}` },
-        district: cs.district || 'Guntur',
+        district: cs.district || '',
         state: cs.state || 'Andhra Pradesh',
         lat: coords.lat,
         lng: coords.lng,
@@ -616,6 +618,32 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
 
   return (
     <div className="storage-map-view-container">
+      {/* Default Location Notice */}
+      {isDefaultGunturCoords && (
+        <div style={{
+          background: '#FEF9C3',
+          border: '1.5px solid #FDE047',
+          borderLeft: '5px solid #CA8A04',
+          borderRadius: '10px',
+          padding: '9px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#854D0E'
+        }}>
+          <Navigation size={14} style={{ flexShrink: 0 }} />
+          <span>
+            {currentLang === 'te'
+              ? '📍 డిఫాల్ట్ స్థానం (గుంటూరు) ఉపయోగించబడుతోంది — మీ నిజమైన స్థానానికి మారండి'
+              : currentLang === 'hi'
+                ? '📍 डिफ़ॉल्ट स्थान (गुंटूर) उपयोग हो रहा है — सटीक परिणाम के लिए GPS चालू करें'
+                : '📍 Using default location (Guntur) — enable GPS or select your location for accurate results'}
+          </span>
+        </div>
+      )}
       {/* Clean Farmer Header (No Developer Ribbon or Debug Pill) */}
       <div className="view-header-strip">
         <div className="title-row">
@@ -642,10 +670,10 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
             type="text"
             placeholder={
               currentLang === 'hi'
-                ? 'गाँव, ज़िला, राज्य या कोल्ड स्टोरेज खोजें (उदा: गुंटूर, नासिक, आगरा, शिमला)...'
+                ? 'गाँव, ज़िला, राज्य या कोल्ड स्टोरेज खोजें (उदा: नासिक, आगरा, कोलार, शिमला)...'
                 : currentLang === 'te'
-                ? 'గ్రామం, జిల్లా, కోల్డ్ స్టోరేజ్ వెతకండి (ఉదా: గుంటూరు, నాసిక్, కోలార్, ఆగ్రా)...'
-                : 'Search town, district, state, or cold storage (e.g. Guntur, Nashik, Kolar, Agra, Shimla)...'
+                ? 'గ్రామం, జిల్లా, కోల్డ్ స్టోరేజ్ వెతకండి (ఉదా: నాసిక్, కోలార్, ఆగ్రా, శిమ్లా)...'
+                : 'Search town, district, state, or cold storage (e.g. Nashik, Kolar, Agra, Shimla)...'
             }
             value={mapQuery}
             onChange={(e) => setMapQuery(e.target.value)}
@@ -661,17 +689,19 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           </button>
         </form>
 
-        {/* GPS Live Auto-Detect Button */}
-        <button
-          type="button"
-          onClick={handleTriggerGps}
-          className={`radius-pill ${gpsActive ? 'active' : ''}`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: gpsActive ? '#059669' : '#FFFFFF', color: gpsActive ? '#FFFFFF' : '#065F46', borderColor: '#059669' }}
-          title="Auto-detect current GPS location"
-        >
-          <LocateFixed size={15} />
-          <span>{gpsActive ? (currentLang === 'hi' ? 'जीपीएस सक्रिय' : currentLang === 'te' ? 'జీపీఎస్ ఆన్‌లో ఉంది' : 'GPS Active') : (currentLang === 'hi' ? 'मेरा जीपीएस स्थान' : currentLang === 'te' ? 'నా జీపీఎస్' : 'Use My GPS')}</span>
-        </button>
+        {/* GPS Live Auto-Detect Button — only shown when GPS is not yet active */}
+        {!gpsActive && (
+          <button
+            type="button"
+            onClick={handleTriggerGps}
+            className="radius-pill"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFFFF', color: '#065F46', borderColor: '#059669' }}
+            title="Auto-detect current GPS location"
+          >
+            <LocateFixed size={15} />
+            <span>{currentLang === 'hi' ? 'मेरा जीपीएस स्थान' : currentLang === 'te' ? 'నా జీపీఎస్' : 'Use My GPS'}</span>
+          </button>
+        )}
 
         {/* Category Segment Tabs */}
         <div className="map-category-tabs">
@@ -1047,7 +1077,7 @@ export const ColdStorageMapView: FC<ColdStorageMapViewProps> = ({
           </div>
 
           {/* Leaflet Map Target DOM */}
-          <div ref={mapContainerRef} className="leaflet-map-target-dom" />
+          <div ref={mapContainerRef} className="leaflet-map-target-dom" style={{ height: '100%', minHeight: '400px' }} />
 
           {/* Map Bottom Legend Overlay */}
           <div className="leaflet-map-legend-bar">

@@ -1685,7 +1685,7 @@ class ClimateEngine:
 
         self,
         query: str | None = None,
-        location_id: str = "guntur",
+        location_id: str | None = None,
         district: str | None = None,
         lat: float | None = None,
         lon: float | None = None,
@@ -1712,6 +1712,9 @@ class ClimateEngine:
         resolved_pin: str
 
         resolved_zone: str
+
+        is_default_location = False
+        used_default_location = not bool(location_id)
 
         # Check if user explicitly searched for a location name or selected a hub
         if query and query.strip() and not query.strip().lower().startswith("gps-"):
@@ -1787,6 +1790,8 @@ class ClimateEngine:
                 loc_key = top["id"]
 
             else:
+
+                is_default_location = True
 
                 resolved_lat = 16.3067
 
@@ -1874,6 +1879,9 @@ class ClimateEngine:
         daily = live_met.get("daily", {}) if live_met else {}
 
         current = live_met.get("current", {}) if live_met else {}
+
+        weather_data_available = bool(live_met and current)
+        is_sample_weather = not weather_data_available
 
         dates = daily.get("time", [])
         t_max_list = daily.get("temperature_2m_max", [])
@@ -2056,7 +2064,9 @@ class ClimateEngine:
 
                 "dayTypes": analysis["dayTypes"],
 
-                "hourlyBreakdown": hourly_breakdown
+                "hourlyBreakdown": hourly_breakdown,
+
+                "hourly_is_synthesized": True,
 
             }
 
@@ -2347,7 +2357,15 @@ class ClimateEngine:
 
             },
 
-            "from_cache": False
+            "from_cache": False,
+
+            "is_default_location": is_default_location,
+
+            "used_default_location": used_default_location,
+
+            "weather_data_available": weather_data_available,
+
+            "is_sample_weather": is_sample_weather,
 
         }
 
